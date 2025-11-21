@@ -1,1164 +1,739 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  useColorScheme,
+  Dimensions,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+import InteractiveLoginScreen from '../components/InteractiveLoginScreen';
+import InteractiveOTPScreen from '../components/InteractiveOTPScreen';
+import ProfileSetupScreen from '../components/ProfileSetupScreen';
+import InteractiveCompleteScreen from '../components/InteractiveCompleteScreen';
+import AddressFormScreen from '../components/AddressFormScreen';
 
 const STEPS = {
-  ACCOUNT: 0,
-  PHONE: 1,
-  OTP: 2,
+  LOGIN: 0,
+  OTP: 1,
+  PROFILE: 2,
   ADDRESS: 3,
-  SUCCESS: 4,
+  COMPLETE: 4,
 } as const;
 
 type StepKey = (typeof STEPS)[keyof typeof STEPS];
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const [step, setStep] = useState<StepKey>(STEPS.LOGIN);
+  const [phone, setPhone] = useState<string>('');
 
-  const [step, setStep] = useState<StepKey>(STEPS.ACCOUNT);
+  const { width } = Dimensions.get('window');
+  const isWideLayout = width >= 768;
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [phone, setPhone] = useState('+91');
-  const [otp, setOtp] = useState(['', '', '', '', '']);
-  const [address, setAddress] = useState({
-    house: '',
-    street: '',
-    city: '',
-    district: '',
-    state: '',
-    pincode: '',
-  });
+  // On desktop/web, show a custom dedicated register UI instead of the mobile interactive flow
+  if (isWideLayout) {
+    return <DesktopRegisterScreen />;
+  }
 
-  const [otpError, setOtpError] = useState('');
-  const [otpTimer, setOtpTimer] = useState(30);
-  const [isVerifying, setIsVerifying] = useState(false);
-
-  const slideAnim = useState(new Animated.Value(0))[0];
-  const shakeAnim = useState(new Animated.Value(0))[0];
-  const mapOffset = useState(new Animated.Value(0))[0];
-  const avatarPulse = useState(new Animated.Value(0))[0];
-  const mapPinBounce = useState(new Animated.Value(0))[0];
-  const successPulse = useState(new Animated.Value(0))[0];
-
-  const otpInputs = [
-    useRef<TextInput | null>(null),
-    useRef<TextInput | null>(null),
-    useRef<TextInput | null>(null),
-    useRef<TextInput | null>(null),
-    useRef<TextInput | null>(null),
-  ];
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(mapPinBounce, {
-          toValue: 1,
-          duration: 700,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(mapPinBounce, {
-          toValue: 0,
-          duration: 700,
-          easing: Easing.in(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(successPulse, {
-          toValue: 1,
-          duration: 1400,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(successPulse, {
-          toValue: 0,
-          duration: 1400,
-          easing: Easing.in(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [mapPinBounce, successPulse]);
-
-  const startTransition = (next: StepKey) => {
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 260,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start(() => {
-      slideAnim.setValue(0);
-      setStep(next);
-    });
+  const loginNavigation = {
+    navigate: (screen: string, params?: any) => {
+      if (screen === 'OTPVerification') {
+        setPhone(params?.phone ?? '');
+        setStep(STEPS.OTP);
+      } else if (screen === 'LoginForm') {
+        router.push('/signin');
+      }
+    },
   };
 
-  const handleNextFromAccount = () => {
-    startTransition(STEPS.PHONE);
+  const otpNavigation = {
+    goBack: () => {
+      setStep(STEPS.LOGIN);
+    },
+    navigate: (screen: string, params?: any) => {
+      if (screen === 'ProfileSetup') {
+        setStep(STEPS.PROFILE);
+      }
+    },
   };
 
-  const handleSendOtp = () => {
-    setOtp(['', '', '', '', '']);
-    setOtpError('');
-    startTransition(STEPS.OTP);
+  const profileNavigation = {
+    goBack: () => {
+      setStep(STEPS.OTP);
+    },
+    navigate: (screen: string, params?: any) => {
+      if (screen === 'AddressForm') {
+        setStep(STEPS.ADDRESS);
+      }
+    },
   };
 
-  const handleVerifyOtp = () => {
-    const code = otp.join('');
-    if (code.length !== 5) {
-      setOtpError('Please enter the 5-digit code.');
-      Animated.sequence([
-        Animated.timing(shakeAnim, {
-          toValue: 1,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shakeAnim, {
-          toValue: 0,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      return;
-    }
-
-    setIsVerifying(true);
-    setTimeout(() => {
-      setIsVerifying(false);
-      startTransition(STEPS.ADDRESS);
-    }, 900);
+  const addressNavigation = {
+    goBack: () => {
+      setStep(STEPS.PROFILE);
+    },
+    navigate: (screen: string, params?: any) => {
+      if (screen === 'ServiceSelection') {
+        setStep(STEPS.COMPLETE);
+      }
+    },
   };
 
-  const handleConfirmLocation = () => {
-    startTransition(STEPS.SUCCESS);
+  const completeNavigation = {
+    navigate: (screen: string) => {
+      if (screen === 'Dashboard') {
+        router.push('/(tabs)');
+      } else if (screen === 'LoginForm') {
+        router.push('/signin');
+      }
+    },
   };
 
-  const handleOtpChange = (index: number, value: string) => {
-    if (value.length > 1) return;
-    const copy = [...otp];
-    copy[index] = value.replace(/[^0-9]/g, '');
-    setOtp(copy);
-
-    if (value && index < otpInputs.length - 1) {
-      otpInputs[index + 1].current?.focus();
-    }
-  };
-
-  const handleAddressChange = (key: keyof typeof address, value: string) => {
-    setAddress((prev) => ({ ...prev, [key]: value }));
-    Animated.timing(mapOffset, {
-      toValue: (value.length % 10) / 10,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const backgroundColors = isDark
-    ? (['#050313', '#130b26', '#1f1237'] as const)
-    : (['#e0e7ff', '#f5e9ff', '#ffe8fb'] as const);
-
-  const translateX = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -16],
-  });
-
-  const mapTranslate = mapOffset.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 12],
-  });
-
-  const renderStepIndicator = () => {
-    return (
-      <View style={styles.stepIndicatorRow}>
-        {[0, 1, 2, 3, 4].map((index) => (
-          <View
-            key={index}
-            style={[
-              styles.stepDot,
-              index <= step && styles.stepDotActive,
-            ]}
-          />
-        ))}
-      </View>
-    );
-  };
-
-  const renderAccountStep = () => {
-    return (
-      <View style={styles.accountGradientWrapper}>
-        <View style={[styles.cardGlass, !isDark && styles.cardGlassLight]}>
-          <Text style={[styles.stepTitle, !isDark && styles.stepTitleLight]}>Create Your Account</Text>
-          <Text style={[styles.stepSubtitle, !isDark && styles.stepSubtitleLight]}>
-            Let's set up your profile.
-          </Text>
-
-          <View style={styles.accountTopGradient}>
-            <View style={styles.accountRow}>
-              <View style={styles.accountRowLeft}>
-                <View style={styles.avatarWrapper}>
-                  <View style={styles.avatarFloat}>
-                    <View style={[styles.avatarCircle, !isDark && styles.avatarCircleLight]}>
-                      <Text style={[styles.avatarInitials, !isDark && styles.avatarInitialsLight]}>VU</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.avatarButton, !isDark && styles.avatarButtonLight]}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.avatarButtonText}>+ Add Photo</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.accountRowRight}>
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>First Name</Text>
-                  <TextInput
-                    style={[styles.input, !isDark && styles.inputLight]}
-                    placeholder="First name"
-                    placeholderTextColor={isDark ? '#9ca3af' : '#94a3b8'}
-                    value={firstName}
-                    onChangeText={setFirstName}
-                  />
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Last Name</Text>
-                  <TextInput
-                    style={[styles.input, !isDark && styles.inputLight]}
-                    placeholder="Last name"
-                    placeholderTextColor={isDark ? '#9ca3af' : '#94a3b8'}
-                    value={lastName}
-                    onChangeText={setLastName}
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={[styles.input, !isDark && styles.inputLight]}
-              placeholder="name@example.com"
-              placeholderTextColor={isDark ? '#9ca3af' : '#94a3b8'}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, !isDark && styles.inputLight]}
-              placeholder="Create a password"
-              placeholderTextColor={isDark ? '#9ca3af' : '#94a3b8'}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
-
-        
-
-          <View style={styles.socialSection}>
-            <View style={styles.socialDividerRow}>
-              <View style={styles.socialDividerLine} />
-              <Text style={styles.socialDividerText}>or continue with</Text>
-              <View style={styles.socialDividerLine} />
-            </View>
-
-            <View style={styles.socialButtonsColumn}>
-              <TouchableOpacity activeOpacity={0.85}>
-                <LinearGradient
-                  colors={['#f97316', '#fb7185']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.socialButtonGradient}
-                >
-                  <View style={[styles.socialButtonInner, !isDark && styles.socialButtonInnerLight]}>
-                    <Text style={[styles.socialButtonText, !isDark && styles.socialButtonTextLight]}>
-                      Sign up with Google
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-
-             
-            </View>
-
-            <View style={styles.signInRow}>
-              <Text style={styles.signInText}>
-                Already have an account?{' '}
-                <Text
-                  style={styles.signInLinkText}
-                  onPress={() => router.push('/signin')}
-                >
-                  Sign In
-                </Text>
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderPhoneStep = () => {
-    return (
-      <View style={[styles.cardGlass, !isDark && styles.cardGlassLight]}>
-        <Text style={[styles.stepTitle, !isDark && styles.stepTitleLight]}>Verify Your Mobile Number</Text>
-        <Text style={[styles.stepSubtitle, !isDark && styles.stepSubtitleLight]}>
-          We will send a 5-digit code to your phone to verify your identity.
-        </Text>
-
-        <View style={styles.phoneIconRow}>
-          <View style={styles.phoneIconCircle}>
-            <Animated.View
-              style={[
-                styles.phoneIconInner,
-                {
-                  transform: [
-                    {
-                      scale: mapPinBounce.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-          </View>
-        </View>
-
-        <View style={styles.phoneRow}>
-          <View style={[styles.phoneCountry, !isDark && styles.phoneCountryLight]}>
-            <Text style={[styles.phoneCountryText, !isDark && styles.phoneCountryTextLight]}>+91</Text>
-          </View>
-          <TextInput
-            style={[styles.input, styles.phoneInput, !isDark && styles.inputLight]}
-            placeholder="Enter mobile number"
-            placeholderTextColor="#9ca3af"
-            keyboardType="phone-pad"
-            value={phone.replace('+91', '')}
-            onChangeText={(v) => setPhone('+91' + v.replace(/[^0-9]/g, ''))}
-          />
-        </View>
-      </View>
-    );
-  };
-
-  const renderOtpStep = () => {
-    const shake = shakeAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 6],
-    });
-
-    return (
-      <Animated.View style={{ transform: [{ translateX: shake }] }}>
-        <View style={[styles.cardFloating, !isDark && styles.cardFloatingLight]}>
-          <Text style={[styles.stepTitle, !isDark && styles.stepTitleLight]}>Enter OTP</Text>
-          <Text style={[styles.stepSubtitle, !isDark && styles.stepSubtitleLight]}>
-            Check your SMS for the 5-digit verification code.
-          </Text>
-
-          <View style={styles.otpRow}>
-            {otp.map((digit, index) => (
-              <Animated.View
-                key={index}
-                style={{
-                  transform: [
-                    {
-                      scale: digit ? 1.05 : 1,
-                    },
-                  ],
-                }}
-              >
-                <TextInput
-                  ref={otpInputs[index]}
-                  style={[styles.otpInput, !isDark && styles.otpInputLight]}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  value={digit}
-                  onChangeText={(value) => handleOtpChange(index, value)}
-                />
-              </Animated.View>
-            ))}
-          </View>
-
-          <View style={styles.otpFooterRow}>
-            <Text style={styles.otpInfoText}>Didn’t receive the code?</Text>
-            <TouchableOpacity
-              disabled={otpTimer > 0}
-              activeOpacity={otpTimer > 0 ? 1 : 0.8}
-            >
-              <Text style={styles.resendText}>
-                {otpTimer > 0 ? `Resend in 0:${otpTimer.toString().padStart(2, '0')}` : 'Resend OTP'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
-        </View>
-      </Animated.View>
-    );
-  };
-
-  const renderAddressStep = () => {
-    return (
-      <View style={styles.addressContainer}>
-        <Animated.View
-          style={[
-            styles.mapMock,
-            {
-              transform: [
-                {
-                  translateY: mapTranslate,
-                },
-              ],
-            },
-          ]}
-        >
-          <LinearGradient
-            colors={['#0ea5e9', '#6366f1']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.mapGradient}
-          >
-            <View style={styles.mapGrid}>
-              <Animated.View
-                style={[
-                  styles.mapMarker,
-                  {
-                    transform: [
-                      {
-                        translateY: mapPinBounce.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, -8],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              />
-            </View>
-            <TouchableOpacity style={styles.locationButton} activeOpacity={0.8}>
-              <Text style={styles.locationButtonText}>Use Current Location</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-        </Animated.View>
-
-        <View style={[styles.cardGlass, !isDark && styles.cardGlassLight]}>
-          <Text style={[styles.stepTitle, !isDark && styles.stepTitleLight]}>Enter Your Address</Text>
-          <Text style={[styles.stepSubtitle, !isDark && styles.stepSubtitleLight]}>
-            This helps us connect you with local coordinators and events.
-          </Text>
-
-          <ScrollView style={{ maxHeight: 260 }} showsVerticalScrollIndicator={false}>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>House / Flat / Building</Text>
-              <TextInput
-                style={[styles.input, !isDark && styles.inputLight]}
-                placeholder="e.g., 21B, Sunrise Apartments"
-                placeholderTextColor="#9ca3af"
-                value={address.house}
-                onChangeText={(v) => handleAddressChange('house', v)}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Street / Locality</Text>
-              <TextInput
-                style={[styles.input, !isDark && styles.inputLight]}
-                placeholder="Street or locality"
-                placeholderTextColor="#9ca3af"
-                value={address.street}
-                onChangeText={(v) => handleAddressChange('street', v)}
-              />
-            </View>
-
-            <View style={styles.inlineRow}>
-              <View style={[styles.formGroup, styles.inlineField]}>
-                <Text style={styles.label}>City</Text>
-                <TextInput
-                  style={[styles.input, !isDark && styles.inputLight]}
-                  placeholder="City"
-                  placeholderTextColor="#9ca3af"
-                  value={address.city}
-                  onChangeText={(v) => handleAddressChange('city', v)}
-                />
-              </View>
-              <View style={[styles.formGroup, styles.inlineField]}>
-                <Text style={styles.label}>District</Text>
-                <TextInput
-                  style={[styles.input, !isDark && styles.inputLight]}
-                  placeholder="District"
-                  placeholderTextColor="#9ca3af"
-                  value={address.district}
-                  onChangeText={(v) => handleAddressChange('district', v)}
-                />
-              </View>
-            </View>
-
-            <View style={styles.inlineRow}>
-              <View style={[styles.formGroup, styles.inlineField]}>
-                <Text style={styles.label}>State</Text>
-                <TextInput
-                  style={[styles.input, !isDark && styles.inputLight]}
-                  placeholder="State"
-                  placeholderTextColor="#9ca3af"
-                  value={address.state}
-                  onChangeText={(v) => handleAddressChange('state', v)}
-                />
-              </View>
-              <View style={[styles.formGroup, styles.inlineField]}>
-                <Text style={styles.label}>Pincode</Text>
-                <TextInput
-                  style={[styles.input, !isDark && styles.inputLight]}
-                  placeholder="6-digit PIN"
-                  placeholderTextColor="#9ca3af"
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  value={address.pincode}
-                  onChangeText={(v) => handleAddressChange('pincode', v.replace(/[^0-9]/g, ''))}
-                />
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    );
-  };
-
-  const renderSuccessStep = () => {
-    return (
-      <View style={[styles.cardFloating, !isDark && styles.cardFloatingLight]}>
-        <Text style={[styles.stepTitle, !isDark && styles.stepTitleLight]}>You're All Set!</Text>
-        <Text style={[styles.stepSubtitle, !isDark && styles.stepSubtitleLight]}>
-          Your profile is now ready. Welcome to the VSD Youth Network.
-        </Text>
-
-        <View style={styles.successBadgeWrapper}>
-          <Animated.View
-            style={[
-              styles.successGlow,
-              {
-                opacity: successPulse.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.4, 0.9],
-                }),
-                transform: [
-                  {
-                    scale: successPulse.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [1, 1.08],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-          <View style={styles.successCircleOuter}>
-            <View style={styles.successCircleInner} />
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderCurrentStep = () => {
+  const renderStep = () => {
     switch (step) {
-      case STEPS.ACCOUNT:
-        return renderAccountStep();
-      case STEPS.PHONE:
-        return renderPhoneStep();
+      case STEPS.LOGIN:
+        return <InteractiveLoginScreen navigation={loginNavigation} />;
       case STEPS.OTP:
-        return renderOtpStep();
+        return (
+          <InteractiveOTPScreen
+            navigation={otpNavigation}
+            route={{ params: { phone } }}
+          />
+        );
+      case STEPS.PROFILE:
+        return (
+          <ProfileSetupScreen
+            navigation={profileNavigation}
+            route={{ params: { phone } }}
+          />
+        );
       case STEPS.ADDRESS:
-        return renderAddressStep();
-      case STEPS.SUCCESS:
-        return renderSuccessStep();
+        return (
+          <AddressFormScreen
+            navigation={addressNavigation}
+            route={{ params: { phone } }}
+          />
+        );
+      case STEPS.COMPLETE:
+        return <InteractiveCompleteScreen navigation={completeNavigation} />;
       default:
         return null;
     }
   };
 
-  const renderPrimaryButton = () => {
-    let label = '';
-    let onPress: (() => void) | null = null;
-    let colors: readonly [string, string] = ['#4f46e5', '#6366f1'];
+  return <View style={styles.container}>{renderStep()}</View>;
+}
 
-    if (step === STEPS.ACCOUNT) {
-      label = 'Next';
-      onPress = handleNextFromAccount;
-      colors = isDark
-        ? (['#4f46e5', '#6366f1'] as const)
-        : (['#818cf8', '#a855f7'] as const);
-    } else if (step === STEPS.PHONE) {
-      label = 'Send OTP';
-      onPress = handleSendOtp;
-      colors = ['#0ea5e9', '#22c55e'] as const;
-    } else if (step === STEPS.OTP) {
-      label = isVerifying ? 'Verifying...' : 'Verify & Continue';
-      onPress = handleVerifyOtp;
-      colors = ['#22c55e', '#16a34a'] as const;
-    } else if (step === STEPS.ADDRESS) {
-      label = 'Confirm Location';
-      onPress = handleConfirmLocation;
-      colors = ['#f97316', '#fb7185'] as const;
-    } else if (step === STEPS.SUCCESS) {
-      label = 'Go to Dashboard';
-      onPress = () => router.push('/(tabs)');
-      colors = ['#22c55e', '#16a34a'] as const;
-    }
+function DesktopRegisterScreen() {
+  const router = useRouter();
 
-    if (!onPress) return null;
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
 
-    return (
-      <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
-        <LinearGradient
-          colors={colors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.primaryButton}
-        >
-          <Text style={styles.primaryButtonText}>{label}</Text>
-        </LinearGradient>
-      </TouchableOpacity>
+  // Samajwadi Theme Colors
+  const SP_RED = '#E30512';
+  const SP_GREEN = '#009933';
+  const SP_DARK = '#1a1a1a';
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const heroAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(heroAnim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(heroAnim, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
     );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const heroStyle = {
+    transform: [
+      {
+        translateY: heroAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -20],
+        }),
+      },
+    ],
+  };
+
+  const canSubmit =
+    fullName.trim().length > 0 &&
+    email.trim().length > 0 &&
+    phone.trim().length > 0 &&
+    password.length >= 6;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    setShowOtpModal(true);
+    setOtp('');
+  };
+
+  const handleVerifyOtp = () => {
+    if (otp.trim().length === 0 || otpLoading) return;
+    setOtpLoading(true);
+
+    setTimeout(() => {
+      setOtpLoading(false);
+      setShowOtpModal(false);
+      router.push('/(tabs)');
+    }, 1000);
+  };
+
+  const handleGoToSignIn = () => {
+    router.push('/signin');
   };
 
   return (
-    <LinearGradient colors={backgroundColors} style={styles.screen}>
-      <View style={styles.overlay}>
-        <View style={styles.headerRow}>
-          <Text style={[styles.headerTitle, isDark && styles.headerTitleDark]}>
-            Registration
-          </Text>
-          <Text style={[styles.headerSubtitle, isDark && styles.headerSubtitleDark]}>
-            Step {step + 1} of 5
-          </Text>
-        </View>
+    <View style={styles.desktopScreen}>
+      <LinearGradient
+        colors={['#f8f9fa', '#e9ecef', '#dee2e6']}
+        style={StyleSheet.absoluteFill}
+      />
 
-        {renderStepIndicator()}
+      {/* Decorative Background Elements */}
+      <View style={styles.bgCircle1} />
+      <View style={styles.bgCircle2} />
 
-        <View style={styles.contentWrapper}>
-          <Animated.View
-            style={{
-              flex: 1,
-              transform: [{ translateX }],
-            }}
-          >
-            {renderCurrentStep()}
+      <View style={styles.desktopOverlay}>
+        <View style={styles.desktopRow}>
+          {/* Left Side - Hero Content */}
+          <Animated.View style={[styles.desktopLeft, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <LinearGradient
+              colors={[SP_RED, '#b91c1c']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.desktopLeftCard}
+            >
+              <View style={styles.desktopLeftContent}>
+                <View>
+                  <View style={styles.logoContainer}>
+                    <Text style={styles.logoText}>SP</Text>
+                  </View>
+
+                  <Text style={styles.desktopLeftTitle}>
+                    Join the Samajwadi Tech Force
+                  </Text>
+                  <Text style={styles.desktopLeftSubtitle}>
+                    Be part of the digital revolution. Connect, campaign, and contribute to the change.
+                  </Text>
+                </View>
+
+                <Animated.View style={[styles.illustrationContainer, heroStyle]}>
+                  {/* Abstract Bicycle / Wheel Representation */}
+                  <View style={styles.wheelContainer}>
+                    <MaterialCommunityIcons name="bicycle" size={120} color="rgba(255,255,255,0.9)" />
+                  </View>
+                  <View style={styles.floatingCard}>
+                    <MaterialCommunityIcons name="account-group" size={24} color={SP_RED} />
+                    <Text style={styles.floatingCardText}>Join Community</Text>
+                  </View>
+                  <View style={[styles.floatingCard, styles.floatingCardRight]}>
+                    <MaterialCommunityIcons name="bullhorn" size={24} color={SP_GREEN} />
+                    <Text style={[styles.floatingCardText, { color: SP_GREEN }]}>Voice of Youth</Text>
+                  </View>
+                </Animated.View>
+
+                <View style={styles.desktopLeftFooter}>
+                  <Text style={styles.desktopLeftFooterText}>© 2024 Samajwadi Party</Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+
+          {/* Right Side - Registration Form */}
+          <Animated.View style={[styles.desktopRight, { opacity: fadeAnim }]}>
+            <BlurView intensity={80} tint="light" style={styles.desktopCard}>
+              <Text style={styles.formTitle}>Create Account</Text>
+              <Text style={styles.formSubtitle}>Enter your details to get started</Text>
+
+              <View style={styles.formContent}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Full Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Akhilesh Yadav"
+                    value={fullName}
+                    onChangeText={setFullName}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Email Address</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="name@example.com"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Mobile Number</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="+91 98765 43210"
+                    value={phone}
+                    onChangeText={setPhone}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Password</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="••••••••"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                  />
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={handleSubmit}
+                  disabled={!canSubmit}
+                  style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
+                >
+                  <LinearGradient
+                    colors={canSubmit ? [SP_GREEN, '#15803d'] : ['#e5e7eb', '#d1d5db']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.submitGradient}
+                  >
+                    <Text style={[styles.submitText, !canSubmit && styles.submitTextDisabled]}>
+                      {loading ? 'Creating Account...' : 'Register'}
+                    </Text>
+                    {canSubmit && <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />}
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={styles.loginRow}>
+                  <Text style={styles.loginText}>Already have an account?</Text>
+                  <TouchableOpacity onPress={handleGoToSignIn}>
+                    <Text style={styles.loginLink}>Sign In</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </BlurView>
           </Animated.View>
         </View>
 
-        <View style={styles.footer}>
-          {renderPrimaryButton()}
-        </View>
+        {/* OTP Modal */}
+        {showOtpModal && (
+          <View style={styles.otpOverlay}>
+            <BlurView intensity={40} tint="dark" style={styles.otpBlur}>
+              <View style={styles.otpCard}>
+                <View style={styles.otpIconContainer}>
+                  <MaterialCommunityIcons name="cellphone-message" size={32} color={SP_RED} />
+                </View>
+                <Text style={styles.otpTitle}>Verify Mobile</Text>
+                <Text style={styles.otpSubtitle}>
+                  Enter the 4-digit code sent to {phone}
+                </Text>
+
+                <TextInput
+                  style={styles.otpInput}
+                  placeholder="0000"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  value={otp}
+                  onChangeText={setOtp}
+                  autoFocus
+                />
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={handleVerifyOtp}
+                  disabled={otp.length < 4 || otpLoading}
+                  style={styles.otpButton}
+                >
+                  <LinearGradient
+                    colors={[SP_RED, '#b91c1c']}
+                    style={styles.otpButtonGradient}
+                  >
+                    <Text style={styles.otpButtonText}>
+                      {otpLoading ? 'Verifying...' : 'Verify & Continue'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => setShowOtpModal(false)} style={styles.cancelButton}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </BlurView>
+          </View>
+        )}
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  container: {
     flex: 1,
   },
-  overlay: {
+  desktopScreen: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 24,
-  },
-  contentWrapper: {
-    flex: 1,
-    marginTop: 8,
-  },
-  footer: {
-    paddingTop: 8,
-  },
-  accountGradientWrapper: {
-    borderRadius: 32,
-    padding: 18,
+    backgroundColor: '#f8f9fa',
     overflow: 'hidden',
+  },
+  bgCircle1: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 600,
+    height: 600,
+    borderRadius: 300,
+    backgroundColor: 'rgba(227, 5, 18, 0.05)',
+  },
+  bgCircle2: {
+    position: 'absolute',
+    bottom: -100,
+    left: -100,
+    width: 500,
+    height: 500,
+    borderRadius: 250,
+    backgroundColor: 'rgba(0, 153, 51, 0.05)',
+  },
+  desktopOverlay: {
+    flex: 1,
+    paddingHorizontal: 64,
+    paddingVertical: 48,
+    justifyContent: 'center',
+  },
+  desktopRow: {
+    flexDirection: 'row',
+    maxWidth: 1200,
+    width: '100%',
+    height: 700,
+    alignSelf: 'center',
+    gap: 40,
+  },
+  desktopLeft: {
+    flex: 1,
+    borderRadius: 32,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: '#E30512',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  desktopLeftCard: {
+    flex: 1,
+    padding: 48,
+  },
+  desktopLeftContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  logoContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  logoText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#fff',
+  },
+  desktopLeftTitle: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: '#fff',
+    lineHeight: 56,
+    marginBottom: 16,
+  },
+  desktopLeftSubtitle: {
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.9)',
+    lineHeight: 28,
+    maxWidth: 400,
+  },
+  illustrationContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  wheelContainer: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  floatingCard: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  floatingCardRight: {
+    top: 'auto',
+    bottom: 60,
+    left: 'auto',
+    right: 0,
+  },
+  floatingCardText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#E30512',
+  },
+  desktopLeftFooter: {
+    marginTop: 32,
+  },
+  desktopLeftFooterText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+  },
+  desktopRight: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  desktopCard: {
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 32,
+    padding: 48,
+    borderWidth: 1,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  formTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#1a1a1a',
     marginBottom: 8,
   },
-  accountTopGradient: {
-    borderRadius: 24,
-    padding: 12,
-    marginBottom: 18,
+  formSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 40,
   },
-  accountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 16,
+  formContent: {
+    gap: 20,
   },
-  accountRowLeft: {
-    alignItems: 'center',
-  },
-  accountRowRight: {
-    flex: 1,
-    minWidth: 0,
-  },
-  accountBlobTop: {
-    position: 'absolute',
-    top: -40,
-    right: -20,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(244, 114, 182, 0.35)',
-  },
-  accountBlobBottom: {
-    position: 'absolute',
-    bottom: -50,
-    left: -30,
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: 'rgba(59, 130, 246, 0.3)',
-  },
-  headerRow: {
-    marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  headerTitleDark: {
-    color: '#e5e7eb',
-  },
-  headerSubtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  headerSubtitleDark: {
-    color: '#9ca3af',
-  },
-  stepIndicatorRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 6,
-  },
-  stepDot: {
-    flex: 1,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(148, 163, 184, 0.5)',
-  },
-  stepDotActive: {
-    backgroundColor: '#4f46e5',
-  },
-  cardGlass: {
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    borderRadius: 28,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 16,
-  },
-  card: {
-    backgroundColor: 'rgba(15, 23, 42, 0.96)',
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
-  },
-  stepTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#e5e7eb',
-    marginBottom: 4,
-  },
-  stepSubtitle: {
-    fontSize: 14,
-    color: '#9ca3af',
-    marginBottom: 20,
-  },
-  cardGlassLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    borderColor: 'rgba(148, 163, 184, 0.5)',
-  },
-  cardFloatingLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    shadowColor: '#c4b5fd',
-  },
-  stepTitleLight: {
-    color: '#0f172a',
-  },
-  stepSubtitleLight: {
-    color: '#4b5563',
-  },
-  avatarWrapper: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  avatarFloat: {
-    alignItems: 'center',
-  },
-  avatarGlow: {
-    position: 'absolute',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(129, 140, 248, 0.6)',
-  },
-  avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#1f2937',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  avatarInitials: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#e5e7eb',
-  },
-  avatarButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#4f46e5',
-  },
-  avatarCircleLight: {
-    backgroundColor: '#eef2ff',
-  },
-  avatarInitialsLight: {
-    color: '#111827',
-  },
-  avatarButtonLight: {
-    borderColor: '#6366f1',
-  },
-  avatarButtonText: {
-    color: '#c4b5fd',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  formGroup: {
-    marginBottom: 14,
+  inputGroup: {
+    gap: 8,
   },
   label: {
-    fontSize: 13,
-    color: '#9ca3af',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
   },
   input: {
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    backgroundColor: '#fff',
+    height: 50,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.6)',
-    color: '#e5e7eb',
-    fontSize: 14,
+    borderColor: '#e5e7eb',
+    color: '#1a1a1a',
   },
-  inputLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    borderColor: 'rgba(148, 163, 184, 0.7)',
-    color: '#0f172a',
+  submitButton: {
+    height: 56,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 12,
+    shadowColor: '#009933',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  primaryButton: {
-    marginTop: 10,
-    height: 52,
-    borderRadius: 26,
+  submitButtonDisabled: {
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  submitGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  submitText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  submitTextDisabled: {
+    color: '#9ca3af',
+  },
+  loginRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  loginText: {
+    color: '#666',
+    fontSize: 15,
+  },
+  loginLink: {
+    color: '#E30512',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  otpOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  otpBlur: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  otpCard: {
+    width: 400,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  otpIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(227, 5, 18, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  otpTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    marginBottom: 8,
+  },
+  otpSubtitle: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  otpInput: {
+    width: '100%',
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    textAlign: 'center',
+    fontSize: 24,
+    letterSpacing: 8,
+    marginBottom: 24,
+    backgroundColor: '#f9fafb',
+    color: '#1a1a1a',
+  },
+  otpButton: {
+    width: '100%',
+    height: 50,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  otpButtonGradient: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryButtonText: {
-    color: '#f9fafb',
+  otpButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
   },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
+  cancelButton: {
+    padding: 8,
   },
-  phoneCountry: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.6)',
-  },
-  phoneCountryText: {
-    color: '#e5e7eb',
+  cancelText: {
+    color: '#666',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  phoneCountryLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    borderColor: 'rgba(148, 163, 184, 0.7)',
-  },
-  phoneCountryTextLight: {
-    color: '#0f172a',
-  },
-  phoneInput: {
-    flex: 1,
-  },
-  phoneIconRow: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  phoneIconCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  phoneIconInner: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: '#38bdf8',
-  },
-  otpRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    marginTop: 12,
-  },
-  otpInput: {
-    width: 48,
-    height: 54,
-    borderRadius: 14,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.7)',
-    textAlign: 'center',
-    color: '#e5e7eb',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  otpInputLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    borderColor: 'rgba(148, 163, 184, 0.7)',
-    color: '#0f172a',
-  },
-  otpFooterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  otpInfoText: {
-    color: '#9ca3af',
-    fontSize: 13,
-  },
-  resendText: {
-    color: '#a5b4fc',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  errorText: {
-    color: '#f97373',
-    fontSize: 13,
-    marginBottom: 4,
-  },
-  verifyButton: {
-    marginTop: 14,
-  },
-  addressContainer: {
-    flex: 1,
-    gap: 16,
-  },
-  mapMock: {
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  mapGradient: {
-    padding: 14,
-    borderRadius: 24,
-  },
-  mapGrid: {
-    height: 140,
-    borderRadius: 18,
-    backgroundColor: 'rgba(15, 23, 42, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapMarker: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#f97316',
-    borderWidth: 3,
-    borderColor: '#facc15',
-  },
-  locationButton: {
-    marginTop: 10,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-  },
-  locationButtonText: {
-    color: '#e5e7eb',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  inlineRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  inlineField: {
-    flex: 1,
-  },
-  successBadgeWrapper: {
-    alignItems: 'center',
-    marginVertical: 28,
-  },
-  cardFloating: {
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderRadius: 28,
-    padding: 24,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.45,
-    shadowRadius: 32,
-    shadowOffset: { width: 0, height: 24 },
-    elevation: 20,
-  },
-  successCircleOuter: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 4,
-    borderColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successCircleInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#22c55e',
-  },
-  successGlow: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(34, 197, 94, 0.45)',
-  },
-  glassButtonOuter: {
-    marginTop: 10,
-  },
-  glassButtonBorder: {
-    borderRadius: 999,
-    padding: 2,
-  },
-  glassButtonInner: {
-    borderRadius: 999,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-  },
-  glassButtonText: {
-    color: '#e5e7eb',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  socialSection: {
-    marginTop: 8,
-  },
-  socialDividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  socialDividerLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(148, 163, 184, 0.6)',
-  },
-  socialDividerText: {
-    marginHorizontal: 8,
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  socialButtonsColumn: {
-    gap: 10,
-  },
-  socialButtonGradient: {
-    borderRadius: 999,
-    padding: 1.5,
-  },
-  socialButtonInner: {
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-  },
-  socialButtonInnerLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-  },
-  socialButtonText: {
-    color: '#f9fafb',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  socialButtonTextLight: {
-    color: '#0f172a',
-  },
-  signInRow: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  signInText: {
-    fontSize: 13,
-    color: '#9ca3af',
-  },
-  signInLinkText: {
-    color: '#a5b4fc',
     fontWeight: '600',
   },
 });

@@ -1,0 +1,576 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, ScrollView, Alert, Platform } from 'react-native';
+import { Title, Text } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import IDCardPreview from './IDCardPreview';
+
+const { width, height } = Dimensions.get('window');
+
+const SP_RED = '#E30512';
+
+interface MemberIDCardProps {
+  navigation: any;
+  route: { params: { memberData: any } };
+}
+
+export default function MemberIDCardScreen({ navigation, route }: MemberIDCardProps) {
+  const router = useRouter();
+  const memberDataRaw = route.params.memberData;
+  const memberData = typeof memberDataRaw === 'string' ? JSON.parse(memberDataRaw) : memberDataRaw;
+  const [showBack, setShowBack] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const IDNumber = `SP-TF-${Date.now().toString().slice(-6)}`;
+
+  const handleFlip = () => {
+    setShowBack(!showBack);
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      setIsDownloading(true);
+
+      // Convert photo to base64 if it exists
+      let photoBase64 = '';
+      const photoSource = memberData.photoUri || memberData.photo;
+
+      console.log('Member Data:', memberData);
+      console.log('Photo Source:', photoSource);
+
+      if (photoSource) {
+        try {
+          // For web, the photo might already be a data URI or HTTP URL
+          if (photoSource.startsWith('data:') || photoSource.startsWith('http')) {
+            photoBase64 = photoSource;
+            console.log('Using photo as-is (data URI or HTTP URL)');
+            Alert.alert('Photo Debug', `Using photo directly`);
+          } else {
+            // For mobile, convert local file to base64
+            console.log('Attempting to read file:', photoSource);
+            const base64 = await FileSystem.readAsStringAsync(photoSource, {
+              encoding: 'base64',
+            });
+            photoBase64 = `data:image/jpeg;base64,${base64}`;
+            console.log('Photo converted to base64 successfully');
+            Alert.alert('Photo Debug', `Converted successfully`);
+          }
+        } catch (error) {
+          console.error('Error converting photo to base64:', error);
+          Alert.alert('Photo Error', `Failed: ${error}`);
+          // Use default avatar on error
+          photoBase64 = 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png';
+        }
+      } else {
+        console.log('No photo source found, using default avatar');
+        Alert.alert('Photo Debug', 'No photo in data');
+        photoBase64 = 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png';
+      }
+
+      // HTML content matching IDCardPreview.tsx layout exactly
+      const htmlContent = `
+        <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;600;700;900&display=swap');
+
+                @page {
+                  size: A4;
+                margin: 0;
+              }
+
+                * {margin: 0; padding: 0; box-sizing: border-box; }
+
+                body {
+                  font - family: 'Roboto', Arial, sans-serif;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                background-color: #fff; 
+              }
+
+                .page {
+                  width: 210mm;
+                height: 297mm;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                page-break-after: always;
+                background: white;
+              }
+
+                .card {
+                  width: 290px;
+                height: 420px;
+                border-radius: 18px;
+                overflow: hidden;
+                background: #F8FAFC;
+                position: relative;
+                display: flex;
+                flex-direction: column;
+              }
+
+                /* Header with gradient and pattern */
+                .header {
+                  background: linear-gradient(135deg, #E30512 0%, #B00410 100%);
+                color: white;
+                padding: 20px;
+                text-align: right;
+                position: relative;
+                overflow: hidden;
+              }
+
+                .header-pattern {
+                  position: absolute;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+              }
+
+                .pattern-circle {
+                  position: absolute;
+                width: 80px;
+                height: 80px;
+                border-radius: 40px;
+                background: rgba(255,255,255,0.1);
+              }
+
+                .pattern-circle-1 {top: -20px; right: -20px; }
+                .pattern-circle-2 {bottom: -30px; left: -30px; }
+
+                .header-logo {
+                  position: absolute;
+                left: 16px;
+                top: 16px;
+                width: 48px;
+                height: 48px;
+                object-fit: contain;
+                z-index: 3;
+              }
+
+                .header-text {
+                  position: relative;
+                z-index: 2;
+              }
+
+                .party-name {
+                  font - size: 18px;
+                font-weight: 900;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
+              }
+
+                .tech-force-badge {
+                  display: inline-block;
+                background: rgba(255,255,255,0.2);
+                padding: 3px 12px;
+                border-radius: 12px;
+                border: 1px solid rgba(255,255,255,0.3);
+              }
+
+                .tech-force {
+                  font - size: 9px;
+                letter-spacing: 2px;
+                font-weight: 700; 
+              }
+
+                /* Card Body */
+                .card-body {
+                  flex: 1;
+                padding: 16px;
+                padding-top: 20px;
+                padding-bottom: 8px;
+              }
+
+                /* Profile Card */
+                .profile-card {
+                  display: flex;
+                flex-direction: row;
+                background: #fff;
+                border-radius: 12px;
+                padding: 12px;
+                margin-bottom: 1px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                align-items: center;
+                gap: 12px;
+              }
+
+                .photo-container {
+                  position: relative;
+                flex-shrink: 0;
+              }
+
+                .member-photo {
+                  width: 60px;
+                height: 60px;
+                border-radius: 30px;
+                object-fit: cover;
+              }
+
+                .photo-border {
+                  position: absolute;
+                top: -3px;
+                left: -3px;
+                width: 66px;
+                height: 66px;
+                border-radius: 33px;
+                border: 2.5px solid #E30512;
+                pointer-events: none;
+              }
+
+                .profile-info {
+                  flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 6px;
+              }
+
+                .name-text {
+                  font - size: 15px;
+                font-weight: 900;
+                color: #0F172A; 
+              }
+
+                .id-badge {
+                  display: inline-flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 5px;
+                background: #F1F5F9;
+                padding: 4px 10px;
+                border-radius: 12px;
+                align-self: flex-start;
+              }
+
+                .shield-icon {
+                  width: 11px;
+                height: 11px;
+                color: #E30512;
+              }
+
+                .id-text {
+                  font - size: 10px;
+                font-weight: 700;
+                color: #475569;
+                letter-spacing: 0.3px; 
+              }
+
+                /* Info List */
+                .info-list {
+                  background: #fff;
+                border-radius: 12px;
+                padding: 6px 18px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+              }
+
+                .info-row {
+                  display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                border-bottom: 1px solid #F1F5F9;
+              }
+
+                .info-row:last-child {
+                  border - bottom: none;
+              }
+
+                .info-label {
+                  font - size: 13px;
+                color: #64748B;
+                font-weight: 600; 
+              }
+
+                .info-value {
+                  font - size: 13px;
+                color: #0F172A;
+                font-weight: 700;
+                text-align: right; 
+              }
+
+                /* QR Container */
+                .qr-container {
+                  background: #fff;
+                border-radius: 12px;
+                padding: 8px;
+                margin-top: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                text-align: center;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+              }
+
+                .qr-placeholder {
+                  width: 80px;
+                height: 80px;
+                background: #F8FAFC;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 4px;
+                font-size: 60px;
+              }
+
+                .qr-text {
+                  font - size: 11px;
+                color: #64748B;
+                font-weight: 600;
+                margin-top: 4px;
+              }
+
+                /* Back Logo Watermark */
+                .back-logo {
+                  position: absolute;
+                bottom: 20px;
+                right: 20px;
+                font-size: 100px;
+                color: #E30512;
+                opacity: 0.08;
+                z-index: 0;
+              }
+
+                /* Footer */
+                .card-footer {
+                  padding: 12px 16px;
+                text-align: center;
+                border-top: 1px solid #F1F5F9;
+                background: #fff;
+              }
+
+                .footer-content {
+                  display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+              }
+
+                .footer-gradient {
+                  background: linear-gradient(90deg, #E30512 0%, #B00410 100%);
+                padding: 12px 16px;
+              }
+
+                .footer-text-white {
+                  color: #fff;
+                font-size: 10px;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+              }
+
+                .web-icon {
+                  width: 14px;
+                height: 14px;
+                color: #fff;
+              }
+
+                .social-icons {
+                  display: flex;
+                gap: 12px;
+                justify-content: center;
+                margin-bottom: 4px;
+              }
+
+                .social-icon {
+                  width: 24px;
+                height: 24px;
+                border-radius: 12px;
+                background: #F8FAFC;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+
+                .footer-text {
+                  font - size: 10px;
+                color: #94A3B8;
+                font-weight: 600; 
+              }
+              </style>
+            </head>
+            <body>
+              <!-- Front Page -->
+              <div class="page">
+                <div class="card">
+                  <div class="header">
+                    <div class="header-pattern">
+                      <div class="pattern-circle pattern-circle-1"></div>
+                      <div class="pattern-circle pattern-circle-2"></div>
+                    </div>
+                    <img src="https://res.cloudinary.com/dssmutzly/image/upload/v1763543757/928c21d2-4d75-46a6-9265-0531d5433c29_txhwun.png" class="header-logo" />
+                    <div class="header-text">
+                      <div class="party-name">समाजवादी टेक फोर्स</div>
+                      <div class="tech-force-badge">
+                        <span class="tech-force">MEMBER DETAILS</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card-body">
+                    <div class="profile-card">
+                      <div class="photo-container">
+                        <img src="${photoBase64}" class="member-photo" />
+                        <div class="photo-border"></div>
+                      </div>
+                      <div class="profile-info">
+                        <div class="name-text">${memberData.fullName || 'नाम'}</div>
+                        <div class="id-badge">
+                          <svg class="shield-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1Z" />
+                          </svg>
+                          <span class="id-text">${IDNumber}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="info-list">
+                      <div class="info-row">
+                        <span class="info-label">Mobile:</span>
+                        <span class="info-value">+91 ${memberData.mobile || '----------'}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="info-label">District:</span>
+                        <span class="info-value">${memberData.district || 'जिला'}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="info-label">Vidhan Sabha:</span>
+                        <span class="info-value">${memberData.vidhanSabha || 'विधानसभा'}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="info-label">Age:</span>
+                        <span class="info-value">${memberData.age ? `${memberData.age} वर्ष` : '-- वर्ष'}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="info-label">Qualification:</span>
+                        <span class="info-value">${memberData.qualification || 'योग्यता'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="footer-gradient">
+                    <div class="footer-content">
+                      <svg class="web-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16.36,14C16.44,13.34 16.5,12.68 16.5,12C16.5,11.32 16.44,10.66 16.36,10H19.74C19.9,10.64 20,11.31 20,12C20,12.69 19.9,13.36 19.74,14M14.59,19.56C15.19,18.45 15.65,17.25 15.97,16H18.92C17.96,17.65 16.43,18.93 14.59,19.56M14.34,14H9.66C9.56,13.34 9.5,12.68 9.5,12C9.5,11.32 9.56,10.65 9.66,10H14.34C14.43,10.65 14.5,11.32 14.5,12C14.5,12.68 14.43,13.34 14.34,14M12,19.96C11.17,18.76 10.5,17.43 10.09,16H13.91C13.5,17.43 12.83,18.76 12,19.96M8,8H5.08C6.03,6.34 7.57,5.06 9.4,4.44C8.8,5.55 8.35,6.75 8,8M5.08,16H8C8.35,17.25 8.8,18.45 9.4,19.56C7.57,18.93 6.03,17.65 5.08,16M4.26,14C4.1,13.36 4,12.69 4,12C4,11.31 4.1,10.64 4.26,10H7.64C7.56,10.66 7.5,11.32 7.5,12C7.5,12.68 7.56,13.34 7.64,14M12,4.03C12.83,5.23 13.5,6.57 13.91,8H10.09C10.5,6.57 11.17,5.23 12,4.03M18.92,8H15.97C15.65,6.75 15.19,5.55 14.59,4.44C16.43,5.07 17.96,6.34 18.92,8M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" />
+                      </svg>
+                      <span class="footer-text-white">www.samajwaditechforce.com</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Back Page -->
+              <div class="page">
+                <div class="card">
+                  <div class="header">
+                    <div class="header-pattern">
+                      <div class="pattern-circle pattern-circle-1"></div>
+                      <div class="pattern-circle pattern-circle-2"></div>
+                    </div>
+                    <img src="https://res.cloudinary.com/dssmutzly/image/upload/v1763543757/928c21d2-4d75-46a6-9265-0531d5433c29_txhwun.png" class="header-logo" />
+                    <div class="header-text">
+                      <div class="party-name">समाजवादी टेक फोर्स</div>
+                      <div class="tech-force-badge">
+                        <span class="tech-force">MEMBER DETAILS</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card-body">
+                    <div class="info-list">
+                      <div class="info-row">
+                        <span class="info-label">Email:</span>
+                        <span class="info-value" style="font-size: 11px;">${memberData.email || 'Not Provided'}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="info-label">Party Role:</span>
+                        <span class="info-value">${memberData.partyRole || 'Member'}</span>
+                      </div>
+                      <div class="info-row">
+                        <span class="info-label">Member Since:</span>
+                        <span class="info-value">${memberData.memberSince || '2024'}</span>
+                      </div>
+                    </div>
+
+                    <div class="qr-container">
+                      <div class="qr-placeholder">
+                        <svg viewBox="0 0 24 24" width="60" height="60">
+                          <path fill="#000" d="M3,11H5V13H3V11M11,5H13V9H11V5M9,11H13V15H11V13H9V11M15,11H17V13H19V11H21V13H19V15H21V19H19V21H17V19H13V21H11V17H15V15H17V13H15V11M19,19V15H17V19H19M15,3H21V9H15V3M17,5V7H19V5H17M3,3H9V9H3V3M5,5V7H7V5H5M3,15H9V21H3V15M5,17V19H7V17H5Z" />
+                        </svg>
+                      </div>
+                      <div class="qr-text">Scan for verification</div>
+                    </div>
+
+                   
+                  </div>
+
+          </TouchableOpacity>
+
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleDownloadPDF} disabled={isDownloading}>
+              <LinearGradient colors={[SP_RED, '#b91c1c']} style={styles.actionGradient}>
+                {isDownloading ? (
+                  <Text style={styles.actionButtonText}>डाउनलोड हो रहा है...</Text>
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="file-pdf-box" size={24} color="#fff" />
+                    <Text style={styles.actionButtonText}>PDF डाउनलोड करें</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.doneButton} onPress={() => router.push('/(tabs)')}>
+            <Text style={styles.doneButtonText}>होम पर जाएं</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  background: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  content: { paddingTop: height * 0.06, paddingHorizontal: 20, paddingBottom: 40, alignItems: 'center' },
+  responsiveContainer: { width: '100%', maxWidth: 500, alignItems: 'center' },
+  header: { alignItems: 'center', marginBottom: 20 },
+  headerTitle: { fontSize: 24, fontWeight: '900', color: '#1e293b', textAlign: 'center', marginBottom: 8 },
+  headerSubtitle: { fontSize: 15, color: '#64748b' },
+
+  flipButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#fff', padding: 14, borderRadius: 12, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  flipButtonText: { fontSize: 15, fontWeight: '700', color: SP_RED },
+  actions: { width: '100%', maxWidth: 400, marginBottom: 16 },
+  actionButton: { borderRadius: 16, overflow: 'hidden', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+  actionGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, gap: 12 },
+  actionButtonText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  doneButton: { backgroundColor: '#e2e8f0', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12 },
+  doneButtonText: { fontSize: 15, fontWeight: '700', color: '#475569' },
+});

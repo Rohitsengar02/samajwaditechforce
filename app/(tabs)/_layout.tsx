@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
-import { Home, CheckSquare, BookOpen, User } from 'lucide-react-native';
+import { Home, BookOpen, User, CreditCard, Newspaper, Image } from 'lucide-react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -40,11 +40,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="tasks"
+        name="posters"
         options={{
-          title: 'Tasks',
+          title: 'Posters',
           tabBarIcon: ({ size, color }) => (
-            <CheckSquare size={size} color={color} strokeWidth={2} />
+            <Image size={size} color={color} strokeWidth={2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="news"
+        options={{
+          title: 'News',
+          tabBarIcon: ({ size, color }) => (
+            <Newspaper size={size} color={color} strokeWidth={2} />
           ),
         }}
       />
@@ -58,12 +67,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="idcard"
+        options={{
+          title: 'ID Card',
+          tabBarIcon: ({ size, color }) => (
+            <CreditCard size={size} color={color} strokeWidth={2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ size, color }) => (
             <User size={size} color={color} strokeWidth={2} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
