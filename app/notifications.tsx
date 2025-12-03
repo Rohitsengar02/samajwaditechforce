@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import { TranslatedText } from '../components/TranslatedText';
 
 const { width } = Dimensions.get('window');
 
@@ -94,13 +95,17 @@ const NotificationCard = ({ notification, onPress, delay }: any) => {
                 </View>
 
                 <View style={styles.notificationText}>
-                    <Text style={styles.notificationTitle}>{notification.title}</Text>
+                    <Text style={styles.notificationTitle}>
+                        <TranslatedText>{notification.title}</TranslatedText>
+                    </Text>
                     <Text style={styles.notificationMessage} numberOfLines={2}>
-                        {notification.message}
+                        <TranslatedText>{notification.message}</TranslatedText>
                     </Text>
                     <View style={styles.notificationFooter}>
                         <MaterialCommunityIcons name="clock-outline" size={14} color="#94a3b8" />
-                        <Text style={styles.notificationTime}>{notification.time}</Text>
+                        <Text style={styles.notificationTime}>
+                            <TranslatedText>{notification.time}</TranslatedText>
+                        </Text>
                         {!notification.read && <View style={styles.unreadDot} />}
                     </View>
                 </View>
@@ -221,8 +226,12 @@ export default function NotificationsScreen() {
                         <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
                     </TouchableOpacity>
                     <View style={styles.headerTextContainer}>
-                        <Text style={styles.headerTitle}>Notifications</Text>
-                        <Text style={styles.headerSubtitle}>{notifications.filter(n => !n.read).length} unread</Text>
+                        <Text style={styles.headerTitle}>
+                            <TranslatedText>Notifications</TranslatedText>
+                        </Text>
+                        <Text style={styles.headerSubtitle}>
+                            <TranslatedText>{`${notifications.filter(n => !n.read).length} unread`}</TranslatedText>
+                        </Text>
                     </View>
                     <TouchableOpacity style={styles.headerButton}>
                         <MaterialCommunityIcons name="check-all" size={24} color="#fff" />
@@ -254,7 +263,7 @@ export default function NotificationsScreen() {
                                     styles.filterChipText,
                                     selectedFilter === filter && styles.filterChipTextActive
                                 ]}>
-                                    {filter}
+                                    <TranslatedText>{filter}</TranslatedText>
                                 </Text>
                             </TouchableOpacity>
                         ))}
@@ -267,7 +276,7 @@ export default function NotificationsScreen() {
                         >
                             <MaterialCommunityIcons name="information" size={24} color="#fff" />
                             <Text style={styles.infoBannerText}>
-                                Tap any notification to send a test push notification to your device
+                                <TranslatedText>Tap any notification to send a test push notification to your device</TranslatedText>
                             </Text>
                         </LinearGradient>
                     </View>
@@ -285,8 +294,12 @@ export default function NotificationsScreen() {
                         ) : (
                             <View style={styles.emptyState}>
                                 <MaterialCommunityIcons name="bell-off" size={64} color="#cbd5e1" />
-                                <Text style={styles.emptyStateText}>No notifications found</Text>
-                                <Text style={styles.emptyStateSubtext}>Try selecting a different filter</Text>
+                                <Text style={styles.emptyStateText}>
+                                    <TranslatedText>No notifications found</TranslatedText>
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    <TranslatedText>Try selecting a different filter</TranslatedText>
+                                </Text>
                             </View>
                         )}
                     </View>

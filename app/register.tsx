@@ -36,6 +36,8 @@ export default function RegisterScreen() {
   const [step, setStep] = useState<StepKey>(STEPS.LOGIN);
   const [phone, setPhone] = useState<string>('');
 
+  const [profileData, setProfileData] = useState<any>(null);
+
   const { width } = Dimensions.get('window');
   const isWideLayout = width >= 768;
 
@@ -72,6 +74,9 @@ export default function RegisterScreen() {
     },
     navigate: (screen: string, params?: any) => {
       if (screen === 'AddressForm') {
+        if (params?.profileData) {
+          setProfileData(params.profileData);
+        }
         setStep(STEPS.ADDRESS);
       }
     },
@@ -120,7 +125,7 @@ export default function RegisterScreen() {
         return (
           <AddressFormScreen
             navigation={addressNavigation}
-            route={{ params: { phone } }}
+            route={{ params: { phone, profileData } }}
           />
         );
       case STEPS.COMPLETE:

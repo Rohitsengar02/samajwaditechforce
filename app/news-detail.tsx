@@ -11,6 +11,8 @@ import {
     TextInput,
     Modal,
     Image,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,7 +24,10 @@ const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
-// Comment Component
+import { newsAPI, News, Comment } from '@/services/newsAPI';
+import { ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const CommentItem = ({ author, comment, time, likes }: any) => {
     const [liked, setLiked] = useState(false);
 
@@ -51,18 +56,75 @@ const CommentItem = ({ author, comment, time, likes }: any) => {
     );
 };
 
+const renderContent = (content: any[]) => {
+    if (!content) return null;
+    return content.map((item, index) => {
+        switch (item.type) {
+            case 'heading':
+                return <Text key={index} style={styles.contentHeading}>{item.content}</Text>;
+            case 'paragraph':
+                return <Text key={index} style={styles.contentText}>{item.content}</Text>;
+            case 'image':
+                return (
+                    <Image
+                        key={index}
+                        source={{ uri: item.content }}
+                        style={styles.contentImage}
+                        resizeMode="cover"
+                    />
+                );
+            default:
+                return null;
+        }
+    });
+};
+
 export default function NewsDetailScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const newsId = params.id as string;
+
+    const [news, setNews] = useState<News | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [liked, setLiked] = useState(false);
-    const [likes, setLikes] = useState(1245);
+    const [likesCount, setLikesCount] = useState(0);
     const [saved, setSaved] = useState(false);
     const [commentText, setCommentText] = useState('');
     const [showCommentsModal, setShowCommentsModal] = useState(false);
+
     const likeAnim = useRef(new Animated.Value(1)).current;
     const slideAnim = useRef(new Animated.Value(1000)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
+
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [currentUserName, setCurrentUserName] = useState<string>('Guest User');
+
+    useEffect(() => {
+        checkUser();
+        fetchNewsDetail(); // Fetch news once on mount to increment view count
+    }, [newsId]); // Only re-fetch if newsId changes
+
+    // Update liked status when both news and currentUserId are available
+    useEffect(() => {
+        if (news && currentUserId && news.likes && news.likes.includes(currentUserId)) {
+            setLiked(true);
+        }
+    }, [news, currentUserId]);
+
+    const checkUser = async () => {
+        try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                setCurrentUserId(userInfo._id || userInfo.id);
+                setCurrentUserName(userInfo.name || 'User');
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     useEffect(() => {
         if (showCommentsModal) {
@@ -95,62 +157,84 @@ export default function NewsDetailScreen() {
         }
     }, [showCommentsModal]);
 
-    // Mock news data (in real app, fetch based on params.id)
-    const newsData = {
-        title: 'समाजवादी टेक फोर्स का विस्तार पूरे देश में',
-        description: 'डिजिटल युग में नई पहल के साथ युवाओं को जोड़ने की तैयारी।',
-        fullContent: `समाजवादी पार्टी ने आज देशभर में टेक्नोलॉजी के माध्यम से जनता से जुड़ने का फैसला किया है। इस नई पहल के तहत युवाओं को प्राथमिकता दी जाएगी।\n\nपार्टी के राष्ट्रीय प्रवक्ता ने कहा कि डिजिटल इंडिया के इस युग में हमें भी तकनीक का सही उपयोग करना चाहिए। टेक फोर्स के माध्यम से हम युवाओं को सीधे पार्टी की नीतियों और कार्यक्रमों से जोड़ेंगे।\n\nइस कार्यक्रम में शामिल होने के लिए युवा ऑनलाइन रजिस्ट्रेशन कर सकते हैं। पार्टी ने इसके लिए एक विशेष पोर्टल भी लॉन्च किया है।\n\nटेक फोर्स के सदस्यों को विशेष प्रशिक्षण दिया जाएगा और उन्हें सोशल मीडिया पर पार्टी की आवाज़ को मजबूत करने में मदद करने का अवसर मिलेगा।`,
-        category: 'Tech Force',
-        time: '2 hours ago',
-        image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800',
-        author: 'SP News Desk',
-        authorRole: 'Official Reporter',
+    const fetchNewsDetail = async () => {
+        try {
+            setLoading(true);
+            const response = await newsAPI.getNewsById(newsId);
+            if (response.success) {
+                setNews(response.data);
+                setLikesCount(response.data.likes ? response.data.likes.length : 0);
+                // Like status will be set by the separate useEffect above
+            }
+        } catch (err) {
+            console.error(err);
+            setError('Failed to load news details');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const comments = [
-        { id: 1, author: 'राज कुमार', comment: 'बहुत अच्छी पहल है। युवाओं को जोड़ना जरूरी है।', time: '1 hour ago', likes: 15 },
-        { id: 2, author: 'Priya Sharma', comment: 'Great initiative for digital India!', time: '45 min ago', likes: 8 },
-        { id: 3, author: 'अमित वर्मा', comment: 'कब से registration शुरू होगा?', time: '30 min ago', likes: 12 },
-    ];
+    const handleLike = async () => {
+        if (!news || !currentUserId) return;
 
-    const handleLike = () => {
-        setLiked(!liked);
-        setLikes(liked ? likes - 1 : likes + 1);
+        const isLiked = !liked;
+        setLiked(isLiked);
+        setLikesCount(prev => isLiked ? prev + 1 : prev - 1);
 
         Animated.sequence([
-            Animated.timing(likeAnim, {
-                toValue: 1.3,
-                duration: 150,
-                useNativeDriver: true,
-            }),
-            Animated.spring(likeAnim, {
-                toValue: 1,
-                friction: 3,
-                useNativeDriver: true,
-            }),
+            Animated.timing(likeAnim, { toValue: 1.3, duration: 150, useNativeDriver: true }),
+            Animated.spring(likeAnim, { toValue: 1, friction: 3, useNativeDriver: true }),
         ]).start();
+
+        try {
+            await newsAPI.toggleLike(news._id, currentUserId);
+        } catch (err) {
+            setLiked(!isLiked);
+            setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+            console.error('Error liking news:', err);
+        }
     };
 
     const handleShare = async () => {
+        if (!news) return;
         try {
             await Share.share({
-                message: `${newsData.title}\n\n${newsData.description}`,
+                message: `${news.title}\n\n${news.excerpt}`,
             });
         } catch (error) {
             console.log(error);
         }
     };
 
-    const handlePostComment = () => {
-        if (commentText.trim()) {
-            // Add comment logic here
-            setCommentText('');
+    const handlePostComment = async () => {
+        if (!commentText.trim() || !news || !currentUserId) return;
+
+        try {
+            const response = await newsAPI.addComment(news._id, commentText, currentUserId, currentUserName);
+            if (response.success) {
+                setNews(prev => prev ? { ...prev, comments: response.data } : null);
+                setCommentText('');
+            }
+        } catch (err) {
+            console.error('Error posting comment:', err);
         }
     };
 
-    const handleCommentsPress = () => {
-        setShowCommentsModal(true);
-    };
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={SP_RED} />
+            </View>
+        );
+    }
+
+    if (!news) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Text>News not found</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -179,9 +263,9 @@ export default function NewsDetailScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Image Banner */}
-                {newsData.image ? (
+                {news.coverImage && news.coverImage !== 'no-photo.jpg' ? (
                     <Image
-                        source={{ uri: newsData.image }}
+                        source={{ uri: news.coverImage }}
                         style={styles.imageBanner}
                         resizeMode="cover"
                     />
@@ -204,16 +288,16 @@ export default function NewsDetailScreen() {
                     <View style={styles.metaInfo}>
                         <View style={styles.categoryBadge}>
                             <View style={[styles.categoryDot, { backgroundColor: SP_GREEN }]} />
-                            <Text style={styles.categoryText}>{newsData.category}</Text>
+                            <Text style={styles.categoryText}>News</Text>
                         </View>
                         <View style={styles.timeContainer}>
                             <MaterialCommunityIcons name="clock-outline" size={14} color="#94a3b8" />
-                            <Text style={styles.timeText}>{newsData.time}</Text>
+                            <Text style={styles.timeText}>{new Date(news.createdAt).toLocaleDateString()}</Text>
                         </View>
                     </View>
 
                     {/* Title */}
-                    <Text style={styles.title}>{newsData.title}</Text>
+                    <Text style={styles.title}>{news.title}</Text>
 
                     {/* Author */}
                     <View style={styles.authorInfo}>
@@ -221,8 +305,8 @@ export default function NewsDetailScreen() {
                             <MaterialCommunityIcons name="account-circle" size={40} color={SP_RED} />
                         </View>
                         <View>
-                            <Text style={styles.authorName}>{newsData.author}</Text>
-                            <Text style={styles.authorRole}>{newsData.authorRole}</Text>
+                            <Text style={styles.authorName}>Samajwadi Party</Text>
+                            <Text style={styles.authorRole}>Official</Text>
                         </View>
                     </View>
 
@@ -239,15 +323,15 @@ export default function NewsDetailScreen() {
                                     color={liked ? SP_RED : '#64748b'}
                                 />
                             </Animated.View>
-                            <Text style={[styles.actionText, liked && { color: SP_RED }]}>{likes}</Text>
+                            <Text style={[styles.actionText, liked && { color: SP_RED }]}>{likesCount}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={handleCommentsPress}
+                            onPress={() => setShowCommentsModal(true)}
                         >
                             <MaterialCommunityIcons name="comment-outline" size={24} color="#64748b" />
-                            <Text style={styles.actionText}>{comments.length}</Text>
+                            <Text style={styles.actionText}>{news.comments ? news.comments.length : 0}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
@@ -257,21 +341,21 @@ export default function NewsDetailScreen() {
 
                         <TouchableOpacity style={styles.actionButton}>
                             <MaterialCommunityIcons name="eye-outline" size={24} color="#64748b" />
-                            <Text style={styles.actionText}>5.2K</Text>
+                            <Text style={styles.actionText}>{news.views}</Text>
                         </TouchableOpacity>
                     </View>
 
                     {/* Full Content */}
                     <View style={styles.contentSection}>
-                        <Text style={styles.contentText}>{newsData.fullContent}</Text>
+                        {renderContent(news.content)}
                     </View>
 
-                    {/* Comments Section */}
+                    {/* Comments Preview */}
                     <View style={styles.commentsSection}>
                         <View style={styles.commentsSectionHeader}>
-                            <Text style={styles.commentsSectionTitle}>Comments ({comments.length})</Text>
-                            <TouchableOpacity>
-                                <MaterialCommunityIcons name="sort" size={20} color="#64748b" />
+                            <Text style={styles.commentsSectionTitle}>Comments ({news.comments ? news.comments.length : 0})</Text>
+                            <TouchableOpacity onPress={() => setShowCommentsModal(true)}>
+                                <Text style={{ color: SP_RED, fontWeight: '600' }}>View All</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -300,27 +384,6 @@ export default function NewsDetailScreen() {
                                 />
                             </TouchableOpacity>
                         </View>
-
-                        {/* Comments List */}
-                        <View style={styles.commentsList}>
-                            {comments.map((comment) => (
-                                <CommentItem key={comment.id} {...comment} />
-                            ))}
-                        </View>
-                    </View>
-
-                    {/* Related News */}
-                    <View style={styles.relatedSection}>
-                        <Text style={styles.relatedTitle}>Related News</Text>
-                        <TouchableOpacity style={styles.relatedItem}>
-                            <View style={styles.relatedImage}>
-                                <MaterialCommunityIcons name="newspaper" size={40} color={SP_RED} style={{ opacity: 0.5 }} />
-                            </View>
-                            <View style={styles.relatedInfo}>
-                                <Text style={styles.relatedItemTitle}>नई सदस्यता अभियान की शुरुआत</Text>
-                                <Text style={styles.relatedTime}>5 hours ago</Text>
-                            </View>
-                        </TouchableOpacity>
                     </View>
                 </View>
             </ScrollView>
@@ -343,27 +406,67 @@ export default function NewsDetailScreen() {
                             { transform: [{ translateY: slideAnim }] }
                         ]}
                     >
-                        <TouchableOpacity activeOpacity={1}>
-                            <View style={styles.modalHandle} />
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                            style={{ flex: 1 }}
+                            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                        >
+                            <TouchableOpacity activeOpacity={1} style={{ flex: 1 }}>
+                                <View style={styles.modalHandle} />
 
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>All Comments ({comments.length})</Text>
-                                <TouchableOpacity onPress={() => setShowCommentsModal(false)}>
-                                    <MaterialCommunityIcons name="close" size={24} color="#64748b" />
-                                </TouchableOpacity>
-                            </View>
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalTitle}>All Comments ({news.comments ? news.comments.length : 0})</Text>
+                                    <TouchableOpacity onPress={() => setShowCommentsModal(false)}>
+                                        <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <ScrollView style={styles.commentsScroll}>
-                                {comments.map((comment, idx) => (
-                                    <View key={comment.id}>
-                                        <CommentItem {...comment} />
-                                        {idx < comments.length - 1 && (
-                                            <View style={styles.commentDivider} />
-                                        )}
-                                    </View>
-                                ))}
-                            </ScrollView>
-                        </TouchableOpacity>
+                                <ScrollView
+                                    style={styles.commentsScroll}
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    keyboardShouldPersistTaps="handled"
+                                >
+                                    {news.comments && news.comments.length > 0 ? (
+                                        news.comments.map((comment, idx) => (
+                                            <View key={comment._id || idx}>
+                                                <CommentItem
+                                                    author={comment.name}
+                                                    comment={comment.text}
+                                                    time={new Date(comment.date).toLocaleDateString()}
+                                                    likes={0}
+                                                />
+                                                {idx < news.comments.length - 1 && (
+                                                    <View style={styles.commentDivider} />
+                                                )}
+                                            </View>
+                                        ))
+                                    ) : (
+                                        <View style={{ padding: 20, alignItems: 'center' }}>
+                                            <Text style={{ color: '#94a3b8' }}>No comments yet. Be the first!</Text>
+                                        </View>
+                                    )}
+                                </ScrollView>
+
+                                <View style={styles.commentInputContainerModal}>
+                                    <TextInput
+                                        style={styles.commentInputModal}
+                                        placeholder="Write a comment..."
+                                        placeholderTextColor="#94a3b8"
+                                        value={commentText}
+                                        onChangeText={setCommentText}
+                                        multiline
+                                        maxLength={500}
+                                    />
+                                    <TouchableOpacity
+                                        style={[styles.sendButtonModal, !commentText.trim() && { opacity: 0.5 }]}
+                                        onPress={handlePostComment}
+                                        disabled={!commentText.trim()}
+                                    >
+                                        <MaterialCommunityIcons name="send" size={20} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableOpacity>
+                        </KeyboardAvoidingView>
                     </Animated.View>
                 </TouchableOpacity>
             </Modal>
@@ -651,8 +754,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        maxHeight: '80%',
-        paddingBottom: 40,
+        maxHeight: '85%',
+        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     },
     modalHandle: {
         width: 40,
@@ -686,5 +789,57 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: '#e2e8f0',
         marginVertical: 16,
+    },
+    contentHeading: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#1e293b',
+        marginTop: 24,
+        marginBottom: 12,
+    },
+    contentImage: {
+        width: '100%',
+        height: 200,
+        borderRadius: 12,
+        marginVertical: 16,
+    },
+    // Comment Input Modal Styles
+    commentInputContainerModal: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        paddingBottom: Platform.OS === 'ios' ? 16 : 24,
+        borderTopWidth: 1,
+        borderTopColor: '#e2e8f0',
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    commentInputModal: {
+        flex: 1,
+        backgroundColor: '#f1f5f9',
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        marginRight: 10,
+        fontSize: 14,
+        color: '#334155',
+        maxHeight: 100,
+    },
+    sendButtonModal: {
+        backgroundColor: '#E30512',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#E30512',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
     },
 });

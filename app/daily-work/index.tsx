@@ -1,18 +1,51 @@
-import React, { useRef, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, Animated } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, Animated, Alert, ActivityIndicator, Linking } from 'react-native';
 import { Text, Surface, ProgressBar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { DAILY_TASKS, LEADERBOARD } from '@/constants/dailyWorkData';
+import { LEADERBOARD } from '@/constants/dailyWorkData';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../../utils/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
+interface Task {
+    _id: string;
+    title: string;
+    description: string;
+    type: string;
+    points: number;
+    deadline?: string;
+    status: string;
+    linkToShare?: string;
+    platform?: string;
+    completed?: boolean;
+}
+
+interface LeaderboardUser {
+    _id: string;
+    name: string;
+    avatar: string;
+    district: string;
+    points: number;
+    rank: number;
+    isUser: boolean;
+}
+
 export default function DailyWorkScreen() {
     const router = useRouter();
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const insets = useSafeAreaInsets();
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [userPoints, setUserPoints] = useState(0);
+    const [completedTasksCount, setCompletedTasksCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [leaderboardData, setLeaderboardData] = useState<LeaderboardUser[]>([]);
+    const [userRank, setUserRank] = useState<number | null>(null);
 
     useEffect(() => {
         Animated.timing(fadeAnim, {
@@ -20,13 +53,83 @@ export default function DailyWorkScreen() {
             duration: 600,
             useNativeDriver: true,
         }).start();
+        fetchData();
     }, []);
 
-    const userRank = LEADERBOARD.find(u => u.isUser);
+    const fetchData = async () => {
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            const url = getApiUrl();
+
+            // Fetch User Data for Points
+            const userRes = await fetch(`${url}/auth/profile`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            const userData = await userRes.json();
+            if (userData && userData.points !== undefined) {
+                setUserPoints(userData.points);
+            }
+
+            // Fetch Tasks
+            const tasksRes = await fetch(`${url}/tasks`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            const tasksData = await tasksRes.json();
+
+            // Fetch Completed Tasks
+            const completedRes = await fetch(`${url}/tasks/my-completed`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            const completedData = await completedRes.json();
+            const completedTaskIds = completedData.data || [];
+
+            setCompletedTasksCount(completedTaskIds.length);
+
+            if (tasksData.data) {
+                // Filter out tasks that are already completed
+                const activeTasks = tasksData.data.filter((t: Task) =>
+                    t.status === 'Active' && !completedTaskIds.includes(t._id)
+                );
+                setTasks(activeTasks);
+            }
+
+            // Fetch Leaderboard for Preview
+            const leaderboardRes = await fetch(`${url}/auth/leaderboard`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            const lbData = await leaderboardRes.json();
+            if (Array.isArray(lbData)) {
+                const formattedLb = lbData.map((user: any, index: number) => ({
+                    _id: user._id,
+                    name: user.name,
+                    avatar: user.profileImage || 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png',
+                    district: user.district || 'Unknown',
+                    points: user.points || 0,
+                    rank: index + 1,
+                    isUser: user._id === userData._id
+                }));
+                setLeaderboardData(formattedLb);
+
+                // Find user rank
+                const currentUserRank = formattedLb.find((u: LeaderboardUser) => u.isUser);
+                if (currentUserRank) {
+                    setUserRank(currentUserRank.rank);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching daily work data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleTaskPress = (task: Task) => {
+        router.push(`/daily-work/task/${task._id}` as any);
+    };
 
     return (
         <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}>
                 <Animated.View style={{ opacity: fadeAnim }}>
                     {/* Header */}
                     <LinearGradient
@@ -48,16 +151,20 @@ export default function DailyWorkScreen() {
                             <View style={styles.scoreRow}>
                                 <View>
                                     <Text style={styles.scoreLabel}>Your Points</Text>
-                                    <Text style={styles.scoreValue}>{userRank?.points || 0}</Text>
+                                    <Text style={styles.scoreValue}>{userPoints}</Text>
+                                </View>
+                                <View style={{ alignItems: 'center' }}>
+                                    <Text style={styles.scoreLabel}>Completed</Text>
+                                    <Text style={styles.scoreValue}>{completedTasksCount}</Text>
                                 </View>
                                 <View style={styles.rankContainer}>
                                     <Text style={styles.rankLabel}>Rank</Text>
-                                    <Text style={styles.rankValue}>#{userRank?.rank || '-'}</Text>
+                                    <Text style={styles.rankValue}>#{userRank || '-'}</Text>
                                 </View>
                             </View>
                             <View style={styles.progressContainer}>
                                 <Text style={styles.progressText}>Next Reward: 1000 pts</Text>
-                                <ProgressBar progress={0.85} color="#FFD700" style={styles.progressBar} />
+                                <ProgressBar progress={Math.min(userPoints / 1000, 1)} color="#FFD700" style={styles.progressBar} />
                             </View>
                         </View>
                     </LinearGradient>
@@ -65,37 +172,49 @@ export default function DailyWorkScreen() {
                     {/* Tasks Section */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Today's Tasks</Text>
-                        <View style={styles.tasksList}>
-                            {DAILY_TASKS.map((task, index) => (
-                                <TouchableOpacity
-                                    key={task.id}
-                                    style={styles.taskCard}
-                                    onPress={() => router.push(`/daily-work/task/${task.id}` as any)}
-                                    activeOpacity={0.9}
-                                >
-                                    <View style={styles.taskIconContainer}>
-                                        <MaterialCommunityIcons
-                                            name={task.icon as any || 'checkbox-marked-circle-outline'}
-                                            size={28}
-                                            color={task.status === 'Completed' ? SP_GREEN : SP_RED}
-                                        />
-                                    </View>
-                                    <View style={styles.taskContent}>
-                                        <Text style={styles.taskTitle}>{task.title}</Text>
-                                        <Text style={styles.taskPoints}>+{task.points} pts</Text>
-                                        <View style={styles.taskMeta}>
-                                            <View style={[styles.statusBadge, task.status === 'Completed' ? styles.completedBadge : styles.pendingBadge]}>
-                                                <Text style={[styles.statusText, task.status === 'Completed' ? styles.completedText : styles.pendingText]}>
-                                                    {task.status}
-                                                </Text>
+                        {loading ? (
+                            <ActivityIndicator size="large" color={SP_RED} />
+                        ) : (
+                            <View style={styles.tasksList}>
+                                {tasks.length === 0 ? (
+                                    <Text style={{ textAlign: 'center', color: '#666' }}>No active tasks for today.</Text>
+                                ) : (
+                                    tasks.map((task, index) => (
+                                        <TouchableOpacity
+                                            key={task._id}
+                                            style={styles.taskCard}
+                                            onPress={() => handleTaskPress(task)}
+                                            activeOpacity={0.9}
+                                        >
+                                            <View style={styles.taskIconContainer}>
+                                                <MaterialCommunityIcons
+                                                    name={task.type === 'Social Media' ? 'share-variant' : 'checkbox-marked-circle-outline'}
+                                                    size={28}
+                                                    color={SP_RED}
+                                                />
                                             </View>
-                                            <Text style={styles.deadlineText}>{task.deadline}</Text>
-                                        </View>
-                                    </View>
-                                    <MaterialCommunityIcons name="chevron-right" size={24} color="#cbd5e1" />
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                                            <View style={styles.taskContent}>
+                                                <Text style={styles.taskTitle}>{task.title}</Text>
+                                                <Text style={styles.taskPoints}>+{task.points} pts</Text>
+                                                <View style={styles.taskMeta}>
+                                                    <View style={[styles.statusBadge, styles.pendingBadge]}>
+                                                        <Text style={[styles.statusText, styles.pendingText]}>
+                                                            {task.status}
+                                                        </Text>
+                                                    </View>
+                                                    {task.deadline && (
+                                                        <Text style={styles.deadlineText}>
+                                                            {new Date(task.deadline).toLocaleDateString()}
+                                                        </Text>
+                                                    )}
+                                                </View>
+                                            </View>
+                                            <MaterialCommunityIcons name="chevron-right" size={24} color="#cbd5e1" />
+                                        </TouchableOpacity>
+                                    ))
+                                )}
+                            </View>
+                        )}
                     </View>
 
                     {/* Leaderboard Preview */}
@@ -107,17 +226,21 @@ export default function DailyWorkScreen() {
                             </TouchableOpacity>
                         </View>
                         <View style={styles.leaderboardPreview}>
-                            {LEADERBOARD.slice(0, 3).map((user, index) => (
-                                <View key={index} style={styles.leaderboardRow}>
-                                    <Text style={styles.rankNumber}>{user.rank}</Text>
-                                    <Image source={{ uri: user.avatar }} style={styles.avatar} />
-                                    <View style={styles.userInfo}>
-                                        <Text style={styles.userName}>{user.name}</Text>
-                                        <Text style={styles.userDistrict}>{user.district}</Text>
+                            {leaderboardData.length > 0 ? (
+                                leaderboardData.slice(0, 3).map((user, index) => (
+                                    <View key={index} style={styles.leaderboardRow}>
+                                        <Text style={styles.rankNumber}>{user.rank}</Text>
+                                        <Image source={{ uri: user.avatar }} style={styles.avatar} />
+                                        <View style={styles.userInfo}>
+                                            <Text style={styles.userName}>{user.name}</Text>
+                                            <Text style={styles.userDistrict}>{user.district}</Text>
+                                        </View>
+                                        <Text style={styles.userPoints}>{user.points} pts</Text>
                                     </View>
-                                    <Text style={styles.userPoints}>{user.points} pts</Text>
-                                </View>
-                            ))}
+                                ))
+                            ) : (
+                                <Text style={{ textAlign: 'center', color: '#666', padding: 20 }}>Loading leaderboard...</Text>
+                            )}
                         </View>
                     </View>
                 </Animated.View>
@@ -327,7 +450,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     userName: {
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: '700',
         color: '#1e293b',
     },
@@ -336,8 +459,8 @@ const styles = StyleSheet.create({
         color: '#64748b',
     },
     userPoints: {
-        fontSize: 15,
-        fontWeight: '800',
+        fontSize: 14,
+        fontWeight: '700',
         color: SP_RED,
     },
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Card, Title, Text, TextInput } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -205,147 +205,151 @@ export default function InteractiveLoginScreen({ navigation }: any) {
         <FloatingBubble delay={2500} size={90} color={SP_GREEN} duration={10500} />
       </View>
 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+          {/* Animated Tech Header Element */}
+          <View style={styles.headerContainer}>
+            <View style={styles.techCircleWrapper}>
+              {/* Outer Ring */}
+              <Animated.View style={[styles.techRingOuter, { transform: [{ rotate }] }]}>
+                <LinearGradient
+                  colors={[SP_RED, 'transparent', SP_GREEN, 'transparent']}
+                  style={styles.ringGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                />
+              </Animated.View>
 
-      {/* Animated Tech Header Element */}
-      <View style={styles.headerContainer}>
-        <View style={styles.techCircleWrapper}>
-          {/* Outer Ring */}
-          <Animated.View style={[styles.techRingOuter, { transform: [{ rotate }] }]}>
-            <LinearGradient
-              colors={[SP_RED, 'transparent', SP_GREEN, 'transparent']}
-              style={styles.ringGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
-          </Animated.View>
+              {/* Inner Ring */}
+              <Animated.View style={[styles.techRingInner, { transform: [{ rotate: reverseRotate }] }]}>
+                <View style={styles.dot} />
+                <View style={[styles.dot, { top: 'auto', bottom: -4, left: 'auto', right: '50%' }]} />
+              </Animated.View>
 
-          {/* Inner Ring */}
-          <Animated.View style={[styles.techRingInner, { transform: [{ rotate: reverseRotate }] }]}>
-            <View style={styles.dot} />
-            <View style={[styles.dot, { top: 'auto', bottom: -4, left: 'auto', right: '50%' }]} />
-          </Animated.View>
+              {/* Central Pulsing Core */}
+              <Animated.View style={[styles.coreCircle, { transform: [{ scale: pulseAnim }] }]}>
+                <MaterialCommunityIcons
+                  name={phone.length > 0 ? "cellphone-text" : "bicycle"}
+                  size={40}
+                  color="#fff"
+                />
+              </Animated.View>
 
-          {/* Central Pulsing Core */}
-          <Animated.View style={[styles.coreCircle, { transform: [{ scale: pulseAnim }] }]}>
-            <MaterialCommunityIcons
-              name={phone.length > 0 ? "cellphone-text" : "bicycle"}
-              size={40}
-              color="#fff"
-            />
-          </Animated.View>
-
-          {/* Floating Particles */}
-          <Animated.View style={[styles.particle, { top: 0, left: 20, transform: [{ translateY: particleY }] }]} />
-          <Animated.View style={[styles.particle, { bottom: 20, right: 20, transform: [{ translateY: Animated.multiply(particleY, -1) }] }]} />
-        </View>
-
-        <Title style={styles.title}>Samajwadi Tech Force</Title>
-        <Text style={styles.subtitle}>Digital Revolution Begins With You</Text>
-      </View>
-
-      {/* Interactive Form Area */}
-      <View style={styles.formContainer}>
-        <Animated.View style={[styles.inputWrapper, { transform: [{ scale: inputScale }] }]}>
-          <View style={[styles.inputCard, focused && styles.inputCardFocused]}>
-            <View style={styles.countryCode}>
-              <Text style={styles.flag}>🇮🇳</Text>
-              <Text style={styles.code}>+91</Text>
+              {/* Floating Particles */}
+              <Animated.View style={[styles.particle, { top: 0, left: 20, transform: [{ translateY: particleY }] }]} />
+              <Animated.View style={[styles.particle, { bottom: 20, right: 20, transform: [{ translateY: Animated.multiply(particleY, -1) }] }]} />
             </View>
 
-            <TextInput
-              mode="flat"
-              value={phone}
-              onChangeText={handlePhoneChange}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              keyboardType="phone-pad"
-              maxLength={10}
-              placeholder="Enter Mobile Number"
-              placeholderTextColor="#94a3b8"
-              style={styles.input}
-              underlineColor="transparent"
-              activeUnderlineColor="transparent"
-              textColor={SP_DARK}
-              selectionColor={SP_RED}
-            />
+            <Title style={styles.title}>Samajwadi Tech Force</Title>
+            <Text style={styles.subtitle}>Digital Revolution Begins With You</Text>
+          </View>
 
-            {/* Validation Checkmark */}
-            {phone.length === 10 && (
-              <View style={styles.checkIcon}>
-                <MaterialCommunityIcons name="check-circle" size={24} color={SP_GREEN} />
+          {/* Interactive Form Area */}
+          <View style={styles.formContainer}>
+            <Animated.View style={[styles.inputWrapper, { transform: [{ scale: inputScale }] }]}>
+              <View style={[styles.inputCard, focused && styles.inputCardFocused]}>
+                <View style={styles.countryCode}>
+                  <Text style={styles.flag}>🇮🇳</Text>
+                  <Text style={styles.code}>+91</Text>
+                </View>
+
+                <TextInput
+                  mode="flat"
+                  value={phone}
+                  onChangeText={handlePhoneChange}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  placeholder="Enter Mobile Number"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.input}
+                  underlineColor="transparent"
+                  activeUnderlineColor="transparent"
+                  textColor={SP_DARK}
+                  selectionColor={SP_RED}
+                />
+
+                {/* Validation Checkmark */}
+                {phone.length === 10 && (
+                  <View style={styles.checkIcon}>
+                    <MaterialCommunityIcons name="check-circle" size={24} color={SP_GREEN} />
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-        </Animated.View>
+            </Animated.View>
 
-        <TouchableOpacity
-          style={[styles.buttonContainer, phone.length < 10 && styles.buttonDisabled]}
-          onPress={handleSendOTP}
-          disabled={phone.length < 10}
-          activeOpacity={0.9}
-        >
-          <LinearGradient
-            colors={phone.length >= 10 ? [SP_RED, '#b91c1c'] : ['#e2e8f0', '#cbd5e1']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
-          >
-            <Text style={[styles.buttonText, phone.length < 10 && styles.buttonTextDisabled]}>
-              Get Verification Code
-            </Text>
-            {phone.length >= 10 && (
-              <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.buttonContainer, phone.length < 10 && styles.buttonDisabled]}
+              onPress={handleSendOTP}
+              disabled={phone.length < 10}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={phone.length >= 10 ? [SP_RED, '#b91c1c'] : ['#e2e8f0', '#cbd5e1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <Text style={[styles.buttonText, phone.length < 10 && styles.buttonTextDisabled]}>
+                  Get Verification Code
+                </Text>
+                {phone.length >= 10 && (
+                  <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
 
-        {/* Sign In Button */}
-        <TouchableOpacity
-          style={styles.signInButton}
-          onPress={() => navigation.navigate('LoginForm')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.signInText}>Already have an account? </Text>
-          <Text style={styles.signInLink}>Sign In</Text>
-        </TouchableOpacity>
+            {/* Sign In Button */}
+            <TouchableOpacity
+              style={styles.signInButton}
+              onPress={() => navigation.navigate('LoginForm')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.signInText}>Already have an account? </Text>
+              <Text style={styles.signInLink}>Sign In</Text>
+            </TouchableOpacity>
 
-        {/* Features Grid */}
-        <View style={styles.featuresGrid}>
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIconBox, { backgroundColor: '#fef2f2' }]}>
-              <MaterialCommunityIcons name="bullhorn-outline" size={24} color={SP_RED} />
+            {/* Features Grid - Removed as per request */}
+            {/* <View style={styles.featuresGrid}>
+              <View style={styles.featureItem}>
+                <View style={[styles.featureIconBox, { backgroundColor: '#fef2f2' }]}>
+                  <MaterialCommunityIcons name="bullhorn-outline" size={24} color={SP_RED} />
+                </View>
+                <Text style={styles.featureText}>Campaign Updates</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <View style={[styles.featureIconBox, { backgroundColor: '#f0fdf4' }]}>
+                  <MaterialCommunityIcons name="account-group-outline" size={24} color={SP_GREEN} />
+                </View>
+                <Text style={styles.featureText}>Join Community</Text>
+              </View>
+            </View> */}
+
+            {/* Stats Section */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>50K+</Text>
+                <Text style={styles.statLabel}>Active Members</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>100+</Text>
+                <Text style={styles.statLabel}>Cities Covered</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>24/7</Text>
+                <Text style={styles.statLabel}>Support</Text>
+              </View>
             </View>
-            <Text style={styles.featureText}>Campaign Updates</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIconBox, { backgroundColor: '#f0fdf4' }]}>
-              <MaterialCommunityIcons name="account-group-outline" size={24} color={SP_GREEN} />
-            </View>
-            <Text style={styles.featureText}>Join Community</Text>
-          </View>
-        </View>
 
-        {/* Stats Section */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>50K+</Text>
-            <Text style={styles.statLabel}>Active Members</Text>
+            {/* Info Card */}
+
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>100+</Text>
-            <Text style={styles.statLabel}>Cities Covered</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>24/7</Text>
-            <Text style={styles.statLabel}>Support</Text>
-          </View>
-        </View>
-
-        {/* Info Card */}
-
-
-
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

@@ -1,22 +1,132 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, Image, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, Image, TextInput, Linking } from 'react-native';
 import { Text, Surface, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { DAILY_TASKS } from '@/constants/dailyWorkData';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../../../utils/api';
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
+
+interface Task {
+    _id: string;
+    title: string;
+    description: string;
+    type: string;
+    points: number;
+    deadline?: string;
+    status: string;
+    linkToShare?: string;
+    platform?: string;
+    completed?: boolean;
+}
 
 export default function TaskDetailScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+    const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [description, setDescription] = useState('');
+    const [task, setTask] = useState<Task | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const task = DAILY_TASKS.find(t => t.id === id);
+    useEffect(() => {
+        fetchTaskDetails();
+    }, [id]);
+
+    const fetchTaskDetails = async () => {
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            const url = getApiUrl();
+            const response = await fetch(`${url}/tasks/${id}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            const data = await response.json();
+            if (data.success) {
+                setTask(data.data);
+            } else {
+                Alert.alert('Error', 'Task not found');
+                router.back();
+            }
+        } catch (error) {
+            console.error('Error fetching task:', error);
+            Alert.alert('Error', 'Failed to load task details');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const pickImage = async () => {
+        // No permissions request is necessary for launching the image library
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.5,
+            base64: true,
+        });
+
+        if (!result.canceled) {
+            setUploadedImage(result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : result.assets[0].uri);
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!uploadedImage) {
+            Alert.alert('Error', 'Please upload proof of your work.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            const url = getApiUrl();
+
+            const response = await fetch(`${url}/tasks/${id}/complete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    comment: description,
+                    proofImage: uploadedImage // Sending base64 string
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                Alert.alert('Success', `Task submitted! You earned ${data.pointsEarned} points.`, [
+                    { text: 'OK', onPress: () => router.back() }
+                ]);
+            } else {
+                Alert.alert('Error', data.message || 'Failed to submit task');
+            }
+        } catch (error) {
+            console.error('Error submitting task:', error);
+            Alert.alert('Error', 'Failed to submit task');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const openLink = () => {
+        if (task?.linkToShare) {
+            Linking.openURL(task.linkToShare);
+        }
+    };
+
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={SP_RED} />
+            </View>
+        );
+    }
 
     if (!task) {
         return (
@@ -25,28 +135,6 @@ export default function TaskDetailScreen() {
             </View>
         );
     }
-
-    const handleUpload = () => {
-        Alert.alert('Upload Proof', 'Choose proof type', [
-            { text: 'Screenshot', onPress: () => setUploadedFile('screenshot.jpg') },
-            { text: 'Photo', onPress: () => setUploadedFile('photo.jpg') },
-            { text: 'Cancel', style: 'cancel' }
-        ]);
-    };
-
-    const handleSubmit = () => {
-        if (!uploadedFile) {
-            Alert.alert('Error', 'Please upload proof of your work.');
-            return;
-        }
-        setIsSubmitting(true);
-        setTimeout(() => {
-            setIsSubmitting(false);
-            Alert.alert('Success', 'Task submitted for review! Points will be added shortly.', [
-                { text: 'OK', onPress: () => router.back() }
-            ]);
-        }, 1500);
-    };
 
     return (
         <View style={styles.container}>
@@ -64,7 +152,7 @@ export default function TaskDetailScreen() {
                     <View style={styles.iconRow}>
                         <View style={[styles.iconContainer, { backgroundColor: task.status === 'Completed' ? '#dcfce7' : '#fee2e2' }]}>
                             <MaterialCommunityIcons
-                                name={task.icon as any}
+                                name={task.type === 'Social Media' ? 'share-variant' : 'checkbox-marked-circle-outline'}
                                 size={32}
                                 color={task.status === 'Completed' ? SP_GREEN : SP_RED}
                             />
@@ -78,10 +166,17 @@ export default function TaskDetailScreen() {
                     <Text style={styles.title}>{task.title}</Text>
                     <Text style={styles.description}>{task.description}</Text>
 
+                    {task.linkToShare && (
+                        <TouchableOpacity style={styles.linkButton} onPress={openLink}>
+                            <Text style={styles.linkButtonText}>Open Link</Text>
+                            <MaterialCommunityIcons name="open-in-new" size={16} color="#fff" />
+                        </TouchableOpacity>
+                    )}
+
                     <View style={styles.metaContainer}>
                         <View style={styles.metaItem}>
                             <MaterialCommunityIcons name="clock-outline" size={16} color="#64748b" />
-                            <Text style={styles.metaText}>Deadline: {task.deadline}</Text>
+                            <Text style={styles.metaText}>Deadline: {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No Deadline'}</Text>
                         </View>
                         <View style={styles.metaItem}>
                             <MaterialCommunityIcons name="tag-outline" size={16} color="#64748b" />
@@ -101,11 +196,10 @@ export default function TaskDetailScreen() {
                     <View style={styles.submissionForm}>
                         <Text style={styles.sectionTitle}>Submit Proof</Text>
 
-                        <TouchableOpacity style={styles.uploadArea} onPress={handleUpload}>
-                            {uploadedFile ? (
+                        <TouchableOpacity style={styles.uploadArea} onPress={pickImage}>
+                            {uploadedImage ? (
                                 <View style={styles.filePreview}>
-                                    <MaterialCommunityIcons name="file-image" size={40} color={SP_RED} />
-                                    <Text style={styles.fileName}>{uploadedFile}</Text>
+                                    <Image source={{ uri: uploadedImage }} style={{ width: 200, height: 200, borderRadius: 10, marginBottom: 10 }} resizeMode="cover" />
                                     <Text style={styles.changeText}>Tap to change</Text>
                                 </View>
                             ) : (
@@ -344,5 +438,21 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
+    },
+    linkButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: SP_RED,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        marginBottom: 20,
+        gap: 8,
+    },
+    linkButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 14,
     },
 });

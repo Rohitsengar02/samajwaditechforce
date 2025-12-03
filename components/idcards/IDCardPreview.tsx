@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import QRCode from 'react-native-qrcode-svg';
 
 const SP_RED = '#E30512';
 const SP_DARK_RED = '#B00410';
@@ -12,7 +13,9 @@ interface IDCardPreviewProps {
 }
 
 export default function IDCardPreview({ memberData, showBack }: IDCardPreviewProps) {
-    const IDNumber = `SP-TF-${Date.now().toString().slice(-6)}`;
+    // Generate unique ID from user's _id or create one
+    const fullID = memberData.uniqueId || memberData._id || `SP-TF-${Date.now().toString().slice(-6)}`;
+    const IDNumber = fullID.slice(0, 6).toUpperCase();
     const [isFlipped, setIsFlipped] = useState(false);
     const flipAnimation = useRef(new Animated.Value(0)).current;
 
@@ -101,6 +104,10 @@ export default function IDCardPreview({ memberData, showBack }: IDCardPreviewPro
                                     </View>
                                 </LinearGradient>
 
+                                <View style={styles.marqueeContainer}>
+                                    <Text style={styles.marqueeText}>पहचान एवं सम्मान कार्यक्रम</Text>
+                                </View>
+
                                 <View style={styles.cardBody}>
                                     <View style={styles.profileCard}>
                                         <View style={styles.photoContainer}>
@@ -112,17 +119,13 @@ export default function IDCardPreview({ memberData, showBack }: IDCardPreviewPro
                                             />
                                             <View style={styles.photoBorder} />
                                         </View>
-
-                                        <View style={styles.profileInfo}>
-                                            <Text style={styles.nameText}>{memberData.fullName || 'नाम'}</Text>
-                                            <View style={styles.idBadge}>
-                                                <MaterialCommunityIcons name="shield-check" size={11} color={SP_RED} />
-                                                <Text style={styles.idText}>{IDNumber}</Text>
-                                            </View>
-                                        </View>
                                     </View>
 
                                     <View style={styles.infoList}>
+                                        <View style={styles.infoRow}>
+                                            <Text style={styles.infoLabel}>Name:</Text>
+                                            <Text style={styles.infoValue}>{memberData.fullName || 'नाम'}</Text>
+                                        </View>
                                         <View style={styles.infoRow}>
                                             <Text style={styles.infoLabel}>Mobile:</Text>
                                             <Text style={styles.infoValue}>+91 {memberData.mobile || '----------'}</Text>
@@ -186,6 +189,10 @@ export default function IDCardPreview({ memberData, showBack }: IDCardPreviewPro
                                     </View>
                                 </LinearGradient>
 
+                                <View style={styles.marqueeContainer}>
+                                    <Text style={styles.marqueeText}>पहचान एवं सम्मान कार्यक्रम</Text>
+                                </View>
+
                                 <View style={styles.cardBody}>
                                     <View style={styles.infoList}>
                                         <View style={styles.infoRow}>
@@ -203,10 +210,16 @@ export default function IDCardPreview({ memberData, showBack }: IDCardPreviewPro
                                     </View>
 
                                     <View style={[styles.qrContainer, { marginTop: 10, padding: 10, flex: 1, justifyContent: 'center' }]}>
-                                        <View style={[styles.qrPlaceholder, { width: 80, height: 80 }]}>
-                                            <MaterialCommunityIcons name="qrcode" size={60} color="#000" />
+                                        <View style={styles.qrCodeWrapper}>
+                                            <QRCode
+                                                value={`https://samajwaditechforce.com/member/${fullID}`}
+                                                size={80}
+                                                backgroundColor="white"
+                                                color="black"
+                                            />
                                         </View>
-                                        <Text style={[styles.qrText, { marginTop: 4 }]}>Scan for verification</Text>
+                                        <Text style={[styles.qrText, { marginTop: 8 }]}>Scan for verification</Text>
+                                        <Text style={[styles.qrIdText, { marginTop: 4 }]}>UID:- {IDNumber}</Text>
                                     </View>
 
                                     <View style={styles.backLogoContainer}>
@@ -255,7 +268,7 @@ const styles = StyleSheet.create({
     clipRing: { width: 32, height: 32, borderRadius: 16, borderWidth: 3, borderColor: '#94a3b8', backgroundColor: 'transparent' },
     clipHook: { width: 14, height: 22, backgroundColor: '#64748b', marginTop: -15, borderRadius: 7 },
 
-    cardHolder: { width: 300, maxWidth: 340, marginTop: -10 },
+    cardHolder: { width: 350, maxWidth: 360, marginTop: -10 },
     holderFrame: {
         borderRadius: 24,
         padding: 8,
@@ -266,7 +279,7 @@ const styles = StyleSheet.create({
         shadowRadius: 30,
         elevation: 20
     },
-    idCard: { aspectRatio: 0.63, borderRadius: 18, overflow: 'hidden', backgroundColor: '#fff' },
+    idCard: { aspectRatio: 0.55, borderRadius: 18, overflow: 'hidden', backgroundColor: '#fff' },
     cardFace: { position: 'absolute', width: '100%', height: '100%', backfaceVisibility: 'hidden' },
 
     cardContainer: { flex: 1, backgroundColor: '#F8FAFC' },
@@ -290,13 +303,13 @@ const styles = StyleSheet.create({
         position: 'absolute',
         left: 16,
         top: 16,
-        width: 48,
-        height: 48,
+        width: 80,
+        height: 80,
         resizeMode: 'contain',
         zIndex: 3
     },
     headerTextContainer: { alignItems: 'flex-end', gap: 4 },
-    partyName: { color: '#fff', fontWeight: '900', fontSize: 18, textAlign: 'right', letterSpacing: 0.5 },
+    partyName: { color: '#fff', fontWeight: '900', fontSize: 22, textAlign: 'right', letterSpacing: 0.5 },
     techForceBadge: {
         backgroundColor: 'rgba(255,255,255,0.2)',
         paddingHorizontal: 12,
@@ -305,44 +318,40 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)'
     },
-    techForce: { color: '#fff', fontSize: 9, letterSpacing: 2, fontWeight: '700' },
+    techForce: { color: '#fff', fontSize: 14, letterSpacing: 2, fontWeight: '700' },
 
     cardBody: { flex: 1, padding: 16, paddingTop: 20 },
 
     profileCard: {
-        flexDirection: 'row',
-        backgroundColor: '#fff',
+        flexDirection: 'column',
+
         borderRadius: 12,
         padding: 12,
         marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
+
         alignItems: 'center',
-        gap: 12
+        gap: 8
     },
     photoContainer: {
         position: 'relative',
     },
-    memberPhoto: { width: 60, height: 60, borderRadius: 30 },
-    photoPlaceholder: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+    memberPhoto: { width: 100, height: 100, borderRadius: 50 },
+    photoPlaceholder: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
     photoBorder: {
         position: 'absolute',
         top: -3,
         left: -3,
-        width: 66,
-        height: 66,
-        borderRadius: 33,
+        width: 106,
+        height: 106,
+        borderRadius: 53,
         borderWidth: 2.5,
         borderColor: SP_RED,
         borderStyle: 'solid'
     },
     profileInfo: {
-        flex: 1,
+        alignItems: 'center',
         justifyContent: 'center',
-        gap: 6
+        gap: 4
     },
     nameText: { fontSize: 15, fontWeight: '900', color: '#0F172A' },
     idBadge: {
@@ -378,110 +387,100 @@ const styles = StyleSheet.create({
     infoLabel: { fontSize: 13, color: '#64748B', fontWeight: '600' },
     infoValue: { fontSize: 13, color: '#0F172A', fontWeight: '700', textAlign: 'right' },
 
-    backDetailsContainer: { gap: 12 },
-    detailBox: {
-        flexDirection: 'row',
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 14,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-        alignItems: 'center',
-        gap: 12
-    },
-    detailIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#F8FAFC',
-        alignItems: 'center',
-        justifyContent: 'center'
-    },
-    detailTextContainer: { flex: 1 },
-    detailLabel: { fontSize: 10, color: '#64748B', fontWeight: '600', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
-    detailValue: { fontSize: 13, color: '#0F172A', fontWeight: '700' },
-
     qrContainer: {
-        backgroundColor: '#fff',
+
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
         marginTop: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3
+
     },
-    qrPlaceholder: {
-        width: 100,
-        height: 100,
-        backgroundColor: '#F8FAFC',
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8
+    qrCodeWrapper: {
+        padding: 8,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: '#F1F5F9',
     },
-    qrText: { fontSize: 11, color: '#64748B', fontWeight: '600' },
+    qrText: { fontSize: 11, color: '#64748B', fontWeight: '600', marginTop: 8 },
+    qrIdText: {
+        fontSize: 9,
+        color: '#94A3B8',
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
 
     backLogoContainer: {
         position: 'absolute',
         bottom: 20,
         right: 20,
-        zIndex: 0
+        opacity: 0.05
     },
 
     cardFooter: {
         paddingVertical: 12,
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
+        backgroundColor: SP_RED,
         alignItems: 'center',
-        justifyContent: 'center',
-        borderTopWidth: 1,
-        borderTopColor: '#F1F5F9',
-        backgroundColor: '#fff'
+        justifyContent: 'center'
     },
     footerContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6
+        gap: 8
     },
-    footerTextWhite: {
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 0.5
-    },
+    footerTextWhite: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    footerText: { fontSize: 11, color: '#ffffffff', fontWeight: '600' },
     socialIcons: {
         flexDirection: 'row',
         gap: 12,
-        marginBottom: 4
+        marginBottom: 8
     },
     socialIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#F8FAFC',
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#fff',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2
     },
-    footerText: { fontSize: 10, color: '#94A3B8', fontWeight: '600' },
 
     flipButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#0F172A',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 30,
         gap: 8,
-        shadowColor: '#000',
+        marginTop: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        backgroundColor: SP_RED,
+        borderRadius: 20,
+        shadowColor: SP_RED,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.3,
         shadowRadius: 8,
-        elevation: 5
+        elevation: 6
     },
-    flipButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 }
+    flipButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '700'
+    },
+    marqueeContainer: {
+        backgroundColor: 'green',
+        paddingVertical: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+    },
+    marqueeText: {
+        color: '#fff',
+        fontSize: 22,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    }
 });

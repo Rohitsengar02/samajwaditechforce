@@ -1,42 +1,117 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, Dimensions } from 'react-native';
-import { Text, Card, Button, RadioButton, Chip, Title, Surface } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, Platform, KeyboardAvoidingView } from 'react-native';
+import { Text, Card, TextInput, RadioButton, Checkbox, Title, ActivityIndicator } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import IDCardPreview from '@/components/idcards/IDCardPreview';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../utils/api';
 
-const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 export default function VerifiedMemberScreen() {
     const router = useRouter();
-    const [role, setRole] = useState('Member');
-    const [status, setStatus] = useState('Not Verified');
-    const [showBack, setShowBack] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [user, setUser] = useState<any>(null);
 
-    // Mock member data for preview
-    const memberData = {
-        fullName: 'Samajwadi Member',
-        mobile: '9876543210',
-        district: 'Lucknow',
-        vidhanSabha: 'Lucknow Central',
-        photoUri: 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png',
-        partyRole: role
+    // Form State
+    const [district, setDistrict] = useState('');
+    const [vidhanSabha, setVidhanSabha] = useState('');
+    const [isPartyMember, setIsPartyMember] = useState('No');
+    const [partyRole, setPartyRole] = useState('');
+    const [partyJoiningDate, setPartyJoiningDate] = useState('');
+    const [socialMedia, setSocialMedia] = useState<string[]>([]);
+    const [qualification, setQualification] = useState('');
+    const [canVisitLucknow, setCanVisitLucknow] = useState('No');
+    const [email, setEmail] = useState('');
+
+    useEffect(() => {
+        loadUserData();
+    }, []);
+
+    const loadUserData = async () => {
+        try {
+            const userInfo = await AsyncStorage.getItem('userInfo');
+            if (userInfo) {
+                const parsedUser = JSON.parse(userInfo);
+                setUser(parsedUser);
+                setEmail(parsedUser.email || '');
+                // Pre-fill if already submitted (optional, but good UX)
+                if (parsedUser.district) setDistrict(parsedUser.district);
+                if (parsedUser.vidhanSabha) setVidhanSabha(parsedUser.vidhanSabha);
+                if (parsedUser.isPartyMember) setIsPartyMember(parsedUser.isPartyMember);
+                if (parsedUser.partyRole) setPartyRole(parsedUser.partyRole);
+                if (parsedUser.partyJoiningDate) setPartyJoiningDate(parsedUser.partyJoiningDate);
+                if (parsedUser.socialMedia) setSocialMedia(parsedUser.socialMedia);
+                if (parsedUser.qualification) setQualification(parsedUser.qualification);
+                if (parsedUser.canVisitLucknow) setCanVisitLucknow(parsedUser.canVisitLucknow);
+            }
+        } catch (error) {
+            console.error('Failed to load user data', error);
+        }
     };
 
-    const roles = [
-        'Member',
-        'Volunteer',
-        'District Coordinator',
-        'Booth Adhyaksh',
-        'Sector Prabhari'
-    ];
+    const toggleSocialMedia = (platform: string) => {
+        if (socialMedia.includes(platform)) {
+            setSocialMedia(socialMedia.filter(p => p !== platform));
+        } else {
+            setSocialMedia([...socialMedia, platform]);
+        }
+    };
 
-    const handleVerify = () => {
-        setStatus('Pending Verification');
-        Alert.alert('Success', 'Your verification request has been submitted. We will review your details shortly.');
+    const handleVerify = async () => {
+        if (!district || !vidhanSabha || !qualification) {
+            Alert.alert('Error', 'Please fill all required fields (District, Vidhan Sabha, Qualification)');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) {
+                Alert.alert('Error', 'Not authenticated');
+                return;
+            }
+
+            // API URL Logic
+            const url = getApiUrl();
+
+            const response = await fetch(`${url}/auth/verification-request`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    district,
+                    vidhanSabha,
+                    isPartyMember,
+                    partyRole: isPartyMember === 'Yes' ? partyRole : '',
+                    partyJoiningDate: isPartyMember === 'Yes' ? partyJoiningDate : '',
+                    socialMedia,
+                    qualification,
+                    canVisitLucknow,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to submit verification request');
+            }
+
+            // Update local storage
+            const updatedUser = { ...user, ...data.user };
+            await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUser));
+
+            Alert.alert('Success', 'Verification request submitted successfully!');
+            router.back();
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Something went wrong');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -48,93 +123,162 @@ export default function VerifiedMemberScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#1e293b" />
                 </TouchableOpacity>
-                <Title style={styles.headerTitle}>Membership & Verification</Title>
+                <Title style={styles.headerTitle}>Membership Verification</Title>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-                {/* Registration Status */}
-                <Card style={styles.card}>
-                    <Card.Content>
-                        <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="shield-account" size={24} color={SP_RED} />
-                            <Text style={styles.sectionTitle}>Registration Status</Text>
-                        </View>
+                    <Card style={styles.card}>
+                        <Card.Content>
+                            <View style={styles.sectionHeader}>
+                                <MaterialCommunityIcons name="card-account-details" size={24} color={SP_RED} />
+                                <Text style={styles.sectionTitle}>Basic Details</Text>
+                            </View>
 
-                        <View style={[styles.statusBadge, status === 'Verified' ? styles.verified : styles.notVerified]}>
-                            <MaterialCommunityIcons
-                                name={status === 'Verified' ? "check-decagram" : "alert-circle-outline"}
-                                size={20}
-                                color="#fff"
+                            <TextInput
+                                label="Email ID"
+                                value={email}
+                                mode="outlined"
+                                disabled
+                                style={styles.input}
                             />
-                            <Text style={styles.statusText}>{status}</Text>
-                        </View>
 
-                        <Text style={styles.statusDescription}>
-                            {status === 'Verified'
-                                ? 'Your profile is verified. You can now access all member features.'
-                                : 'Complete your profile and select a role to request verification.'}
-                        </Text>
-                    </Card.Content>
-                </Card>
+                            <TextInput
+                                label="District (जिला) *"
+                                value={district}
+                                onChangeText={setDistrict}
+                                mode="outlined"
+                                style={styles.input}
+                                placeholder="Ex: Lucknow, Kanpur"
+                            />
 
-                {/* Role Selection */}
-                <Card style={styles.card}>
-                    <Card.Content>
-                        <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="account-tie" size={24} color={SP_RED} />
-                            <Text style={styles.sectionTitle}>Select Member Role</Text>
-                        </View>
-                        <Text style={styles.helperText}>Choose the role you want to apply for:</Text>
+                            <TextInput
+                                label="Vidhan Sabha (विधानसभा) *"
+                                value={vidhanSabha}
+                                onChangeText={setVidhanSabha}
+                                mode="outlined"
+                                style={styles.input}
+                                placeholder="Ex: Lucknow Central"
+                            />
 
-                        <View style={styles.rolesContainer}>
-                            {roles.map((r) => (
-                                <TouchableOpacity
-                                    key={r}
-                                    style={[styles.roleChip, role === r && styles.roleChipSelected]}
-                                    onPress={() => setRole(r)}
-                                >
-                                    <Text style={[styles.roleText, role === r && styles.roleTextSelected]}>{r}</Text>
-                                    {role === r && <MaterialCommunityIcons name="check-circle" size={16} color="#fff" />}
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </Card.Content>
-                </Card>
+                            <TextInput
+                                label="Qualification (क्वालिफिकेशन) *"
+                                value={qualification}
+                                onChangeText={setQualification}
+                                mode="outlined"
+                                style={styles.input}
+                                placeholder="Ex: 12th, Graduate, IIT"
+                            />
+                        </Card.Content>
+                    </Card>
 
-                {/* Digital ID Card Preview */}
-                <View style={styles.previewSection}>
-                    <View style={styles.sectionHeader}>
-                        <MaterialCommunityIcons name="card-account-details" size={24} color={SP_RED} />
-                        <Text style={styles.sectionTitle}>Digital ID Card Preview</Text>
-                    </View>
+                    <Card style={styles.card}>
+                        <Card.Content>
+                            <View style={styles.sectionHeader}>
+                                <MaterialCommunityIcons name="account-group" size={24} color={SP_RED} />
+                                <Text style={styles.sectionTitle}>Party Affiliation</Text>
+                            </View>
 
-                    <View style={styles.idCardContainer}>
-                        <IDCardPreview memberData={{ ...memberData, partyRole: role }} showBack={showBack} />
-                    </View>
+                            <Text style={styles.question}>क्या आप समाजवादी पार्टी से जुड़े हैं?</Text>
+                            <RadioButton.Group onValueChange={value => setIsPartyMember(value)} value={isPartyMember}>
+                                <View style={styles.radioRow}>
+                                    <View style={styles.radioItem}>
+                                        <RadioButton value="Yes" color={SP_RED} />
+                                        <Text>Yes (हाँ)</Text>
+                                    </View>
+                                    <View style={styles.radioItem}>
+                                        <RadioButton value="No" color={SP_RED} />
+                                        <Text>No (नहीं)</Text>
+                                    </View>
+                                </View>
+                            </RadioButton.Group>
 
-                    <TouchableOpacity style={styles.flipButton} onPress={() => setShowBack(!showBack)}>
-                        <MaterialCommunityIcons name="rotate-3d-variant" size={20} color={SP_RED} />
-                        <Text style={styles.flipButtonText}>{showBack ? 'View Front' : 'View Back'}</Text>
-                    </TouchableOpacity>
-                </View>
+                            {isPartyMember === 'Yes' && (
+                                <>
+                                    <TextInput
+                                        label="Party Role (पार्टी से आपका संबंध क्या है?)"
+                                        value={partyRole}
+                                        onChangeText={setPartyRole}
+                                        mode="outlined"
+                                        style={styles.input}
+                                        placeholder="Ex: Karyakarta, Booth Adhyaksh"
+                                    />
 
-                {/* Submit Button */}
-                <TouchableOpacity
-                    style={styles.submitButton}
-                    onPress={handleVerify}
-                    activeOpacity={0.9}
-                >
-                    <LinearGradient
-                        colors={[SP_RED, '#b91c1c']}
-                        style={styles.submitGradient}
+                                    <TextInput
+                                        label="Party Joining Date (पार्टी में कब से हैं?)"
+                                        value={partyJoiningDate}
+                                        onChangeText={setPartyJoiningDate}
+                                        mode="outlined"
+                                        style={styles.input}
+                                        placeholder="Ex: 2020, Jan 2019, 5 years"
+                                        keyboardType="default"
+                                    />
+                                </>
+                            )}
+                        </Card.Content>
+                    </Card>
+
+                    <Card style={styles.card}>
+                        <Card.Content>
+                            <View style={styles.sectionHeader}>
+                                <MaterialCommunityIcons name="share-variant" size={24} color={SP_RED} />
+                                <Text style={styles.sectionTitle}>Social Media & Availability</Text>
+                            </View>
+
+                            <Text style={styles.question}>आप किन-किन सोशल मीडिया प्लेटफॉर्म पर सक्रिय हैं?</Text>
+                            <View style={styles.checkboxContainer}>
+                                {['Facebook', 'Instagram', 'Twitter (X)', 'YouTube'].map(platform => (
+                                    <View key={platform} style={styles.checkboxItem}>
+                                        <Checkbox
+                                            status={socialMedia.includes(platform) ? 'checked' : 'unchecked'}
+                                            onPress={() => toggleSocialMedia(platform)}
+                                            color={SP_RED}
+                                        />
+                                        <Text>{platform}</Text>
+                                    </View>
+                                ))}
+                            </View>
+
+                            <Text style={styles.question}>क्या आप होने वाली मीटिंग में लखनऊ आ पाएंगे?</Text>
+                            <RadioButton.Group onValueChange={value => setCanVisitLucknow(value)} value={canVisitLucknow}>
+                                <View style={styles.radioRow}>
+                                    <View style={styles.radioItem}>
+                                        <RadioButton value="Yes" color={SP_RED} />
+                                        <Text>Yes (हाँ)</Text>
+                                    </View>
+                                    <View style={styles.radioItem}>
+                                        <RadioButton value="No" color={SP_RED} />
+                                        <Text>No (नहीं)</Text>
+                                    </View>
+                                </View>
+                            </RadioButton.Group>
+                        </Card.Content>
+                    </Card>
+
+                    <TouchableOpacity
+                        style={styles.submitButton}
+                        onPress={handleVerify}
+                        disabled={loading}
+                        activeOpacity={0.9}
                     >
-                        <Text style={styles.submitText}>Submit for Verification</Text>
-                        <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
-                    </LinearGradient>
-                </TouchableOpacity>
+                        <LinearGradient
+                            colors={loading ? ['#666', '#444'] : [SP_RED, '#b91c1c']}
+                            style={styles.submitGradient}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <Text style={styles.submitText}>Submit for Verification</Text>
+                                    <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+                                </>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
 
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 }
@@ -145,11 +289,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8fafc',
     },
     background: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0,
+        ...StyleSheet.absoluteFillObject,
     },
     header: {
         flexDirection: 'row',
@@ -180,10 +320,6 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         backgroundColor: '#fff',
         elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -196,97 +332,43 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1e293b',
     },
-    statusBadge: {
+    input: {
+        marginBottom: 16,
+        backgroundColor: '#fff',
+    },
+    question: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#334155',
+        marginBottom: 10,
+        marginTop: 10,
+    },
+    radioRow: {
+        flexDirection: 'row',
+        gap: 20,
+        marginBottom: 10,
+    },
+    radioItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 12,
-        gap: 8,
-        marginBottom: 12,
     },
-    verified: {
-        backgroundColor: SP_GREEN,
-    },
-    notVerified: {
-        backgroundColor: '#ef4444',
-    },
-    statusText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 16,
-    },
-    statusDescription: {
-        textAlign: 'center',
-        color: '#64748b',
-        fontSize: 14,
-        lineHeight: 20,
-    },
-    helperText: {
-        fontSize: 14,
-        color: '#64748b',
-        marginBottom: 16,
-    },
-    rolesContainer: {
+    checkboxContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
+        marginBottom: 16,
     },
-    roleChip: {
+    checkboxItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        backgroundColor: '#f1f5f9',
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        gap: 6,
-    },
-    roleChipSelected: {
-        backgroundColor: SP_RED,
-        borderColor: SP_RED,
-    },
-    roleText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#64748b',
-    },
-    roleTextSelected: {
-        color: '#fff',
-    },
-    previewSection: {
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    idCardContainer: {
-        transform: [{ scale: 0.9 }],
-        marginVertical: -10,
-    },
-    flipButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: '#fff',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 20,
-        marginTop: 10,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    flipButtonText: {
-        color: SP_RED,
-        fontWeight: '600',
+        width: '50%',
+        marginBottom: 8,
     },
     submitButton: {
         borderRadius: 16,
         overflow: 'hidden',
         elevation: 4,
-        shadowColor: SP_RED,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
+        marginTop: 10,
+        marginBottom: 30,
     },
     submitGradient: {
         flexDirection: 'row',

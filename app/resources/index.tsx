@@ -9,9 +9,12 @@ import { RESOURCE_CATEGORIES } from '@/constants/resourceData';
 const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function ResourceLibraryScreen() {
     const router = useRouter();
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         Animated.timing(fadeAnim, {
@@ -23,7 +26,7 @@ export default function ResourceLibraryScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}>
                 <Animated.View style={{ opacity: fadeAnim }}>
                     {/* Header */}
                     <LinearGradient

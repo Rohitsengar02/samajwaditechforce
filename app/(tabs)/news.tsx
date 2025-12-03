@@ -12,10 +12,19 @@ import {
     Modal,
     Image,
     FlatList,
+    TextInput,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    useWindowDimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { newsAPI } from '@/services/newsAPI';
+import { TranslatedText } from '../../components/TranslatedText';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import DesktopNews from '../desktop-screen-pages/news';
 
 const { width } = Dimensions.get('window');
 
@@ -25,11 +34,15 @@ const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
 
 // News Card Component
-const NewsCard = ({ id, title, description, category, time, image, likes: initialLikes, comments, featured = false }: any) => {
+const NewsCard = ({ id, title, description, category, time, image, likes: initialLikes, isLiked: initialIsLiked, comments: commentsCount, commentsData, featured = false, views = 0 }: any) => {
     const router = useRouter();
-    const [liked, setLiked] = useState(false);
+    const [liked, setLiked] = useState(initialIsLiked || false);
     const [likes, setLikes] = useState(initialLikes || 0);
     const [showComments, setShowComments] = useState(false);
+    const [commentText, setCommentText] = useState('');
+    const [localComments, setLocalComments] = useState(commentsData || []);
+    const [submittingComment, setSubmittingComment] = useState(false);
+
     const likeAnim = useRef(new Animated.Value(1)).current;
     const scaleAnim = useRef(new Animated.Value(0.95)).current;
     const slideAnim = useRef(new Animated.Value(600)).current;
@@ -58,22 +71,61 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
         }
     }, [showComments]);
 
-    const handleLike = () => {
-        setLiked(!liked);
-        setLikes(liked ? likes - 1 : likes + 1);
+    const handleLike = async () => {
+        try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (!userInfoStr) return;
+            const userInfo = JSON.parse(userInfoStr);
+            const userId = userInfo._id || userInfo.id;
 
-        Animated.sequence([
-            Animated.timing(likeAnim, {
-                toValue: 1.3,
-                duration: 150,
-                useNativeDriver: true,
-            }),
-            Animated.spring(likeAnim, {
-                toValue: 1,
-                friction: 3,
-                useNativeDriver: true,
-            }),
-        ]).start();
+            const newLiked = !liked;
+            setLiked(newLiked);
+            setLikes(newLiked ? likes + 1 : likes - 1);
+
+            Animated.sequence([
+                Animated.timing(likeAnim, {
+                    toValue: 1.3,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(likeAnim, {
+                    toValue: 1,
+                    friction: 3,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+
+            await newsAPI.toggleLike(id, userId);
+        } catch (error) {
+            console.error(error);
+            // Revert
+            setLiked(!liked);
+            setLikes(liked ? likes + 1 : likes - 1);
+        }
+    };
+
+    const handleAddComment = async () => {
+        if (!commentText.trim()) return;
+
+        try {
+            setSubmittingComment(true);
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (!userInfoStr) return;
+            const userInfo = JSON.parse(userInfoStr);
+            const userId = userInfo._id || userInfo.id;
+            const userName = userInfo.name || 'User';
+
+            const response = await newsAPI.addComment(id, commentText, userId, userName);
+
+            if (response.success) {
+                setLocalComments(response.data);
+                setCommentText('');
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setSubmittingComment(false);
+        }
     };
 
     const handleShare = async () => {
@@ -116,7 +168,9 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                 {featured && (
                     <View style={styles.featuredBadge}>
                         <MaterialCommunityIcons name="star" size={14} color="#fff" />
-                        <Text style={styles.featuredText}>FEATURED</Text>
+                        <Text style={styles.featuredText}>
+                            <TranslatedText>FEATURED</TranslatedText>
+                        </Text>
                     </View>
                 )}
 
@@ -151,15 +205,21 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                     >
                         <View style={styles.categoryBadgeOnImage}>
                             <View style={[styles.categoryDot, { backgroundColor: '#fff' }]} />
-                            <Text style={styles.categoryTextOnImage}>{category}</Text>
+                            <Text style={styles.categoryTextOnImage}>
+                                <TranslatedText>{category}</TranslatedText>
+                            </Text>
                         </View>
                     </LinearGradient>
                 </View>
 
                 {/* Card Content */}
                 <View style={styles.cardContent}>
-                    <Text style={styles.newsTitle} numberOfLines={2}>{title}</Text>
-                    <Text style={styles.newsDescription} numberOfLines={3}>{description}</Text>
+                    <Text style={styles.newsTitle} numberOfLines={2}>
+                        <TranslatedText>{title}</TranslatedText>
+                    </Text>
+                    <Text style={styles.newsDescription} numberOfLines={3}>
+                        <TranslatedText>{description}</TranslatedText>
+                    </Text>
 
                     {/* Interaction Bar */}
                     <View style={styles.interactionBar}>
@@ -190,7 +250,7 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                                 size={20}
                                 color="#64748b"
                             />
-                            <Text style={styles.interactionText}>{comments || 0}</Text>
+                            <Text style={styles.interactionText}>{localComments.length}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -205,13 +265,24 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                             />
                         </TouchableOpacity>
 
+                        <View style={styles.interactionButton}>
+                            <MaterialCommunityIcons
+                                name="eye-outline"
+                                size={20}
+                                color="#64748b"
+                            />
+                            <Text style={styles.interactionText}>{views}</Text>
+                        </View>
+
                         <View style={styles.timeContainer}>
                             <MaterialCommunityIcons
                                 name="clock-outline"
                                 size={14}
                                 color="#94a3b8"
                             />
-                            <Text style={styles.timeText}>{time}</Text>
+                            <Text style={styles.timeText}>
+                                <TranslatedText>{time}</TranslatedText>
+                            </Text>
                         </View>
                     </View>
                 </View>
@@ -235,33 +306,70 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                             { transform: [{ translateY: slideAnim }] }
                         ]}
                     >
-                        <TouchableOpacity activeOpacity={1}>
-                            <View style={styles.modalHandle} />
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                            style={{ flex: 1 }}
+                            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                        >
+                            <TouchableOpacity activeOpacity={1} style={{ flex: 1 }}>
+                                <View style={styles.modalHandle} />
 
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Comments ({comments || 0})</Text>
-                                <TouchableOpacity onPress={() => setShowComments(false)}>
-                                    <MaterialCommunityIcons name="close" size={24} color="#64748b" />
-                                </TouchableOpacity>
-                            </View>
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalTitle}>Comments ({localComments.length})</Text>
+                                    <TouchableOpacity onPress={() => setShowComments(false)}>
+                                        <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <ScrollView style={styles.commentsScroll}>
-                                {[...Array(comments || 3)].map((_, idx) => (
-                                    <View key={idx} style={styles.commentItem}>
-                                        <View style={styles.commentAvatar}>
-                                            <MaterialCommunityIcons name="account-circle" size={40} color={SP_RED} />
+                                <ScrollView
+                                    style={styles.commentsScroll}
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    keyboardShouldPersistTaps="handled"
+                                >
+                                    {localComments.length === 0 ? (
+                                        <View style={{ padding: 20, alignItems: 'center' }}>
+                                            <Text style={{ color: '#94a3b8' }}>No comments yet. Be the first!</Text>
                                         </View>
-                                        <View style={styles.commentContent}>
-                                            <Text style={styles.commentAuthor}>User {idx + 1}</Text>
-                                            <Text style={styles.commentText}>
-                                                {idx === 0 ? 'बहुत अच्छी खबर है!' : idx === 1 ? 'Great initiative!' : 'Very informative article.'}
-                                            </Text>
-                                            <Text style={styles.commentTime}>{idx + 1} hours ago</Text>
-                                        </View>
-                                    </View>
-                                ))}
-                            </ScrollView>
-                        </TouchableOpacity>
+                                    ) : (
+                                        localComments.map((comment: any, idx: number) => (
+                                            <View key={idx} style={styles.commentItem}>
+                                                <View style={styles.commentAvatar}>
+                                                    <MaterialCommunityIcons name="account-circle" size={40} color={SP_RED} />
+                                                </View>
+                                                <View style={styles.commentContent}>
+                                                    <Text style={styles.commentAuthor}>{comment.name}</Text>
+                                                    <Text style={styles.commentText}>{comment.text}</Text>
+                                                    <Text style={styles.commentTime}>{new Date(comment.date).toLocaleDateString()}</Text>
+                                                </View>
+                                            </View>
+                                        ))
+                                    )}
+                                </ScrollView>
+
+                                <View style={styles.commentInputContainer}>
+                                    <TextInput
+                                        style={styles.commentInput}
+                                        placeholder="Write a comment..."
+                                        placeholderTextColor="#94a3b8"
+                                        value={commentText}
+                                        onChangeText={setCommentText}
+                                        multiline
+                                        maxLength={500}
+                                    />
+                                    <TouchableOpacity
+                                        style={[styles.sendButton, !commentText.trim() && { opacity: 0.5 }]}
+                                        onPress={handleAddComment}
+                                        disabled={!commentText.trim() || submittingComment}
+                                    >
+                                        {submittingComment ? (
+                                            <ActivityIndicator size="small" color="#fff" />
+                                        ) : (
+                                            <MaterialCommunityIcons name="send" size={20} color="#fff" />
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableOpacity>
+                        </KeyboardAvoidingView>
                     </Animated.View>
                 </TouchableOpacity>
             </Modal>
@@ -311,11 +419,17 @@ const TrendingCarousel = ({ trendingNews }: any) => {
                 style={styles.trendingOverlay}
             >
                 <View style={styles.trendingBadge}>
-                    <Text style={styles.trendingBadgeText}>{item.category}</Text>
+                    <Text style={styles.trendingBadgeText}>
+                        <TranslatedText>{item.category}</TranslatedText>
+                    </Text>
                 </View>
                 <View style={styles.trendingContent}>
-                    <Text style={styles.trendingSource}>{item.source}</Text>
-                    <Text style={styles.trendingTitle} numberOfLines={2}>{item.title}</Text>
+                    <Text style={styles.trendingSource}>
+                        <TranslatedText>{item.source}</TranslatedText>
+                    </Text>
+                    <Text style={styles.trendingTitle} numberOfLines={2}>
+                        <TranslatedText>{item.title}</TranslatedText>
+                    </Text>
                 </View>
             </LinearGradient>
         </TouchableOpacity>
@@ -324,9 +438,13 @@ const TrendingCarousel = ({ trendingNews }: any) => {
     return (
         <View style={styles.trendingSection}>
             <View style={styles.trendingSectionHeader}>
-                <Text style={styles.trendingSectionTitle}>Breaking News</Text>
+                <Text style={styles.trendingSectionTitle}>
+                    <TranslatedText>Breaking News</TranslatedText>
+                </Text>
                 <TouchableOpacity>
-                    <Text style={styles.viewAllText}>View all</Text>
+                    <Text style={styles.viewAllText}>
+                        <TranslatedText>View all</TranslatedText>
+                    </Text>
                 </TouchableOpacity>
             </View>
             <FlatList
@@ -398,8 +516,12 @@ const DesktopHeader = () => {
                         <MaterialCommunityIcons name="bicycle" size={32} color="#fff" />
                     </View>
                     <View style={styles.logoText}>
-                        <Text style={styles.partyNameHindi}>समाजवादी पार्टी</Text>
-                        <Text style={styles.partyNameEnglish}>Samajwadi Party</Text>
+                        <Text style={styles.partyNameHindi}>
+                            <TranslatedText>समाजवादी पार्टी</TranslatedText>
+                        </Text>
+                        <Text style={styles.partyNameEnglish}>
+                            <TranslatedText>Samajwadi Party</TranslatedText>
+                        </Text>
                     </View>
                 </View>
 
@@ -407,13 +529,14 @@ const DesktopHeader = () => {
                 <View style={styles.tickerContainer}>
                     <View style={styles.tickerLabel}>
                         <MaterialCommunityIcons name="bullhorn" size={16} color={SP_RED} />
-                        <Text style={styles.tickerLabelText}>LATEST</Text>
+                        <Text style={styles.tickerLabelText}>
+                            <TranslatedText>LATEST</TranslatedText>
+                        </Text>
                     </View>
                     <View style={styles.tickerScroll}>
                         <Animated.View style={[styles.tickerContent, { transform: [{ translateX }] }]}>
                             <Text style={styles.tickerText}>
-                                देश में बदलाव की लहर • Tech Force में शामिल हों • नई योजनाओं की घोषणा •
-                                Join the Digital Revolution • समाजवाद का संदेश • साइकिल चलाओ देश बचाओ •
+                                <TranslatedText>देश में बदलाव की लहर • Tech Force में शामिल हों • नई योजनाओं की घोषणा • Join the Digital Revolution • समाजवाद का संदेश • साइकिल चलाओ देश बचाओ •</TranslatedText>
                             </Text>
                         </Animated.View>
                     </View>
@@ -437,84 +560,103 @@ const DesktopHeader = () => {
 };
 
 export default function NewsScreen() {
+    const { width } = useWindowDimensions();
     const isDesktop = width >= 768;
+    const [newsData, setNewsData] = useState<any[]>([]);
+    const [trendingNews, setTrendingNews] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
+        checkUser();
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 600,
             useNativeDriver: true,
         }).start();
+        fetchNews();
     }, []);
 
-    const newsData = [
-        {
-            id: 1,
-            title: 'समाजवादी टेक फोर्स का विस्तार पूरे देश में',
-            description: 'डिजिटल युग में नई पहल के साथ युवाओं को जोड़ने की तैयारी। पार्टी ने देशभर में टेक्नोलॉजी के माध्यम से जनता से जुड़ने का फैसला किया है।',
-            category: 'Tech Force',
-            time: '2 hours ago',
-            image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800',
-            likes: 1245,
-            comments: 89,
-            featured: true,
-        },
-        {
-            id: 2,
-            title: 'नई सदस्यता अभियान की शुरुआत',
-            description: 'पार्टी ने देशभर में नई सदस्यता अभियान की घोषणा की है। युवाओं को प्राथमिकता दी जा रही है।',
-            category: 'Campaign',
-            time: '5 hours ago',
-            image: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800',
-            likes: 892,
-            comments: 45,
-        },
-        {
-            id: 3,
-            title: 'किसानों के लिए नई योजना की घोषणा',
-            description: 'पार्टी ने किसानों के हित में कई महत्वपूर्ण योजनाओं का ऐलान किया। कृषि क्षेत्र में सुधार पर जोर।',
-            category: 'Policy',
-            time: '1 day ago',
-            image: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800',
-            likes: 2156,
-            comments: 234,
-        },
-        {
-            id: 4,
-            title: 'युवा रोजगार कार्यक्रम लॉन्च',
-            description: 'Tech Force के तहत युवाओं के लिए रोजगार और प्रशिक्षण कार्यक्रम शुरू किया गया।',
-            category: 'Youth',
-            time: '2 days ago',
-            image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800',
-            likes: 1567,
-            comments: 123,
-        },
-    ];
+    const checkUser = async () => {
+        const userInfoStr = await AsyncStorage.getItem('userInfo');
+        if (userInfoStr) {
+            const userInfo = JSON.parse(userInfoStr);
+            setCurrentUserId(userInfo._id || userInfo.id);
+        }
+    };
 
-    const trendingNews = [
-        {
-            id: 101,
-            title: 'समाजवादी टेक फोर्स का विस्तार पूरे देश में',
-            category: 'Sports',
-            source: 'CNN Indonesia',
-            image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800',
-        },
-        {
-            id: 102,
-            title: 'किसानों के लिए नई योजना की घोषणा',
-            category: 'Education',
-            source: 'Okhuariao',
-            image: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800',
-        },
-        {
-            id: 103,
-            title: 'युवा रोजगार कार्यक्रम लॉन्च',
-            category: 'Campaign',
-            source: 'SP News',
-            image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800',
-        },
-    ];
+    const getTimeAgo = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + " years ago";
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + " months ago";
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + " days ago";
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + " hours ago";
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + " minutes ago";
+        return Math.floor(seconds) + " seconds ago";
+    };
+
+    const fetchNews = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Get user ID if not set yet (race condition)
+            let userId = currentUserId;
+            if (!userId) {
+                const userInfoStr = await AsyncStorage.getItem('userInfo');
+                if (userInfoStr) {
+                    const userInfo = JSON.parse(userInfoStr);
+                    userId = userInfo._id || userInfo.id;
+                }
+            }
+
+            const response = await newsAPI.getAllNews();
+
+            if (response.success && response.data) {
+                const transformedNews = response.data.map((item: any) => ({
+                    id: item._id,
+                    title: item.title,
+                    description: item.excerpt,
+                    category: 'News', // You might want to add category to your backend model
+                    time: getTimeAgo(item.createdAt),
+                    image: item.coverImage && item.coverImage !== 'no-photo.jpg'
+                        ? item.coverImage
+                        : 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800',
+                    likes: item.likes ? item.likes.length : 0,
+                    isLiked: userId && item.likes ? item.likes.includes(userId) : false,
+                    comments: item.comments ? item.comments.length : 0,
+                    commentsData: item.comments || [],
+                    views: item.views || 0,
+                    featured: item.status === 'Published', // Assuming 'Published' status means visible
+                    source: 'Samajwadi Party'
+                }));
+
+                setNewsData(transformedNews);
+
+                // For trending, take the first 5 items or filter by some criteria
+                setTrendingNews(transformedNews.slice(0, 5));
+            }
+        } catch (err) {
+            console.error('Error fetching news:', err);
+            setError('Failed to load news. Please try again later.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (isDesktop) {
+        return <DesktopNews />;
+    }
 
     return (
         <View style={styles.container}>
@@ -535,8 +677,12 @@ export default function NewsScreen() {
                         >
                             <View style={styles.mobileHeaderContent}>
                                 <View>
-                                    <Text style={styles.mobileTitle}>समाचार</Text>
-                                    <Text style={styles.mobileSubtitle}>Latest Updates</Text>
+                                    <Text style={styles.mobileTitle}>
+                                        <TranslatedText>समाचार</TranslatedText>
+                                    </Text>
+                                    <Text style={styles.mobileSubtitle}>
+                                        <TranslatedText>Latest Updates</TranslatedText>
+                                    </Text>
                                 </View>
                                 <TouchableOpacity style={styles.notificationButton}>
                                     <MaterialCommunityIcons name="bell" size={24} color="#fff" />
@@ -548,24 +694,56 @@ export default function NewsScreen() {
 
                     {/* Content Section */}
                     <View style={[styles.contentContainer, isDesktop && styles.desktopContent]}>
-                        {/* Trending Carousel */}
-                        <TrendingCarousel trendingNews={trendingNews} />
+                        {loading ? (
+                            <View style={{ padding: 40, alignItems: 'center' }}>
+                                <ActivityIndicator size="large" color={SP_RED} />
+                                <Text style={{ marginTop: 10, color: '#64748b' }}>Loading news...</Text>
+                            </View>
+                        ) : error ? (
+                            <View style={{ padding: 40, alignItems: 'center' }}>
+                                <MaterialCommunityIcons name="alert-circle-outline" size={48} color={SP_RED} />
+                                <Text style={{ marginTop: 10, color: '#64748b', textAlign: 'center' }}>{error}</Text>
+                                <TouchableOpacity
+                                    onPress={fetchNews}
+                                    style={{ marginTop: 20, padding: 10, backgroundColor: SP_RED, borderRadius: 8 }}
+                                >
+                                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Retry</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <>
+                                {/* Trending Carousel */}
+                                {trendingNews.length > 0 && <TrendingCarousel trendingNews={trendingNews} />}
 
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>आज की खबरें</Text>
-                        </View>
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionTitle}>
+                                        <TranslatedText>आज की खबरें</TranslatedText>
+                                    </Text>
+                                </View>
 
-                        {newsData.map((news, index) => (
-                            <NewsCard key={index} {...news} />
-                        ))}
+                                {newsData.length > 0 ? (
+                                    newsData.map((news, index) => (
+                                        <NewsCard key={news.id || index} {...news} />
+                                    ))
+                                ) : (
+                                    <View style={{ padding: 40, alignItems: 'center' }}>
+                                        <Text style={{ color: '#64748b' }}>No news available</Text>
+                                    </View>
+                                )}
+                            </>
+                        )}
 
                         {/* Categories Section */}
                         <View style={styles.categoriesSection}>
-                            <Text style={styles.sectionTitle}>श्रेणियाँ</Text>
+                            <Text style={styles.sectionTitle}>
+                                <TranslatedText>श्रेणियाँ</TranslatedText>
+                            </Text>
                             <View style={styles.categoriesGrid}>
                                 {['Tech Force', 'Campaign', 'Policy', 'Youth', 'Events', 'Media'].map((cat, idx) => (
                                     <TouchableOpacity key={idx} style={styles.categoryChip}>
-                                        <Text style={styles.categoryChipText}>{cat}</Text>
+                                        <Text style={styles.categoryChipText}>
+                                            <TranslatedText>{cat}</TranslatedText>
+                                        </Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -907,8 +1085,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        maxHeight: '80%',
-        paddingBottom: 40,
+        maxHeight: '85%',
+        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     },
     modalHandle: {
         width: 40,
@@ -965,6 +1143,45 @@ const styles = StyleSheet.create({
     commentTime: {
         fontSize: 12,
         color: '#94a3b8',
+    },
+    // Comment Input Styles
+    commentInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        paddingBottom: Platform.OS === 'ios' ? 16 : 24,
+        borderTopWidth: 1,
+        borderTopColor: '#e2e8f0',
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    commentInput: {
+        flex: 1,
+        backgroundColor: '#f1f5f9',
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        marginRight: 10,
+        fontSize: 14,
+        color: '#334155',
+        maxHeight: 100,
+    },
+    sendButton: {
+        backgroundColor: SP_RED,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: SP_RED,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
     },
     // Trending Carousel Styles
     trendingSection: {

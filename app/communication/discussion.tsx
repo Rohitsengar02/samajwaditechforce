@@ -25,7 +25,7 @@ export default function DiscussionScreen() {
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Discussion Room</Text>
+                    <Text style={styles.headerTitle}>Discussion Room</Text>  
                     <View style={{ width: 40 }} />
                 </View>
             </LinearGradient>

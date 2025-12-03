@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, TextInput as RNTextInput, TouchableOpacity, Animated, Easing, Keyboard } from 'react-native';
+import { View, StyleSheet, Dimensions, TextInput as RNTextInput, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { Card, Title, Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -218,130 +218,137 @@ export default function InteractiveOTPScreen({ navigation, route }: any) {
         <FloatingBubble delay={400} size={80} color={SP_RED} duration={10000} />
       </View>
 
-      <Animated.View style={[styles.content, isWideLayout && styles.contentWide, { opacity: fadeAnim }]}>
-        {/* Header with Animated Lock Icon */}
-        <View style={styles.headerSection}>
-          <View style={styles.iconWrapper}>
-            <Animated.View style={[styles.lockCircle, { transform: [{ scale: pulseAnim }] }]}>
-              <Animated.View style={{ transform: [{ rotate: lockRotate }] }}>
-                <MaterialCommunityIcons name="lock-outline" size={48} color="#fff" />
-              </Animated.View>
-            </Animated.View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+          <Animated.View style={[styles.content, isWideLayout && styles.contentWide, { opacity: fadeAnim }]}>
+            {/* Header with Animated Lock Icon */}
+            <View style={styles.headerSection}>
+              <View style={styles.iconWrapper}>
+                <Animated.View style={[styles.lockCircle, { transform: [{ scale: pulseAnim }] }]}>
+                  <Animated.View style={{ transform: [{ rotate: lockRotate }] }}>
+                    <MaterialCommunityIcons name="lock-outline" size={48} color="#fff" />
+                  </Animated.View>
+                </Animated.View>
 
-            {/* Decorative Rings */}
-            <View style={styles.ring1} />
-            <View style={styles.ring2} />
-          </View>
-
-          <Title style={styles.title}>Verify Your Number</Title>
-          <Text style={styles.subtitle}>
-            Enter the 6-digit code sent to
-          </Text>
-          <Text style={styles.phoneNumber}>{phone}</Text>
-        </View>
-
-        {/* OTP Input Card */}
-        <Animated.View style={[styles.cardContainer, { transform: [{ translateX: shakeAnim }] }]}>
-          <Card style={styles.otpCard}>
-            <Card.Content style={styles.cardContent}>
-              <View style={styles.otpContainer}>
-                {otp.map((digit, index) => {
-                  const isFocused = focusedIndex === index;
-                  const isFilled = digit !== '';
-
-                  return (
-                    <Animated.View
-                      key={index}
-                      style={[
-                        styles.otpInputWrapper,
-                        isFocused && { transform: [{ scale: 1.1 }, { translateY: -5 }] }
-                      ]}
-                    >
-                      <RNTextInput
-                        ref={(ref) => { inputRefs.current[index] = ref; }}
-                        style={[
-                          styles.otpInput,
-                          isFilled && styles.otpInputFilled,
-                          isFocused && styles.otpInputFocused,
-                          errorMessage ? styles.otpInputError : null
-                        ]}
-                        value={digit}
-                        onChangeText={(value) => handleOtpChange(value.slice(-1), index)}
-                        onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                        onFocus={() => setFocusedIndex(index)}
-                        onBlur={() => setFocusedIndex(null)}
-                        keyboardType="number-pad"
-                        maxLength={1}
-                        textAlign="center"
-                        selectTextOnFocus
-                        selectionColor={SP_RED}
-                      />
-                      {isFilled && !errorMessage && (
-                        <View style={styles.dotIndicator} />
-                      )}
-                    </Animated.View>
-                  );
-                })}
+                {/* Decorative Rings */}
+                <View style={styles.ring1} />
+                <View style={styles.ring2} />
               </View>
 
-              {errorMessage && (
-                <View style={styles.errorContainer}>
-                  <MaterialCommunityIcons name="alert-circle" size={16} color="#ef4444" />
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
-              )}
+              <Title style={styles.title}>Verify Your Number</Title>
+              <Text style={styles.subtitle}>
+                Enter the 6-digit code sent to
+              </Text>
+              <Text style={styles.phoneNumber}>{phone}</Text>
+            </View>
 
-              <TouchableOpacity
-                style={[styles.verifyButton, isComplete && styles.verifyButtonActive]}
-                onPress={handleVerifyOTP}
-                disabled={!isComplete}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={isComplete ? [SP_RED, '#b91c1c'] : ['#e2e8f0', '#cbd5e1']}
-                  style={styles.buttonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={[styles.buttonText, isComplete && styles.buttonTextActive]}>
-                    Verify & Continue
-                  </Text>
-                  <Animated.View style={{ transform: [{ scale: successScale }] }}>
-                    <MaterialCommunityIcons name="check-circle" size={24} color="#fff" />
-                  </Animated.View>
-                </LinearGradient>
+            {/* OTP Input Card */}
+            <Animated.View style={[styles.cardContainer, { transform: [{ translateX: shakeAnim }] }]}>
+              <Card style={styles.otpCard}>
+                <Card.Content style={styles.cardContent}>
+                  <View style={styles.otpContainer}>
+                    {otp.map((digit, index) => {
+                      const isFocused = focusedIndex === index;
+                      const isFilled = digit !== '';
+
+                      return (
+                        <Animated.View
+                          key={index}
+                          style={[
+                            styles.otpInputWrapper,
+                            isFocused && { transform: [{ scale: 1.1 }, { translateY: -5 }] }
+                          ]}
+                        >
+                          <RNTextInput
+                            ref={(ref) => { inputRefs.current[index] = ref; }}
+                            style={[
+                              styles.otpInput,
+                              isFilled && styles.otpInputFilled,
+                              isFocused && styles.otpInputFocused,
+                              errorMessage ? styles.otpInputError : null
+                            ]}
+                            value={digit}
+                            onChangeText={(value) => handleOtpChange(value.slice(-1), index)}
+                            onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+                            onFocus={() => setFocusedIndex(index)}
+                            onBlur={() => setFocusedIndex(null)}
+                            keyboardType="number-pad"
+                            maxLength={1}
+                            textAlign="center"
+                            selectTextOnFocus
+                            selectionColor={SP_RED}
+                          />
+                          {isFilled && !errorMessage && (
+                            <View style={styles.dotIndicator} />
+                          )}
+                        </Animated.View>
+                      );
+                    })}
+                  </View>
+
+                  {errorMessage && (
+                    <View style={styles.errorContainer}>
+                      <MaterialCommunityIcons name="alert-circle" size={16} color="#ef4444" />
+                      <Text style={styles.errorText}>{errorMessage}</Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={[styles.verifyButton, isComplete && styles.verifyButtonActive]}
+                    onPress={handleVerifyOTP}
+                    disabled={!isComplete}
+                    activeOpacity={0.9}
+                  >
+                    <LinearGradient
+                      colors={isComplete ? [SP_RED, '#b91c1c'] : ['#e2e8f0', '#cbd5e1']}
+                      style={styles.buttonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Text style={[styles.buttonText, isComplete && styles.buttonTextActive]}>
+                        Verify & Continue
+                      </Text>
+                      <Animated.View style={{ transform: [{ scale: successScale }] }}>
+                        <MaterialCommunityIcons name="check-circle" size={24} color="#fff" />
+                      </Animated.View>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Card.Content>
+              </Card>
+            </Animated.View>
+
+            {/* Resend Section */}
+            <View style={styles.resendSection}>
+              <Text style={styles.resendText}>
+                Didn't receive the code?{' '}
+              </Text>
+              <TouchableOpacity onPress={handleResend} disabled={timer > 0}>
+                <Text style={[styles.resendLink, timer === 0 && styles.resendLinkActive]}>
+                  {timer > 0 ? `Resend in ${timer}s` : 'Resend Code'}
+                </Text>
               </TouchableOpacity>
-            </Card.Content>
-          </Card>
-        </Animated.View>
+            </View>
 
-        {/* Resend Section */}
-        <View style={styles.resendSection}>
-          <Text style={styles.resendText}>
-            Didn't receive the code?{' '}
-          </Text>
-          <TouchableOpacity onPress={handleResend} disabled={timer > 0}>
-            <Text style={[styles.resendLink, timer === 0 && styles.resendLinkActive]}>
-              {timer > 0 ? `Resend in ${timer}s` : 'Resend Code'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {/* Security Info */}
+            <View style={styles.securityCard}>
+              <MaterialCommunityIcons name="shield-check-outline" size={20} color={SP_GREEN} />
+              <Text style={styles.securityText}>
+                Your information is secure and encrypted
+              </Text>
+            </View>
+          </Animated.View>
 
-        {/* Security Info */}
-        <View style={styles.securityCard}>
-          <MaterialCommunityIcons name="shield-check-outline" size={20} color={SP_GREEN} />
-          <Text style={styles.securityText}>
-            Your information is secure and encrypted
-          </Text>
-        </View>
-      </Animated.View>
-
-      {/* Progress Indicator */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressDot} />
-        <View style={[styles.progressDot, styles.activeDot]} />
-        <View style={styles.progressDot} />
-      </View>
+          {/* Progress Indicator */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressDot} />
+            <View style={[styles.progressDot, styles.activeDot]} />
+            <View style={styles.progressDot} />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

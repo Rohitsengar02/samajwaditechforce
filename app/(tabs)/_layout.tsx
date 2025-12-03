@@ -1,18 +1,32 @@
-import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { Tabs, usePathname } from 'expo-router';
+import { useColorScheme, Platform, View, Dimensions } from 'react-native';
 import { Home, BookOpen, User, CreditCard, Newspaper, Image } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
+  const { width } = Dimensions.get('window');
+  const isDesktop = width >= 768;
+  const pathname = usePathname();
 
-  return (
+  const getPageTitle = (path: string) => {
+    if (path.includes('/posters')) return 'Posters';
+    if (path.includes('/news')) return 'News';
+
+    if (path.includes('/idcard')) return 'ID Card';
+    if (path.includes('/profile')) return 'Profile';
+    return 'Home';
+  };
+
+  const tabs = (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#667eea',
         tabBarInactiveTintColor: isDark ? '#666' : '#999',
-        tabBarStyle: {
+        tabBarStyle: isDesktop ? { display: 'none' } : {
           backgroundColor: isDark ? '#1a0b2e' : '#ffffff',
           borderTopWidth: 0,
           elevation: 20,
@@ -20,8 +34,8 @@ export default function TabLayout() {
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.1,
           shadowRadius: 12,
-          height: 70,
-          paddingBottom: 10,
+          height: Platform.OS === 'ios' ? 85 : 60 + insets.bottom,
+          paddingBottom: Platform.OS === 'ios' ? 25 : insets.bottom + 5,
           paddingTop: 10,
         },
         tabBarLabelStyle: {
@@ -57,15 +71,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="training"
-        options={{
-          title: 'Training',
-          tabBarIcon: ({ size, color }) => (
-            <BookOpen size={size} color={color} strokeWidth={2} />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="idcard"
         options={{
@@ -90,6 +96,24 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="training"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="nearby-volunteers"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
+
+  if (isDesktop) {
+    return tabs;
+  }
+
+  return tabs;
 }

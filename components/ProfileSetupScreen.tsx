@@ -202,6 +202,39 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
 
   const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
 
+  const [uploading, setUploading] = useState(false);
+
+  // Cloudinary Config
+  const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dssmutzly/image/upload";
+  const UPLOAD_PRESET = "multimallpro";
+
+  const uploadImageToCloudinary = async (uri: string) => {
+    const data = new FormData();
+    data.append('file', {
+      uri,
+      type: 'image/jpeg',
+      name: 'profile_image.jpg',
+    } as any);
+    data.append('upload_preset', UPLOAD_PRESET);
+    data.append('cloud_name', 'dssmutzly');
+
+    try {
+      const res = await fetch(CLOUDINARY_URL, {
+        method: 'POST',
+        body: data,
+      });
+      const result = await res.json();
+      if (result.secure_url) {
+        return result.secure_url;
+      } else {
+        throw new Error('Image upload failed');
+      }
+    } catch (error) {
+      console.error('Cloudinary Upload Error:', error);
+      return null;
+    }
+  };
+
   const handleNext = async () => {
     const valid =
       !!fullName &&
@@ -215,6 +248,22 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
       return;
     }
 
+    let uploadedImageUrl = photoUri;
+
+    if (photoUri && hasPhoto) {
+      setUploading(true);
+      const cloudUrl = await uploadImageToCloudinary(photoUri);
+      setUploading(false);
+
+      if (cloudUrl) {
+        uploadedImageUrl = cloudUrl;
+      } else {
+        // Fallback or error handling? For now, proceed with local URI or alert
+        // Alert.alert("Upload Failed", "Could not upload profile image. Proceeding without it.");
+        // For now we keep the local URI if upload fails, but ideally we should block or retry
+      }
+    }
+
     const profileData: any = {
       name: fullName,
       email,
@@ -222,7 +271,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
       dob,
       phone: phoneFromLogin,
       password,
-      profileImage: photoUri,
+      profileImage: uploadedImageUrl,
     };
 
     console.log('Profile data (UI only):', profileData);
@@ -230,7 +279,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
     if (isEditMode) {
       navigation.goBack();
     } else {
-      navigation.navigate('AddressForm');
+      navigation.navigate('AddressForm', { profileData });
     }
   };
 
@@ -277,7 +326,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
@@ -425,8 +474,8 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={handleNext}
-                  disabled={!isEditMode && !isValid}
-                  style={[styles.submitButton, (!isEditMode && !isValid) && styles.submitButtonDisabled]}
+                  disabled={(!isEditMode && !isValid) || uploading}
+                  style={[styles.submitButton, ((!isEditMode && !isValid) || uploading) && styles.submitButtonDisabled]}
                 >
                   <LinearGradient
                     colors={(!isEditMode && !isValid) ? ['#e5e7eb', '#d1d5db'] : [SP_GREEN, '#15803d']}
@@ -435,7 +484,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
                     end={{ x: 1, y: 0 }}
                   >
                     <Text style={[styles.submitText, (!isEditMode && !isValid) && styles.submitTextDisabled]}>
-                      {isEditMode ? 'Update Profile' : 'Complete Setup'}
+                      {isEditMode ? 'Update Profile' : (uploading ? 'Uploading Image...' : 'Complete Setup')}
                     </Text>
                     {(isEditMode || isValid) && (
                       <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />

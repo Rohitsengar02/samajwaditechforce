@@ -4,12 +4,14 @@ import { Text, Surface } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
 
 export default function CommunicationHubScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
     const features = [
         {
@@ -56,7 +58,7 @@ export default function CommunicationHubScreen() {
                 </Text>
             </LinearGradient>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 20 + insets.bottom }]}>
                 <View style={styles.grid}>
                     {features.map((feature) => (
                         <TouchableOpacity

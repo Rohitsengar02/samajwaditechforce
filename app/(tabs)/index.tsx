@@ -12,6 +12,22 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { TranslatedText } from '../../components/TranslatedText';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../../utils/api';
+import { DEFAULT_VOLUNTEERS } from '../../constants/volunteersData';
+
+let volunteersData: any[] = [];
+try {
+  const rawData = require('./समाजवादी टेक फोर्स से जुड़ें — बने समाजवाद की डिजिटल आवाज़! (Responses) (5).json');
+  volunteersData = (rawData as any).default || rawData;
+  if (!Array.isArray(volunteersData) || volunteersData.length === 0) {
+    volunteersData = DEFAULT_VOLUNTEERS;
+  }
+} catch (e) {
+  console.log("Failed to load volunteers data from JSON, using default.", e);
+  volunteersData = DEFAULT_VOLUNTEERS;
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -121,8 +137,12 @@ const QuickActionCard = ({ icon, title, subtitle, color, onPress, delay }: any) 
             <MaterialCommunityIcons name={icon} size={28} color={color} />
           </View>
           <View style={styles.quickActionContent}>
-            <Text style={styles.quickActionTitle}>{title}</Text>
-            <Text style={styles.quickActionSubtitle}>{subtitle}</Text>
+            <Text style={styles.quickActionTitle}>
+              <TranslatedText>{title}</TranslatedText>
+            </Text>
+            <Text style={styles.quickActionSubtitle}>
+              <TranslatedText>{subtitle}</TranslatedText>
+            </Text>
           </View>
           <View style={[styles.quickActionArrow, { backgroundColor: color + '15' }]}>
             <MaterialCommunityIcons name="chevron-right" size={20} color={color} />
@@ -167,12 +187,18 @@ const NewsCard = ({ title, time, category, delay }: any) => {
         <View style={styles.newsContent}>
           <View style={styles.newsCategoryBadge}>
             <View style={styles.categoryDot} />
-            <Text style={styles.newsCategoryText}>{category}</Text>
+            <Text style={styles.newsCategoryText}>
+              <TranslatedText>{category}</TranslatedText>
+            </Text>
           </View>
-          <Text style={styles.newsTitle} numberOfLines={2}>{title}</Text>
+          <Text style={styles.newsTitle} numberOfLines={2}>
+            <TranslatedText>{title}</TranslatedText>
+          </Text>
           <View style={styles.newsFooter}>
             <MaterialCommunityIcons name="clock-outline" size={14} color="#94a3b8" />
-            <Text style={styles.newsTime}>{time}</Text>
+            <Text style={styles.newsTime}>
+              <TranslatedText>{time}</TranslatedText>
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -181,7 +207,8 @@ const NewsCard = ({ title, time, category, delay }: any) => {
 };
 
 // Feature Card with Animation
-const FeatureCard = ({ icon, title, description, color, delay }: any) => {
+const FeatureCard = ({ icon, title, description, color, delay, route }: any) => {
+  const router = useRouter();
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
@@ -211,7 +238,11 @@ const FeatureCard = ({ icon, title, description, color, delay }: any) => {
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <TouchableOpacity style={styles.featureCard} activeOpacity={0.9}>
+      <TouchableOpacity
+        style={styles.featureCard}
+        activeOpacity={0.9}
+        onPress={() => route && router.push(route as any)}
+      >
         <Animated.View style={[styles.featureIconContainer, { transform: [{ rotate }] }]}>
           <LinearGradient
             colors={[color, color + 'CC']}
@@ -220,18 +251,58 @@ const FeatureCard = ({ icon, title, description, color, delay }: any) => {
             <MaterialCommunityIcons name={icon} size={32} color="#fff" />
           </LinearGradient>
         </Animated.View>
-        <Text style={styles.featureTitle}>{title}</Text>
-        <Text style={styles.featureDescription}>{description}</Text>
+        <Text style={styles.featureTitle}>
+          <TranslatedText>{title}</TranslatedText>
+        </Text>
+        <Text style={styles.featureDescription}>
+          <TranslatedText>{description}</TranslatedText>
+        </Text>
       </TouchableOpacity>
     </Animated.View>
   );
 };
 
+import DesktopHome from '../desktop-screen-pages/home';
+
 export default function HomeScreen() {
   const router = useRouter();
   const isDesktop = width >= 768;
+
+  if (isDesktop) {
+    return <DesktopHome />;
+  }
   const [headerHeight] = useState(new Animated.Value(0));
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [nearbyVolunteers, setNearbyVolunteers] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchNearbyVolunteers();
+  }, []);
+
+  const fetchNearbyVolunteers = async () => {
+    // Map the raw data to the expected format
+    const mapped = volunteersData.slice(0, 5)
+      .filter((v: any) => v)
+      .map((v: any) => ({
+        Name: v['Column2'] || v['आपका पूरा नाम क्या है? '] || 'Unknown',
+        District: v['Column4'] || v['जिला '] || 'Unknown',
+        distance: null
+      }));
+    setNearbyVolunteers(mapped);
+  };
+
+  const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    var R = 6371;
+    var dLat = deg2rad(lat2 - lat1);
+    var dLon = deg2rad(lon2 - lon1);
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
   useEffect(() => {
     // Header slide down animation
@@ -262,26 +333,26 @@ export default function HomeScreen() {
   }, []);
 
   const quickActions = [
+    { icon: 'image-multiple', title: 'Posters', subtitle: 'Download & customize', color: SP_GREEN, route: '/posters' },
+    { icon: 'chart-bar', title: 'Leaderboard', subtitle: 'Check your rank', color: SP_GREEN, route: '/daily-work/leaderboard' },
     { icon: 'calendar-check', title: 'Daily Work', subtitle: 'Tasks & Rewards', color: '#F59E0B', route: '/daily-work' },
     { icon: 'library', title: 'Resources', subtitle: 'Library & Tools', color: '#9333EA', route: '/resources' },
     { icon: 'forum', title: 'Communication', subtitle: 'Discuss & Suggest', color: '#2563EB', route: '/communication' },
-    { icon: 'newspaper', title: 'Latest News', subtitle: 'Stay updated', color: SP_RED, route: '/news' },
-    { icon: 'image-multiple', title: 'Posters', subtitle: 'Download & customize', color: SP_GREEN, route: '/posters' },
+    { icon: 'newspaper', title: 'Samajwadi Updates', subtitle: 'Stay updated', color: SP_RED, route: '/news' },
+    { icon: 'account-group', title: 'Nearby Volunteers', subtitle: 'Find help nearby', color: '#0891b2', route: '/nearby-volunteers' },
+
     { icon: 'school', title: 'Training', subtitle: 'Learn & grow', color: '#3B82F6', route: '/training' },
     { icon: 'card-account-details', title: 'ID Card', subtitle: 'Digital identity', color: '#EF4444', route: '/idcard' },
+    { icon: 'play-box-multiple', title: 'Reels', subtitle: 'Watch & Share', color: '#E1306C', route: '/reels' },
   ];
 
-  const latestNews = [
-    { id: 1, title: 'समाजवादी टेक फोर्स का विस्तार पूरे देश में', time: '2 hours ago', category: 'Tech Force' },
-    { id: 2, title: 'नई सदस्यता अभियान की शुरुआत', time: '5 hours ago', category: 'Campaign' },
-    { id: 3, title: 'किसानों के लिए नई योजना की घोषणा', time: '1 day ago', category: 'Policy' },
-  ];
+
 
   const features = [
-    { icon: 'account-plus', title: 'Join Us', description: 'Become a member', color: SP_RED },
-    { icon: 'calendar-check', title: 'Events', description: 'Upcoming programs', color: SP_GREEN },
-    { icon: 'hand-heart', title: 'Volunteer', description: 'Make a difference', color: '#3B82F6' },
-    { icon: 'phone', title: 'Contact', description: 'Get in touch', color: '#F59E0B' },
+    { icon: 'account-plus', title: 'Join Us', description: 'Become a member', color: SP_RED, route: '/joinus' },
+    { icon: 'calendar-check', title: 'Events', description: 'Upcoming programs', color: SP_GREEN, route: '/events' },
+    { icon: 'hand-heart', title: 'Volunteer', description: 'Make a difference', color: '#3B82F6', route: '/volunteers' },
+    { icon: 'phone', title: 'Contact', description: 'Get in touch', color: '#F59E0B', route: '/contact' },
   ];
 
   return (
@@ -312,8 +383,12 @@ export default function HomeScreen() {
                   <MaterialCommunityIcons name="bicycle" size={40} color="#fff" />
                 </Animated.View>
                 <View>
-                  <Text style={styles.headerTitle}>समाजवादी टेक फ़ोर्स</Text>
-                  <Text style={styles.headerSubtitle}>Samajwadi Tech force</Text>
+                  <Text style={styles.headerTitle}>
+                    <TranslatedText>समाजवादी टेक फ़ोर्स</TranslatedText>
+                  </Text>
+                  <Text style={styles.headerSubtitle}>
+                    <TranslatedText>Samajwadi Tech force</TranslatedText>
+                  </Text>
                 </View>
               </View>
               <TouchableOpacity
@@ -326,8 +401,12 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.welcomeSection}>
-              <Text style={styles.welcomeText}>नमस्ते! 🙏</Text>
-              <Text style={styles.welcomeSubtext}>Welcome to Samajwadi Tech Force</Text>
+              <Text style={styles.welcomeText}>
+                <TranslatedText>नमस्ते! 🙏</TranslatedText>
+              </Text>
+              <Text style={styles.welcomeSubtext}>
+                <TranslatedText>Welcome to Samajwadi Tech Force</TranslatedText>
+              </Text>
             </View>
 
             {/* Decorative Wave */}
@@ -338,6 +417,44 @@ export default function HomeScreen() {
         </Animated.View>
 
         <View style={[styles.content, isDesktop && styles.desktopContent]}>
+          {/* Samajwadi Updates Banner */}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.idCardBanner}
+              onPress={() => router.push('/news' as any)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={[SP_RED, '#b91c1c', '#991b1b']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.idCardGradient}
+              >
+                <View style={styles.idCardContent}>
+                  <View style={styles.idCardLeft}>
+                    <View style={styles.idCardIconContainer}>
+                      <MaterialCommunityIcons name="newspaper" size={48} color="#fff" />
+                    </View>
+                    <View style={styles.idCardTextContainer}>
+                      <Text style={styles.idCardTitle}>
+                        <TranslatedText>Samajwadi Updates</TranslatedText>
+                      </Text>
+                      <Text style={styles.idCardSubtitle}>
+                        <TranslatedText>Stay updated with latest news & announcements</TranslatedText>
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.idCardButton}>
+                    <MaterialCommunityIcons name="arrow-right" size={24} color="#fff" />
+                  </View>
+                </View>
+
+                <View style={styles.shimmer1} />
+                <View style={styles.shimmer2} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
           {/* ID Card Banner with Shimmer Effect */}
           <View style={styles.section}>
             <TouchableOpacity
@@ -357,8 +474,12 @@ export default function HomeScreen() {
                       <MaterialCommunityIcons name="card-account-details" size={48} color="#fff" />
                     </View>
                     <View style={styles.idCardTextContainer}>
-                      <Text style={styles.idCardTitle}>Download Your ID Card</Text>
-                      <Text style={styles.idCardSubtitle}>Get your digital identity card now</Text>
+                      <Text style={styles.idCardTitle}>
+                        <TranslatedText>Download Your ID Card</TranslatedText>
+                      </Text>
+                      <Text style={styles.idCardSubtitle}>
+                        <TranslatedText>Get your digital identity card now</TranslatedText>
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.idCardButton}>
@@ -372,10 +493,46 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Nearby Volunteers Preview Section */}
+          {nearbyVolunteers.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>
+                  <TranslatedText>Nearby Volunteers</TranslatedText>
+                </Text>
+                <TouchableOpacity onPress={() => router.push('/nearby-volunteers' as any)}>
+                  <Text style={styles.viewAllText}>View All</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 24 }}>
+                {nearbyVolunteers.map((volunteer, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.volunteerCard}
+                    onPress={() => router.push('/nearby-volunteers' as any)}
+                  >
+                    <View style={styles.volunteerAvatar}>
+                      <Text style={styles.volunteerInitials}>{volunteer.Name.charAt(0)}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.volunteerName}>{volunteer.Name}</Text>
+                      <Text style={styles.volunteerDistrict}>{volunteer.District}</Text>
+                      {volunteer.distance && (
+                        <Text style={styles.volunteerDistance}>{volunteer.distance.toFixed(1)} km away</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* Quick Actions */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Quick Actions</Text>
+              <Text style={styles.sectionTitle}>
+                <TranslatedText>Quick Actions</TranslatedText>
+              </Text>
               <MaterialCommunityIcons name="lightning-bolt" size={24} color={SP_RED} />
             </View>
             <View style={styles.quickActionsContainer}>
@@ -390,25 +547,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Latest News */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Latest News</Text>
-              <TouchableOpacity onPress={() => router.push('/news' as any)}>
-                <Text style={styles.viewAllText}>View All →</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal={!isDesktop}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={isDesktop ? styles.newsGridDesktop : styles.newsScroll}
-            >
-              {latestNews.map((news, idx) => (
-                <NewsCard key={news.id} {...news} delay={idx * 150} />
-              ))}
-            </ScrollView>
-          </View>
-
           {/* About Section with Gradient */}
           <View style={styles.section}>
             <View style={styles.aboutCard}>
@@ -419,12 +557,19 @@ export default function HomeScreen() {
                 style={styles.aboutGradient}
               >
                 <MaterialCommunityIcons name="bicycle" size={64} color="#fff" style={{ opacity: 0.2 }} />
-                <Text style={styles.aboutTitle}>साइकिल चलाओ देश बचाओ</Text>
-                <Text style={styles.aboutText}>
-                  Join the movement for a better tomorrow. Together we can bring the change our nation needs.
+                <Text style={styles.aboutTitle}>
+                  <TranslatedText>साइकिल चलाओ देश बचाओ</TranslatedText>
                 </Text>
-                <TouchableOpacity style={styles.aboutButton}>
-                  <Text style={styles.aboutButtonText}>Learn More</Text>
+                <Text style={styles.aboutText}>
+                  <TranslatedText>Join the movement for a better tomorrow. Together we can bring the change our nation needs.</TranslatedText>
+                </Text>
+                <TouchableOpacity
+                  style={styles.aboutButton}
+                  onPress={() => router.push('/about' as any)}
+                >
+                  <Text style={styles.aboutButtonText}>
+                    <TranslatedText>Learn More</TranslatedText>
+                  </Text>
                   <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
                 </TouchableOpacity>
               </LinearGradient>
@@ -433,7 +578,9 @@ export default function HomeScreen() {
 
           {/* Features Grid */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Explore Features</Text>
+            <Text style={styles.sectionTitle}>
+              <TranslatedText>Explore Features</TranslatedText>
+            </Text>
             <View style={styles.featuresGrid}>
               {features.map((feature, idx) => (
                 <FeatureCard key={idx} {...feature} delay={idx * 100} />
@@ -737,9 +884,50 @@ const styles = StyleSheet.create({
   },
   newsImage: {
     height: 140,
+  },
+  volunteerCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 16,
+    width: 200,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  volunteerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: SP_RED + '20',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  volunteerInitials: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: SP_RED,
+  },
+  volunteerName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  volunteerDistrict: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  volunteerDistance: {
+    fontSize: 12,
+    color: SP_GREEN,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
   newsContent: {
     padding: 16,
   },

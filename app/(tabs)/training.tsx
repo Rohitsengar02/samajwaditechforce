@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { TRAINING_PHASES } from '@/constants/trainingData';
+import { TranslatedText } from '../../components/TranslatedText';
 
 const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
@@ -38,22 +39,30 @@ const PhaseCard = ({ phase, index, onPress }: any) => {
               <MaterialCommunityIcons name={phase.icon} size={28} color={phase.color} />
             </View>
             <View style={styles.phaseBadge}>
-              <Text style={styles.phaseBadgeText}>Phase {index + 1}</Text>
+              <Text style={styles.phaseBadgeText}>
+                <TranslatedText>{`Phase ${index + 1}`}</TranslatedText>
+              </Text>
             </View>
           </View>
 
           <View style={styles.phaseContent}>
-            <Text style={styles.phaseTitle}>{phase.title}</Text>
-            <Text style={styles.phaseSubtitle}>{phase.subtitle}</Text>
+            <Text style={styles.phaseTitle}>
+              <TranslatedText>{phase.title}</TranslatedText>
+            </Text>
+            <Text style={styles.phaseSubtitle}>
+              <TranslatedText>{phase.subtitle}</TranslatedText>
+            </Text>
             <Text style={styles.phaseDescription} numberOfLines={2}>
-              {phase.description}
+              <TranslatedText>{phase.description}</TranslatedText>
             </Text>
           </View>
 
           <View style={styles.phaseFooter}>
             <View style={styles.moduleCount}>
               <MaterialCommunityIcons name="book-open-page-variant" size={16} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.moduleCountText}>{phase.modules.length} Modules</Text>
+              <Text style={styles.moduleCountText}>
+                <TranslatedText>{`${phase.modules.length} Modules`}</TranslatedText>
+              </Text>
             </View>
             <View style={styles.arrowButton}>
               <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
@@ -93,8 +102,12 @@ export default function TrainingScreen() {
           >
             <View style={styles.headerContent}>
               <View>
-                <Text style={styles.headerTitle}>प्रशिक्षण कार्यक्रम</Text>
-                <Text style={styles.headerSubtitle}>Training Program</Text>
+                <Text style={styles.headerTitle}>
+                  <TranslatedText>प्रशिक्षण कार्यक्रम</TranslatedText>
+                </Text>
+                <Text style={styles.headerSubtitle}>
+                  <TranslatedText>Training Program</TranslatedText>
+                </Text>
               </View>
               <View style={styles.headerIcon}>
                 <MaterialCommunityIcons name="school" size={32} color="#fff" />
@@ -104,19 +117,25 @@ export default function TrainingScreen() {
             {/* Progress Summary */}
             <View style={styles.progressCard}>
               <View style={styles.progressRow}>
-                <Text style={styles.progressLabel}>Overall Progress</Text>
+                <Text style={styles.progressLabel}>
+                  <TranslatedText>Overall Progress</TranslatedText>
+                </Text>
                 <Text style={styles.progressValue}>15%</Text>
               </View>
               <View style={styles.progressBar}>
                 <View style={[styles.progressFill, { width: '15%' }]} />
               </View>
-              <Text style={styles.progressMessage}>Keep going! You're doing great.</Text>
+              <Text style={styles.progressMessage}>
+                <TranslatedText>Keep going! You're doing great.</TranslatedText>
+              </Text>
             </View>
           </LinearGradient>
 
           {/* Phases List */}
           <View style={[styles.contentContainer, isDesktop && styles.desktopContent]}>
-            <Text style={styles.sectionTitle}>Your Journey</Text>
+            <Text style={styles.sectionTitle}>
+              <TranslatedText>Your Journey</TranslatedText>
+            </Text>
             <View style={styles.phasesList}>
               {TRAINING_PHASES.map((phase, index) => (
                 <PhaseCard

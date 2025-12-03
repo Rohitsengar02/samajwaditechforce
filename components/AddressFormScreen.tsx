@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
@@ -9,8 +10,8 @@ import {
     ScrollView,
     KeyboardAvoidingView,
 } from 'react-native';
-import { Region } from 'react-native-maps'; // Types only
-import NativeMap from './NativeMap';
+import type { Region } from 'react-native-maps'; // Types only
+import Map from './map';
 import * as Location from 'expo-location';
 import { Text, TextInput, ActivityIndicator, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +19,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
+
+import { getApiUrl } from '../utils/api';
 
 interface AddressFormProps {
     navigation: {
@@ -41,7 +44,10 @@ export default function AddressFormScreen({ navigation, route }: AddressFormProp
         country: '',
     });
     const [loadingAddress, setLoadingAddress] = useState(false);
+    const [registering, setRegistering] = useState(false);
     const mapRef = useRef<any>(null);
+
+    const profileData = route?.params?.profileData || {};
 
     useEffect(() => {
         (async () => {
@@ -95,33 +101,60 @@ export default function AddressFormScreen({ navigation, route }: AddressFormProp
         reverseGeocode(newRegion.latitude, newRegion.longitude);
     };
 
-    const handleConfirm = () => {
-        // Navigate to next step or save address
-        console.log('Confirmed Address:', address);
-        navigation.navigate('ServiceSelection');
-    };
+    const handleConfirm = async () => {
+        setRegistering(true);
+        try {
+            const userData = {
+                ...profileData,
+                address,
+                location: {
+                    lat: region?.latitude || location?.coords.latitude,
+                    lng: region?.longitude || location?.coords.longitude,
+                }
+            };
 
-    if (Platform.OS === 'web') {
-        return (
-            <View style={styles.container}>
-                <Text>Map not supported on web in this demo. Please use mobile.</Text>
-            </View>
-        );
-    }
+            // Get API URL from centralized utility
+            const url = getApiUrl();
+
+            console.log('Registering user:', userData);
+            console.log('Using API URL:', `${url}/auth/register`);
+
+            const response = await fetch(`${url}/auth/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(userData),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Registration failed');
+            }
+
+            // Save user data and token
+            await AsyncStorage.setItem('userInfo', JSON.stringify(data));
+            if (data.token) {
+                await AsyncStorage.setItem('userToken', data.token);
+            }
+
+            Alert.alert('Success', 'Account created successfully!');
+            navigation.navigate('ServiceSelection');
+        } catch (error: any) {
+            console.error('Registration Error:', error);
+            Alert.alert('Error', error.message || 'Something went wrong');
+        } finally {
+            setRegistering(false);
+        }
+    };
 
     return (
         <View style={styles.container}>
             {/* Map Background */}
             <View style={styles.mapContainer}>
                 {region ? (
-                    <NativeMap
-                        ref={mapRef}
-                        style={styles.map}
-                        region={region}
-                        onRegionChangeComplete={onRegionChangeComplete}
-                        showsUserLocation={true}
-                        showsMyLocationButton={true}
-                    />
+                    <Map location={{ lat: region.latitude, lng: region.longitude }} />
                 ) : (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={SP_RED} />
@@ -129,7 +162,7 @@ export default function AddressFormScreen({ navigation, route }: AddressFormProp
                     </View>
                 )}
 
-                {/* Center Marker (Fixed) */}
+                {/* Center Marker (Fixed) - Visual indicator for the center */}
                 <View style={styles.markerFixed}>
                     <MaterialCommunityIcons name="map-marker" size={48} color={SP_RED} />
                 </View>
@@ -205,12 +238,14 @@ export default function AddressFormScreen({ navigation, route }: AddressFormProp
                         </View>
                     </ScrollView>
 
-                    <TouchableOpacity onPress={handleConfirm} style={styles.button}>
+                    <TouchableOpacity onPress={handleConfirm} style={styles.button} disabled={registering}>
                         <LinearGradient
-                            colors={[SP_RED, '#b91c1c']}
+                            colors={registering ? ['#e5e7eb', '#d1d5db'] : [SP_RED, '#b91c1c']}
                             style={styles.gradient}
                         >
-                            <Text style={styles.buttonText}>Confirm Location</Text>
+                            <Text style={styles.buttonText}>
+                                {registering ? 'Creating Account...' : 'Confirm & Register'}
+                            </Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </Surface>

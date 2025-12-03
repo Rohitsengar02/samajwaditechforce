@@ -9,10 +9,11 @@ import {
   Animated,
   Switch,
   Alert,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -45,8 +46,14 @@ const ProfileOption = ({ icon, title, subtitle, onPress, showArrow = true, delay
           <MaterialCommunityIcons name={icon} size={24} color={SP_RED} />
         </View>
         <View style={styles.optionContent}>
-          <Text style={styles.optionTitle}>{title}</Text>
-          {subtitle && <Text style={styles.optionSubtitle}>{subtitle}</Text>}
+          <Text style={styles.optionTitle}>
+            <TranslatedText>{title}</TranslatedText>
+          </Text>
+          {subtitle && (
+            <Text style={styles.optionSubtitle}>
+              <TranslatedText>{subtitle}</TranslatedText>
+            </Text>
+          )}
         </View>
         {showArrow && (
           <MaterialCommunityIcons name="chevron-right" size={24} color="#cbd5e1" />
@@ -80,12 +87,39 @@ const StatCard = ({ icon, value, label, color, delay }: any) => {
   );
 };
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image, RefreshControl } from 'react-native';
+import { getApiUrl } from '../../utils/api';
+import { useLanguage } from '../../context/LanguageContext';
+import { Modal, TextInput, FlatList } from 'react-native';
+import { TranslatedText } from '../../components/TranslatedText';
+
+// ... (keep existing imports)
+
 export default function ProfileScreen() {
   const router = useRouter();
   const isDesktop = width >= 768;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const { language, setLanguage, availableLanguages } = useLanguage();
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredLanguages = availableLanguages.filter(lang =>
+    lang.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    lang.nativeName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const currentLanguageName = availableLanguages.find(l => l.code === language)?.name || 'English';
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserProfile();
+    }, [])
+  );
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -94,6 +128,44 @@ export default function ProfileScreen() {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      // 1. Load from local storage first for speed
+      const localUserInfo = await AsyncStorage.getItem('userInfo');
+      const token = await AsyncStorage.getItem('userToken');
+
+      if (localUserInfo) {
+        setUser(JSON.parse(localUserInfo));
+      }
+
+      // 2. Fetch fresh data from API if token exists
+      if (token) {
+        const url = getApiUrl();
+
+        const response = await fetch(`${url}/auth/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const freshData = await response.json();
+          setUser(freshData);
+          // Update local storage
+          await AsyncStorage.setItem('userInfo', JSON.stringify(freshData));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load user profile', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadUserProfile();
+    setRefreshing(false);
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -104,7 +176,9 @@ export default function ProfileScreen() {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
+            await AsyncStorage.removeItem('userInfo');
+            await AsyncStorage.removeItem('userToken');
             router.push('/onboarding' as any);
           }
         },
@@ -125,6 +199,9 @@ export default function ProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[SP_RED]} />
+        }
       >
         <Animated.View style={{ opacity: fadeAnim }}>
           {/* Header with Profile */}
@@ -135,8 +212,31 @@ export default function ProfileScreen() {
             style={styles.header}
           >
             <View style={styles.headerContent}>
-              <TouchableOpacity style={styles.settingsButton}>
+              <TouchableOpacity
+                style={styles.settingsButton}
+                onPress={() => {
+                  // Check if user has missing fields or is not verified
+                  const hasMissingFields = !user?.district || !user?.vidhanSabha || !user?.qualification;
+                  const isNotVerified = user?.verificationStatus !== 'Verified';
+
+                  if (hasMissingFields || isNotVerified) {
+                    router.push('/verified-member' as any);
+                  } else {
+                    Alert.alert(
+                      'Profile Locked',
+                      'Your profile is verified and cannot be edited. Contact support if you need to make changes.',
+                      [{ text: 'OK' }]
+                    );
+                  }
+                }}
+              >
                 <MaterialCommunityIcons name="cog" size={24} color="#fff" />
+                {/* Show badge if fields are missing */}
+                {(!user?.district || !user?.vidhanSabha || !user?.qualification) && (
+                  <View style={styles.settingsBadge}>
+                    <MaterialCommunityIcons name="alert-circle" size={12} color="#fff" />
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -146,7 +246,16 @@ export default function ProfileScreen() {
                 colors={[SP_GREEN, '#15803d']}
                 style={styles.avatar}
               >
-                <Text style={styles.avatarText}>SP</Text>
+                {user?.profileImage ? (
+                  <Image
+                    source={{ uri: user.profileImage }}
+                    style={{ width: 92, height: 92, borderRadius: 46 }}
+                  />
+                ) : (
+                  <Text style={styles.avatarText}>
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'SP'}
+                  </Text>
+                )}
               </LinearGradient>
               <TouchableOpacity style={styles.editAvatarButton}>
                 <MaterialCommunityIcons name="camera" size={16} color="#fff" />
@@ -154,27 +263,73 @@ export default function ProfileScreen() {
             </View>
 
             {/* User Info */}
-            <Text style={styles.userName}>Samajwadi Member</Text>
-            <Text style={styles.userEmail}>member@samajwadiparty.in</Text>
-            <View style={[styles.memberBadge, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
-              <MaterialCommunityIcons name="alert-circle" size={16} color="#fca5a5" />
-              <Text style={[styles.memberBadgeText, { color: '#fca5a5' }]}>Not Verified</Text>
+            <Text style={styles.userName}>{user?.name || 'Samajwadi Member'}</Text>
+            <Text style={styles.userEmail}>{user?.email || 'member@samajwadiparty.in'}</Text>
+
+            <View style={[styles.memberBadge, { backgroundColor: user?.verificationStatus === 'Verified' ? 'rgba(0,153,51,0.2)' : 'rgba(0,0,0,0.3)' }]}>
+              <MaterialCommunityIcons
+                name={user?.verificationStatus === 'Verified' ? "check-decagram" : "alert-circle"}
+                size={16}
+                color={user?.verificationStatus === 'Verified' ? "#4ade80" : "#fca5a5"}
+              />
+              <Text style={[styles.memberBadgeText, { color: user?.verificationStatus === 'Verified' ? "#4ade80" : "#fca5a5" }]}>
+                {user?.verificationStatus === 'Verified' ? 'Verified Member' : (user?.verificationStatus === 'Pending' ? 'Verification Pending' : 'Not Verified')}
+              </Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.verifyButton}
-              onPress={() => router.push('/verified-member' as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.verifyButtonText}>Verify Profile Now</Text>
-              <MaterialCommunityIcons name="arrow-right" size={16} color="#fff" />
-            </TouchableOpacity>
+            {/* Show Verify Button if required fields are missing */}
+            {user?.verificationStatus !== 'Verified' && (
+              !user?.district || !user?.vidhanSabha || !user?.qualification
+            ) && (
+                <TouchableOpacity
+                  style={styles.verifyButton}
+                  onPress={() => router.push('/verified-member' as any)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="alert-circle" size={16} color="#fff" />
+                  <Text style={styles.verifyButtonText}>
+                    {user?.verificationStatus === 'Pending' ? 'Complete Verification' : 'Verify Profile Now'}
+                  </Text>
+                  <MaterialCommunityIcons name="arrow-right" size={16} color="#fff" />
+                </TouchableOpacity>
+              )}
+
+            {/* Show incomplete fields warning */}
+            {user?.verificationStatus === 'Pending' && (
+              !user?.district || !user?.vidhanSabha || !user?.qualification
+            ) && (
+                <View style={styles.warningBox}>
+                  <MaterialCommunityIcons name="information" size={20} color="#f59e0b" />
+                  <Text style={styles.warningText}>
+                    Please complete all required fields to proceed with verification
+                  </Text>
+                </View>
+              )}
+
+            {user?.verificationStatus === 'Verified' && (
+              <View style={styles.verifiedDetailsContainer}>
+                <Text style={styles.verifiedDetailsTitle}>Member Details</Text>
+                <View style={styles.verifiedDetailRow}>
+                  <Text style={styles.verifiedDetailValue}>{user?.vidhanSabha}</Text>
+                </View>
+                <View style={styles.verifiedDetailRow}>
+                  <Text style={styles.verifiedDetailLabel}>Role:</Text>
+                  <Text style={styles.verifiedDetailValue}>{user?.partyRole || 'Member'}</Text>
+                </View>
+                <View style={styles.verifiedDetailRow}>
+                  <Text style={styles.verifiedDetailLabel}>ID:</Text>
+                  <Text style={styles.verifiedDetailValue}>{user?._id?.substring(0, 8).toUpperCase()}</Text>
+                </View>
+              </View>
+            )}
           </LinearGradient>
 
           <View style={[styles.content, isDesktop && styles.desktopContent]}>
             {/* Stats Grid */}
             <View style={styles.statsSection}>
-              <Text style={styles.sectionTitle}>Your Activity</Text>
+              <Text style={styles.sectionTitle}>
+                <TranslatedText>Your Activity</TranslatedText>
+              </Text>
               <View style={styles.statsGrid}>
                 {stats.map((stat, idx) => (
                   <StatCard key={idx} {...stat} delay={idx * 100} />
@@ -184,13 +339,15 @@ export default function ProfileScreen() {
 
             {/* Account Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account</Text>
+              <Text style={styles.sectionTitle}>
+                <TranslatedText>Account</TranslatedText>
+              </Text>
               <View style={styles.optionsContainer}>
                 <ProfileOption
                   icon="account-edit"
                   title="Edit Profile"
                   subtitle="Update your information"
-                  onPress={() => Alert.alert('Edit Profile', 'Coming soon!')}
+                  onPress={() => router.push('/edit-profile')}
                   delay={0}
                 />
                 <ProfileOption
@@ -202,9 +359,9 @@ export default function ProfileScreen() {
                 />
                 <ProfileOption
                   icon="shield-account"
-                  title="Privacy & Security"
-                  subtitle="Manage your privacy settings"
-                  onPress={() => Alert.alert('Privacy', 'Coming soon!')}
+                  title="Privacy & Policy"
+                  subtitle="Read our privacy policy"
+                  onPress={() => router.push('/privacy-policy')}
                   delay={200}
                 />
               </View>
@@ -212,7 +369,9 @@ export default function ProfileScreen() {
 
             {/* Preferences Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Preferences</Text>
+              <Text style={styles.sectionTitle}>
+                <TranslatedText>Preferences</TranslatedText>
+              </Text>
               <View style={styles.optionsContainer}>
                 <View style={styles.optionCard}>
                   <View style={styles.optionIcon}>
@@ -249,8 +408,8 @@ export default function ProfileScreen() {
                 <ProfileOption
                   icon="translate"
                   title="Language"
-                  subtitle="हिंदी / English"
-                  onPress={() => Alert.alert('Language', 'Coming soon!')}
+                  subtitle={currentLanguageName}
+                  onPress={() => setShowLanguageModal(true)}
                   delay={100}
                 />
               </View>
@@ -258,28 +417,37 @@ export default function ProfileScreen() {
 
             {/* Support Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Support</Text>
+              <Text style={styles.sectionTitle}>
+                <TranslatedText>Support</TranslatedText>
+              </Text>
               <View style={styles.optionsContainer}>
                 <ProfileOption
                   icon="help-circle"
                   title="Help & Support"
                   subtitle="Get help and contact us"
-                  onPress={() => Alert.alert('Support', 'Email: support@samajwadiparty.in')}
+                  onPress={() => router.push('/help-support')}
                   delay={0}
+                />
+                <ProfileOption
+                  icon="email"
+                  title="Contact Us"
+                  subtitle="Send us a message"
+                  onPress={() => router.push('/contact-us')}
+                  delay={100}
+                />
+                <ProfileOption
+                  icon="refresh"
+                  title="Return & Refund"
+                  subtitle="Policy regarding donations"
+                  onPress={() => router.push('/return-refund')}
+                  delay={200}
                 />
                 <ProfileOption
                   icon="information"
                   title="About"
                   subtitle="App version 1.0.0"
-                  onPress={() => Alert.alert('About', 'Samajwadi Party App v1.0.0')}
-                  delay={100}
-                />
-                <ProfileOption
-                  icon="file-document"
-                  title="Terms & Conditions"
-                  subtitle="Read our terms"
-                  onPress={() => Alert.alert('Terms', 'Coming soon!')}
-                  delay={200}
+                  onPress={() => router.push('/about')}
+                  delay={300}
                 />
               </View>
             </View>
@@ -306,9 +474,74 @@ export default function ProfileScreen() {
               <Text style={styles.footerSubtext}>Samajwadi Party © 2024</Text>
             </View>
           </View>
-        </Animated.View>
-      </ScrollView>
-    </View>
+        </Animated.View >
+      </ScrollView >
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={showLanguageModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Language</Text>
+              <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
+                <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#94a3b8" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search language..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#94a3b8"
+              />
+            </View>
+
+            <FlatList
+              data={filteredLanguages}
+              keyExtractor={(item) => item.code}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.languageItem,
+                    language === item.code && styles.languageItemSelected
+                  ]}
+                  onPress={async () => {
+                    await setLanguage(item.code);
+                    setShowLanguageModal(false);
+                  }}
+                >
+                  <View>
+                    <Text style={[
+                      styles.languageName,
+                      language === item.code && styles.languageNameSelected
+                    ]}>
+                      {item.nativeName}
+                    </Text>
+                    <Text style={[
+                      styles.languageSubName,
+                      language === item.code && styles.languageSubNameSelected
+                    ]}>
+                      {item.name}
+                    </Text>
+                  </View>
+                  {language === item.code && (
+                    <MaterialCommunityIcons name="check" size={20} color={SP_RED} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+    </View >
   );
 }
 
@@ -341,6 +574,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  settingsBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#f59e0b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: SP_RED,
   },
   avatarContainer: {
     position: 'relative',
@@ -545,5 +791,125 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 13,
+  },
+  verifiedDetailsContainer: {
+    marginTop: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    padding: 16,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  verifiedDetailsTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginVertical: 14,
+
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 158, 11, 0.3)',
+    gap: 12,
+  },
+  warningText: {
+    color: '#fef3c7',
+    fontSize: 12,
+    textAlign: 'center',
+    flex: 1,
+    lineHeight: 16,
+  },
+  verifiedDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingBottom: 4,
+  },
+  verifiedDetailLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+  },
+  verifiedDetailValue: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    height: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1e293b',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    marginBottom: 20,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#1e293b',
+  },
+  languageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  languageItemSelected: {
+    backgroundColor: '#fef2f2',
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+  },
+  languageName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  languageNameSelected: {
+    color: SP_RED,
+    fontWeight: '700',
+  },
+  languageSubName: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  languageSubNameSelected: {
+    color: SP_RED,
   },
 });

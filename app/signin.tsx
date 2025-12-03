@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,17 @@ import {
   Dimensions,
   Animated,
   Easing,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +27,8 @@ const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
+
+
 
 export default function SignInScreen() {
   const isWideLayout = width >= 768;
@@ -34,6 +42,7 @@ function MobileSignInScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -54,6 +63,51 @@ function MobileSignInScreen() {
     ]).start();
   }, []);
 
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Dynamic URL determination to ensure Android works
+      // Dynamic URL determination to ensure Android works
+      const url = getApiUrl();
+      const loginUrl = `${url}/auth/login`;
+
+      console.log('📡 Login attempt:', { loginUrl, email });
+
+      const response = await fetch(loginUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response data:', data);
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      await AsyncStorage.setItem('userInfo', JSON.stringify(data));
+      if (data.token) {
+        await AsyncStorage.setItem('userToken', data.token);
+      }
+
+      router.push('/(tabs)');
+    } catch (error: any) {
+      console.error('❌ Login error:', error);
+      Alert.alert('Login Failed', error.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <LinearGradient
@@ -64,65 +118,72 @@ function MobileSignInScreen() {
       {/* Decorative Background */}
       <View style={[styles.bgCircleMobile, { backgroundColor: 'rgba(227, 5, 18, 0.08)' }]} />
 
-      <View style={styles.overlay}>
-        <Animated.View style={[styles.headerRow, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.mobileLogoContainer}>
-            <Text style={styles.mobileLogoText}>SP</Text>
-          </View>
-          <Text style={[styles.headerTitle, isDark && styles.headerTitleDark]}>Welcome Back</Text>
-          <Text style={[styles.headerSubtitle, isDark && styles.headerSubtitleDark]}>
-            Sign in to continue your journey
-          </Text>
-        </Animated.View>
-
-        <Animated.View style={[styles.cardGlass, !isDark && styles.cardGlassLight, { opacity: fadeAnim }]}>
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={[styles.input, !isDark && styles.inputLight]}
-              placeholder="name@example.com"
-              placeholderTextColor={isDark ? '#9ca3af' : '#94a3b8'}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, !isDark && styles.inputLight]}
-              placeholder="Your password"
-              placeholderTextColor={isDark ? '#9ca3af' : '#94a3b8'}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
-
-          <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/(tabs)')}>
-            <LinearGradient
-              colors={[SP_RED, '#b91c1c']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.primaryButton}
-            >
-              <Text style={styles.primaryButtonText}>Sign In</Text>
-              <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={styles.signInFooterRow}>
-            <Text style={styles.footerText}>
-              Don't have an account?{' '}
-              <Text style={styles.footerLinkText} onPress={() => router.push('/register')}>
-                Create one
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
+          <View style={styles.overlay}>
+            <Animated.View style={[styles.headerRow, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+              <View style={styles.mobileLogoContainer}>
+                <Text style={styles.mobileLogoText}>SP</Text>
+              </View>
+              <Text style={[styles.headerTitle, isDark && styles.headerTitleDark]}>Welcome Back</Text>
+              <Text style={[styles.headerSubtitle, isDark && styles.headerSubtitleDark]}>
+                Sign in to continue your journey
               </Text>
-            </Text>
+            </Animated.View>
+
+            <Animated.View style={[styles.cardGlass, !isDark && styles.cardGlassLight, { opacity: fadeAnim }]}>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Email Address</Text>
+                <TextInput
+                  style={[styles.input, !isDark && styles.inputLight]}
+                  placeholder="name@example.com"
+                  placeholderTextColor={isDark ? '#9ca3af' : '#94a3b8'}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Password</Text>
+                <TextInput
+                  style={[styles.input, !isDark && styles.inputLight]}
+                  placeholder="Your password"
+                  placeholderTextColor={isDark ? '#9ca3af' : '#94a3b8'}
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                />
+              </View>
+
+              <TouchableOpacity activeOpacity={0.9} onPress={handleLogin} disabled={loading}>
+                <LinearGradient
+                  colors={loading ? ['#666', '#444'] : [SP_RED, '#b91c1c']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.primaryButton}
+                >
+                  <Text style={styles.primaryButtonText}>{loading ? 'Signing In...' : 'Sign In'}</Text>
+                  {!loading && <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <View style={styles.signInFooterRow}>
+                <Text style={styles.footerText}>
+                  Don't have an account?{' '}
+                  <Text style={styles.footerLinkText} onPress={() => router.push('/register')}>
+                    Create one
+                  </Text>
+                </Text>
+              </View>
+            </Animated.View>
           </View>
-        </Animated.View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -176,14 +237,40 @@ function DesktopSignInScreen() {
 
   const canSubmit = email.trim().length > 0 && password.length >= 4;
 
-  const handleSubmit = () => {
+  const handleLogin = async () => {
     if (!canSubmit || loading) return;
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // Dynamic URL determination to ensure Android works
+      // Dynamic URL determination to ensure Android works
+      const url = getApiUrl();
+
+      const response = await fetch(`${url}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      await AsyncStorage.setItem('userInfo', JSON.stringify(data));
+      if (data.token) {
+        await AsyncStorage.setItem('userToken', data.token);
+      }
+
       router.push('/(tabs)');
-    }, 1000);
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoToRegister = () => {
@@ -289,7 +376,7 @@ function DesktopSignInScreen() {
               <TouchableOpacity
                 activeOpacity={0.9}
                 disabled={!canSubmit || loading}
-                onPress={handleSubmit}
+                onPress={handleLogin}
                 style={[
                   styles.desktopSignPrimaryButton,
                   !canSubmit && styles.desktopSignPrimaryButtonDisabled,
@@ -307,7 +394,7 @@ function DesktopSignInScreen() {
                       !canSubmit && styles.desktopSignPrimaryButtonTextMuted,
                     ]}
                   >
-                    {loading ? 'Signing in…' : 'Sign In'}
+                    {loading ? 'Signing in...' : 'Sign In'}
                   </Text>
                   {canSubmit && <MaterialCommunityIcons name="login" size={20} color="#fff" />}
                 </LinearGradient>

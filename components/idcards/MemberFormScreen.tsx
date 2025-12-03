@@ -453,7 +453,7 @@ export default function MemberFormScreen() {
 
             <View style={{ flex: 1, maxWidth: isDesktop ? 600 : '100%', zIndex: 2 }}>
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={{ flex: 1 }}
                 >
                     {/* Header */}
@@ -543,6 +543,7 @@ export default function MemberFormScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        marginBottom: 20,
     },
     background: {
         position: 'absolute',
