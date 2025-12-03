@@ -283,6 +283,9 @@ export default function OnboardingScreen() {
 
     useEffect(() => {
         fetchSlides();
+        if (width >= 768) {
+            router.replace('/desktop-screen-pages/home');
+        }
     }, []);
 
     useEffect(() => {
