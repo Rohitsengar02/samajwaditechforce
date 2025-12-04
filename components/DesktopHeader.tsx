@@ -139,6 +139,19 @@ export default function DesktopHeader() {
                                         <Text style={styles.megaMenuSubtitle}>Tell Us Your Thoughts</Text>
                                     </View>
                                 </Pressable>
+
+                                <Pressable
+                                    style={styles.megaMenuItem}
+                                    onPress={() => { router.push('/desktop-screen-pages/child-protection' as any); setShowMegaMenu(false); }}
+                                >
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#DC262615' }]}>
+                                        <MaterialCommunityIcons name="shield-account" size={24} color="#DC2626" />
+                                    </View>
+                                    <View style={styles.megaMenuText}>
+                                        <Text style={styles.megaMenuTitle}>Child Protection</Text>
+                                        <Text style={styles.megaMenuSubtitle}>Report Abuse Confidentially</Text>
+                                    </View>
+                                </Pressable>
                             </View>
                         </View>
                     )}

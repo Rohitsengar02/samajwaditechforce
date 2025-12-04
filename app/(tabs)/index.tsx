@@ -569,6 +569,44 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Child Protection Banner */}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.idCardBanner}
+              onPress={() => router.push('/(tabs)/child-protection' as any)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#dc2626', '#b91c1c', '#991b1b']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.idCardGradient}
+              >
+                <View style={styles.idCardContent}>
+                  <View style={styles.idCardLeft}>
+                    <View style={styles.idCardIconContainer}>
+                      <MaterialCommunityIcons name="shield-account" size={48} color="#fff" />
+                    </View>
+                    <View style={styles.idCardTextContainer}>
+                      <Text style={styles.idCardTitle}>
+                        <TranslatedText>बाल संरक्षण</TranslatedText>
+                      </Text>
+                      <Text style={styles.idCardSubtitle}>
+                        <TranslatedText>बाल शोषण की रिपोर्ट करें - गोपनीय और सुरक्षित</TranslatedText>
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.idCardButton}>
+                    <MaterialCommunityIcons name="alert-octagon" size={24} color="#fff" />
+                  </View>
+                </View>
+
+                <View style={styles.shimmer1} />
+                <View style={styles.shimmer2} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
           {/* Nearby Volunteers Preview Section */}
           {nearbyVolunteers.length > 0 && (
             <View style={styles.section}>
