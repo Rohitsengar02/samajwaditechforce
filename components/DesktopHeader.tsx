@@ -113,6 +113,32 @@ export default function DesktopHeader() {
                                         <Text style={styles.megaMenuSubtitle}>Learn & Grow</Text>
                                     </View>
                                 </Pressable>
+
+                                <Pressable
+                                    style={styles.megaMenuItem}
+                                    onPress={() => { router.push('/desktop-screen-pages/survey' as any); setShowMegaMenu(false); }}
+                                >
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#3B82F615' }]}>
+                                        <MaterialCommunityIcons name="clipboard-text" size={24} color="#3B82F6" />
+                                    </View>
+                                    <View style={styles.megaMenuText}>
+                                        <Text style={styles.megaMenuTitle}>Survey</Text>
+                                        <Text style={styles.megaMenuSubtitle}>Share Your Opinion</Text>
+                                    </View>
+                                </Pressable>
+
+                                <Pressable
+                                    style={styles.megaMenuItem}
+                                    onPress={() => { router.push('/desktop-screen-pages/feedback' as any); setShowMegaMenu(false); }}
+                                >
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#F59E0B15' }]}>
+                                        <MaterialCommunityIcons name="message-text" size={24} color="#F59E0B" />
+                                    </View>
+                                    <View style={styles.megaMenuText}>
+                                        <Text style={styles.megaMenuTitle}>Feedback</Text>
+                                        <Text style={styles.megaMenuSubtitle}>Tell Us Your Thoughts</Text>
+                                    </View>
+                                </Pressable>
                             </View>
                         </View>
                     )}

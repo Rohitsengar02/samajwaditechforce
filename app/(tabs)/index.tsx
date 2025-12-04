@@ -493,6 +493,82 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Survey Banner */}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.idCardBanner}
+              onPress={() => router.push('/(tabs)/survey' as any)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#3b82f6', '#2563eb', '#1d4ed8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.idCardGradient}
+              >
+                <View style={styles.idCardContent}>
+                  <View style={styles.idCardLeft}>
+                    <View style={styles.idCardIconContainer}>
+                      <MaterialCommunityIcons name="clipboard-text" size={48} color="#fff" />
+                    </View>
+                    <View style={styles.idCardTextContainer}>
+                      <Text style={styles.idCardTitle}>
+                        <TranslatedText>जन सर्वेक्षण</TranslatedText>
+                      </Text>
+                      <Text style={styles.idCardSubtitle}>
+                        <TranslatedText>अपनी राय साझा करें और बदलाव का हिस्सा बनें</TranslatedText>
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.idCardButton}>
+                    <MaterialCommunityIcons name="arrow-right" size={24} color="#fff" />
+                  </View>
+                </View>
+
+                <View style={styles.shimmer1} />
+                <View style={styles.shimmer2} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* Feedback Banner */}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.idCardBanner}
+              onPress={() => router.push('/(tabs)/feedback' as any)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#f59e0b', '#d97706', '#b45309']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.idCardGradient}
+              >
+                <View style={styles.idCardContent}>
+                  <View style={styles.idCardLeft}>
+                    <View style={styles.idCardIconContainer}>
+                      <MaterialCommunityIcons name="message-text" size={48} color="#fff" />
+                    </View>
+                    <View style={styles.idCardTextContainer}>
+                      <Text style={styles.idCardTitle}>
+                        <TranslatedText>फीडबैक दें</TranslatedText>
+                      </Text>
+                      <Text style={styles.idCardSubtitle}>
+                        <TranslatedText>हमें बताएं कि हम कैसे सुधार कर सकते हैं</TranslatedText>
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.idCardButton}>
+                    <MaterialCommunityIcons name="send" size={24} color="#fff" />
+                  </View>
+                </View>
+
+                <View style={styles.shimmer1} />
+                <View style={styles.shimmer2} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
           {/* Nearby Volunteers Preview Section */}
           {nearbyVolunteers.length > 0 && (
             <View style={styles.section}>
