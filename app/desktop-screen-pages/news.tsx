@@ -8,12 +8,13 @@ import { getApiUrl } from '../../utils/api';
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
+import DesktopHeader from '../../components/DesktopHeader';
+
 export default function DesktopNews() {
     const router = useRouter();
     const [news, setNews] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState('all');
-    const [showMegaMenu, setShowMegaMenu] = useState(false);
 
     useEffect(() => {
         fetchNews();
@@ -42,197 +43,7 @@ export default function DesktopNews() {
 
     return (
         <View style={styles.container}>
-            {/* Header/Navigation */}
-            <View style={styles.header}>
-                <Text style={styles.headerLogo}>समाजवादी पार्टी</Text>
-                <View style={styles.navMenu}>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/home' as any)}>
-                        <Text style={styles.navItem}>Home</Text>
-                    </Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/news' as any)}>
-                        <Text style={styles.navItem}>News</Text>
-                    </Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/events' as any)}>
-                        <Text style={styles.navItem}>Events</Text>
-                    </Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/gallery' as any)}>
-                        <Text style={styles.navItem}>Gallery</Text>
-                    </Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/about' as any)}>
-                        <Text style={styles.navItem}>About</Text>
-                    </Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/volunteers' as any)}>
-                        <Text style={styles.navItem}>Volunteers</Text>
-                    </Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/daily-work' as any)}>
-                        <Text style={styles.navItem}>Daily Work</Text>
-                    </Pressable>
-
-                    {/* Quick Access Dropdown */}
-                    <View style={styles.dropdownWrapper}>
-                        <Pressable
-                            style={styles.dropdownTrigger}
-                            onPress={() => setShowMegaMenu(!showMegaMenu)}
-                        >
-                            <Text style={styles.navItem}>Quick Access</Text>
-                            <MaterialCommunityIcons
-                                name={showMegaMenu ? "chevron-up" : "chevron-down"}
-                                size={20}
-                                color="#1e293b"
-                            />
-                        </Pressable>
-
-                        {showMegaMenu && (
-                            <View style={styles.megaMenu}>
-                                <View style={styles.megaMenuGrid}>
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/posters' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_GREEN}15` }]}>
-                                            <MaterialCommunityIcons name="image-multiple" size={24} color={SP_GREEN} />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Posters</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Download & customize</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/daily-work/leaderboard' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_GREEN}15` }]}>
-                                            <MaterialCommunityIcons name="chart-bar" size={24} color={SP_GREEN} />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Leaderboard</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Check your rank</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/daily-work' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: '#F59E0B15' }]}>
-                                            <MaterialCommunityIcons name="calendar-check" size={24} color="#F59E0B" />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Daily Work</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Tasks & Rewards</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/desktop-screen-pages/resources' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: '#9333EA15' }]}>
-                                            <MaterialCommunityIcons name="library" size={24} color="#9333EA" />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Resources</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Library & Tools</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/desktop-screen-pages/communication' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: '#2563EB15' }]}>
-                                            <MaterialCommunityIcons name="forum" size={24} color="#2563EB" />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Communication</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Discuss & Suggest</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/desktop-screen-pages/news' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_RED}15` }]}>
-                                            <MaterialCommunityIcons name="newspaper" size={24} color={SP_RED} />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Samajwadi Updates</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Stay updated</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/nearby-volunteers' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: '#0891b215' }]}>
-                                            <MaterialCommunityIcons name="account-group" size={24} color="#0891b2" />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Nearby Volunteers</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Find help nearby</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/desktop-screen-pages/training' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: '#3B82F615' }]}>
-                                            <MaterialCommunityIcons name="school" size={24} color="#3B82F6" />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Training</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Learn & grow</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/idcard' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: '#EF444415' }]}>
-                                            <MaterialCommunityIcons name="card-account-details" size={24} color="#EF4444" />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>ID Card</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Digital identity</Text>
-                                        </View>
-                                    </Pressable>
-
-                                    <Pressable
-                                        style={styles.megaMenuItem}
-                                        onPress={() => { router.push('/desktop-screen-pages/reels' as any); setShowMegaMenu(false); }}
-                                    >
-                                        <View style={[styles.megaMenuIcon, { backgroundColor: '#E1306C15' }]}>
-                                            <MaterialCommunityIcons name="play-box-multiple" size={24} color="#E1306C" />
-                                        </View>
-                                        <View style={styles.megaMenuText}>
-                                            <Text style={styles.megaMenuTitle}>Reels</Text>
-                                            <Text style={styles.megaMenuSubtitle}>Watch & Share</Text>
-                                        </View>
-                                    </Pressable>
-                                </View>
-                            </View>
-                        )}
-                    </View>
-                </View>
-                <View style={styles.headerActions}>
-                    <Text style={styles.langSwitch}>EN</Text>
-                    <Pressable onPress={() => router.push('/register' as any)}>
-                        <Text style={styles.loginBtn}>Login</Text>
-                    </Pressable>
-                    <Pressable
-                        style={styles.signupBtn}
-                        onPress={() => router.push('/joinus' as any)}
-                    >
-                        <Text style={styles.signupBtnText}>Join Us</Text>
-                    </Pressable>
-                </View>
-            </View>
-
+            <DesktopHeader />
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Top 3 Featured News in a Row */}
                 {!loading && news.length > 0 && (
@@ -373,7 +184,7 @@ export default function DesktopNews() {
                     </View>
                 )}
             </ScrollView>
-        </View>
+        </View >
     );
 }
 

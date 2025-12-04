@@ -28,6 +28,8 @@ const SP_RED = '#E30512';
 const BANNER_HEIGHT = 80;
 const API_URL = getApiUrl();
 
+import DesktopHeader from '../../components/DesktopHeader';
+
 type ToolType = 'text' | 'image' | 'music' | 'layout' | 'banner' | 'filter' | 'sticker' | 'shape' | 'draw' | 'bg';
 
 interface EditorElement {
@@ -245,7 +247,8 @@ export default function DesktopPosterEditor() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
+            <DesktopHeader />
+            {/* Sub-header for editor controls */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#1e293b" />

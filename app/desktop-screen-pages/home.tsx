@@ -11,13 +11,14 @@ const { width: screenWidth } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
+import DesktopHeader from '../../components/DesktopHeader';
+
 export default function DesktopHome() {
     const router = useRouter();
     const [news, setNews] = useState<any[]>([]);
     const [posters, setPosters] = useState<any[]>([]);
     const [tasks, setTasks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showMegaMenu, setShowMegaMenu] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -58,187 +59,12 @@ export default function DesktopHome() {
 
     return (
         <View style={styles.container}>
+            <DesktopHeader />
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Header/Navigation */}
-                <View style={styles.header}>
-                    <Text style={styles.headerLogo}>समाजवादी पार्टी</Text>
-                    <View style={styles.navMenu}>
-                        <Pressable onPress={() => router.push('/desktop-screen-pages/home' as any)}>
-                            <Text style={styles.navItem}>Home</Text>
-                        </Pressable>
-                        <Pressable onPress={() => router.push('/desktop-screen-pages/news' as any)}>
-                            <Text style={styles.navItem}>News</Text>
-                        </Pressable>
-                        <Pressable onPress={() => router.push('/desktop-screen-pages/events' as any)}>
-                            <Text style={styles.navItem}>Events</Text>
-                        </Pressable>
 
-                        <Pressable onPress={() => router.push('/desktop-screen-pages/about' as any)}>
-                            <Text style={styles.navItem}>About</Text>
-                        </Pressable>
-                        <Pressable onPress={() => router.push('/desktop-screen-pages/volunteers' as any)}>
-                            <Text style={styles.navItem}>Volunteers</Text>
-                        </Pressable>
-                        <Pressable onPress={() => router.push('/desktop-screen-pages/daily-work' as any)}>
-                            <Text style={styles.navItem}>Daily Work</Text>
-                        </Pressable>
-
-                        {/* Quick Access Dropdown */}
-                        <View style={styles.dropdownWrapper}>
-                            <Pressable
-                                style={styles.dropdownTrigger}
-                                onPress={() => setShowMegaMenu(!showMegaMenu)}
-                            >
-                                <Text style={styles.navItem}>Quick Access</Text>
-                                <MaterialCommunityIcons
-                                    name={showMegaMenu ? "chevron-up" : "chevron-down"}
-                                    size={20}
-                                    color="#1e293b"
-                                />
-                            </Pressable>
-
-                            {showMegaMenu && (
-                                <View style={styles.megaMenu}>
-                                    <View style={styles.megaMenuGrid}>
-                                        {/* Row 1 */}
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/posters' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_GREEN}15` }]}>
-                                                <MaterialCommunityIcons name="image-multiple" size={24} color={SP_GREEN} />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>Posters</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Download & customize</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/desktop-screen-pages/leaderboard' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_GREEN}15` }]}>
-                                                <MaterialCommunityIcons name="chart-bar" size={24} color={SP_GREEN} />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>Leaderboard</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Check your rank</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/desktop-screen-pages/daily-work' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: '#F59E0B15' }]}>
-                                                <MaterialCommunityIcons name="calendar-check" size={24} color="#F59E0B" />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>Daily Work</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Tasks & Rewards</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/desktop-screen-pages/resources' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: '#9333EA15' }]}>
-                                                <MaterialCommunityIcons name="library" size={24} color="#9333EA" />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>Resources</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Library & Tools</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/desktop-screen-pages/communication' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: '#2563EB15' }]}>
-                                                <MaterialCommunityIcons name="forum" size={24} color="#2563EB" />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>Communication</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Discuss & Suggest</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        {/* Row 2 */}
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/desktop-screen-pages/news' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_RED}15` }]}>
-                                                <MaterialCommunityIcons name="newspaper" size={24} color={SP_RED} />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>Samajwadi Updates</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Stay updated</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/desktop-screen-pages/training' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: '#3B82F615' }]}>
-                                                <MaterialCommunityIcons name="school" size={24} color="#3B82F6" />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>Training</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Learn & grow</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/idcard' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: '#EF444415' }]}>
-                                                <MaterialCommunityIcons name="card-account-details" size={24} color="#EF4444" />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>ID Card</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Digital identity</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        <Pressable
-                                            style={styles.megaMenuItem}
-                                            onPress={() => { router.push('/desktop-screen-pages/reels' as any); setShowMegaMenu(false); }}
-                                        >
-                                            <View style={[styles.megaMenuIcon, { backgroundColor: '#E1306C15' }]}>
-                                                <MaterialCommunityIcons name="play-box-multiple" size={24} color="#E1306C" />
-                                            </View>
-                                            <View style={styles.megaMenuText}>
-                                                <Text style={styles.megaMenuTitle}>Reels</Text>
-                                                <Text style={styles.megaMenuSubtitle}>Watch & Share</Text>
-                                            </View>
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-                    <View style={styles.headerActions}>
-                        <Text style={styles.langSwitch}>EN</Text>
-                        <Pressable onPress={() => router.push('/register' as any)}>
-                            <Text style={styles.loginBtn}>Login</Text>
-                        </Pressable>
-                        <Pressable
-                            style={styles.signupBtn}
-                            onPress={() => router.push('/joinus' as any)}
-                        >
-                            <Text style={styles.signupBtnText}>Join Us</Text>
-                        </Pressable>
-                    </View>
-                </View>
 
                 {/* Section 1: Enhanced Hero Section */}
-                <View style={styles.heroSection}>
+                < View style={styles.heroSection} >
                     <View style={styles.heroContainer}>
                         {/* Left Content */}
                         <View style={styles.heroLeft}>
@@ -356,10 +182,10 @@ export default function DesktopHome() {
                     </View>
 
 
-                </View>
+                </View >
 
                 {/* Section 2: News Updates */}
-                <View style={styles.section}>
+                < View style={styles.section} >
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Latest News Updates</Text>
                         <Button mode="text" textColor={SP_RED} onPress={() => router.push('/news' as any)}>
@@ -384,10 +210,10 @@ export default function DesktopHome() {
                             </Pressable>
                         ))}
                     </View>
-                </View>
+                </View >
 
                 {/* Section 3: Media Gallery / Posters */}
-                <View style={[styles.section, { backgroundColor: '#f8fafc' }]}>
+                < View style={[styles.section, { backgroundColor: '#f8fafc' }]} >
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Campaign Gallery</Text>
                         <Button mode="text" textColor={SP_RED} onPress={() => router.push('/posters' as any)}>
@@ -406,10 +232,10 @@ export default function DesktopHome() {
                             </Pressable>
                         ))}
                     </ScrollView>
-                </View>
+                </View >
 
                 {/* Section 4: Party Achievements */}
-                <View style={styles.section}>
+                < View style={styles.section} >
                     <Text style={styles.sectionTitle}>Our Track Record</Text>
                     <View style={styles.achievementsGrid}>
                         <View style={styles.achievementCard}>
@@ -433,12 +259,12 @@ export default function DesktopHome() {
                             <Text style={styles.achievementLabel}>Campaigns Run</Text>
                         </View>
                     </View>
-                </View>
+                </View >
 
                 {/* Section 5: Party President - Premium Edition */}
-                <View style={styles.leaderSection}>
+                < View style={styles.leaderSection} >
                     {/* Decorative Background Elements */}
-                    <View style={styles.leaderDecoTop} />
+                    < View style={styles.leaderDecoTop} />
                     <View style={styles.leaderDecoBottom} />
 
                     <View style={styles.leaderContainer}>
@@ -548,10 +374,10 @@ export default function DesktopHome() {
                             </View>
                         </View>
                     </View>
-                </View>
+                </View >
 
                 {/* Section 6: Party History & Legacy */}
-                <View style={[styles.section, { backgroundColor: '#fff' }]}>
+                < View style={[styles.section, { backgroundColor: '#fff' }]} >
                     <Text style={styles.sectionTitle}>Our Legacy</Text>
                     <View style={styles.legacyGrid}>
                         <View style={styles.legacyCard}>
@@ -573,13 +399,13 @@ export default function DesktopHome() {
                             <Text style={styles.legacySubtext}>3 CM Tenures</Text>
                         </View>
                     </View>
-                </View>
+                </View >
 
 
 
 
                 {/* Section 8: Join the Movement */}
-                <View style={styles.joinSection}>
+                < View style={styles.joinSection} >
                     <LinearGradient colors={[SP_RED, '#991b1b']} style={styles.joinGradient}>
                         <MaterialCommunityIcons name="account-multiple-plus" size={64} color="#fff" />
                         <Text style={styles.joinTitle}>Be a Part of Change</Text>
@@ -604,10 +430,10 @@ export default function DesktopHome() {
                             </Button>
                         </View>
                     </LinearGradient>
-                </View>
+                </View >
 
                 {/* Section 9: Programs & Initiatives */}
-                <View style={styles.section}>
+                < View style={styles.section} >
                     <Text style={styles.sectionTitle}>Our Programs</Text>
                     <View style={styles.programsGrid}>
                         <View style={styles.programCard}>
@@ -651,10 +477,10 @@ export default function DesktopHome() {
                             </View>
                         </View>
                     </View>
-                </View>
+                </View >
 
                 {/* Section 10: Interactive Tools */}
-                <View style={[styles.section, { backgroundColor: '#f1f5f9' }]}>
+                < View style={[styles.section, { backgroundColor: '#f1f5f9' }]} >
                     <Text style={styles.sectionTitle}>Interact with Us</Text>
                     <View style={styles.interactGrid}>
                         <Pressable style={styles.interactCard} onPress={() => router.push('/idcard' as any)}>
@@ -678,10 +504,10 @@ export default function DesktopHome() {
                             <Text style={styles.interactDesc}>Get help from our team</Text>
                         </Pressable>
                     </View>
-                </View>
+                </View >
 
                 {/* Footer */}
-                <View style={styles.footer}>
+                < View style={styles.footer} >
                     <View style={styles.footerContent}>
                         <View style={styles.footerColumn}>
                             <View style={styles.footerLogo}>
@@ -723,9 +549,9 @@ export default function DesktopHome() {
                     <View style={styles.footerBottom}>
                         <Text style={styles.copyright}>© 2024 Samajwadi Tech Force. All rights reserved.</Text>
                     </View>
-                </View>
-            </ScrollView>
-        </View>
+                </View >
+            </ScrollView >
+        </View >
     );
 }
 

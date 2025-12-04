@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
+import DesktopHeader from '../../components/DesktopHeader';
+
 export default function DesktopTraining() {
     const router = useRouter();
 
@@ -21,24 +23,7 @@ export default function DesktopTraining() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerLogo}>समाजवादी पार्टी</Text>
-                <View style={styles.navMenu}>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/home' as any)}><Text style={styles.navItem}>Home</Text></Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/news' as any)}><Text style={styles.navItem}>News</Text></Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/events' as any)}><Text style={styles.navItem}>Events</Text></Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/gallery' as any)}><Text style={styles.navItem}>Gallery</Text></Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/about' as any)}><Text style={styles.navItem}>About</Text></Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/volunteers' as any)}><Text style={styles.navItem}>Volunteers</Text></Pressable>
-                    <Pressable onPress={() => router.push('/desktop-screen-pages/daily-work' as any)}><Text style={styles.navItem}>Daily Work</Text></Pressable>
-                </View>
-                <View style={styles.headerActions}>
-                    <Text style={styles.langSwitch}>EN</Text>
-                    <Pressable onPress={() => router.push('/register' as any)}><Text style={styles.loginBtn}>Login</Text></Pressable>
-                    <Pressable style={styles.signupBtn} onPress={() => router.push('/joinus' as any)}><Text style={styles.signupBtnText}>Join Us</Text></Pressable>
-                </View>
-            </View>
-
+            <DesktopHeader />
             <ScrollView>
                 <View style={styles.hero}>
                     <View style={styles.badge}><MaterialCommunityIcons name="school" size={18} color={SP_RED} /><Text style={styles.badgeText}>Training Center</Text></View>

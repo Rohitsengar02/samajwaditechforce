@@ -22,6 +22,8 @@ import { TEMPLATES, RenderBottomBar } from '../../components/posteredit/BottomBa
 const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
 
+import DesktopHeader from '../../components/DesktopHeader';
+
 const STEPS = [
     { key: 'name', label: 'Your Name', placeholder: 'Enter your full name', icon: 'account' },
     { key: 'designation', label: 'Designation', placeholder: 'e.g. District President', icon: 'badge-account-horizontal' },
@@ -92,6 +94,7 @@ export default function DesktopNormalEdit() {
 
     return (
         <View style={styles.container}>
+            <DesktopHeader />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#1e293b" />

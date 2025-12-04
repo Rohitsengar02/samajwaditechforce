@@ -8,6 +8,8 @@ import { TranslatedText } from '../../components/TranslatedText';
 
 const SP_RED = '#E30512';
 
+import DesktopHeader from '../../components/DesktopHeader';
+
 export default function DesktopNewsDetail() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
@@ -54,6 +56,7 @@ export default function DesktopNewsDetail() {
 
     return (
         <View style={styles.container}>
+            <DesktopHeader />
             <ScrollView contentContainerStyle={styles.content}>
                 <Button
                     mode="text"
