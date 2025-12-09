@@ -64,8 +64,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ac41f7d9-50aa-49ac-8ea5-b3a643bc0ef9"
+        "projectId": "83366d17-09b0-4335-a00d-7f717d521690"
       }
-    }
+    },
+    "owner": "ironman22"
   }
 }

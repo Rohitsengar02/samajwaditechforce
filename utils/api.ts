@@ -21,9 +21,9 @@ export const getApiUrl = () => {
     if (Platform.OS === 'android') {
         // Replace localhost with machine IP for Android Emulator/Device
         url = url
-            .replace('localhost', '192.168.1.46')
-            .replace('127.0.0.1', '192.168.1.46')
-            .replace('10.0.2.2', '192.168.1.46');
+            .replace('localhost', '192.168.1.34')
+            .replace('127.0.0.1', '192.168.1.34')
+            .replace('10.0.2.2', '192.168.1.34');
     }
 
     return url;

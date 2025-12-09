@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, TextInput as RNTextInput, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { View, StyleSheet, Dimensions, TextInput as RNTextInput, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { Card, Title, Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getApiUrl } from '../utils/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -74,6 +75,8 @@ export default function InteractiveOTPScreen({ navigation, route }: any) {
   const inputRefs = useRef<(RNTextInput | null)[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -165,14 +168,44 @@ export default function InteractiveOTPScreen({ navigation, route }: any) {
       return;
     }
 
-    if (otpString !== '123456') {
-      shakeCard();
-      setErrorMessage('Invalid OTP. For testing, please use 123456.');
-      return;
-    }
-
+    setVerifying(true);
+    setErrorMessage(null);
     Keyboard.dismiss();
-    navigation.navigate('ProfileSetup', { phone });
+
+    try {
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone, otp: otpString }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // OTP verified successfully
+        Alert.alert(
+          'Success!',
+          'Mobile number verified successfully',
+          [{
+            text: 'Continue',
+            onPress: () => navigation.navigate('ProfileSetup', { phone })
+          }]
+        );
+      } else {
+        // OTP verification failed
+        shakeCard();
+        setErrorMessage(data.message || 'Invalid OTP. Please try again.');
+      }
+    } catch (error) {
+      console.error('Verify OTP Error:', error);
+      shakeCard();
+      setErrorMessage('Network error. Please check your connection.');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const shakeCard = () => {
@@ -184,12 +217,37 @@ export default function InteractiveOTPScreen({ navigation, route }: any) {
     ]).start();
   };
 
-  const handleResend = () => {
-    if (timer === 0) {
-      setOtp(['', '', '', '', '', '']);
-      setErrorMessage(null);
-      setTimer(30);
-      inputRefs.current[0]?.focus();
+  const handleResend = async () => {
+    if (timer > 0 || resending) return;
+
+    setResending(true);
+    setOtp(['', '', '', '', '', '']);
+    setErrorMessage(null);
+
+    try {
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setTimer(30);
+        inputRefs.current[0]?.focus();
+        Alert.alert('OTP Resent', 'A new verification code has been sent to your mobile.');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to resend OTP.');
+      }
+    } catch (error) {
+      console.error('Resend OTP Error:', error);
+      Alert.alert('Error', 'Failed to resend OTP. Please try again.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -308,12 +366,23 @@ export default function InteractiveOTPScreen({ navigation, route }: any) {
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     >
-                      <Text style={[styles.buttonText, isComplete && styles.buttonTextActive]}>
-                        Verify & Continue
-                      </Text>
-                      <Animated.View style={{ transform: [{ scale: successScale }] }}>
-                        <MaterialCommunityIcons name="check-circle" size={24} color="#fff" />
-                      </Animated.View>
+                      {verifying ? (
+                        <>
+                          <ActivityIndicator size="small" color="#fff" />
+                          <Text style={[styles.buttonText, { color: '#fff' }]}>
+                            Verifying...
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={[styles.buttonText, isComplete && styles.buttonTextActive]}>
+                            Verify & Continue
+                          </Text>
+                          <Animated.View style={{ transform: [{ scale: successScale }] }}>
+                            <MaterialCommunityIcons name="check-circle" size={24} color="#fff" />
+                          </Animated.View>
+                        </>
+                      )}
                     </LinearGradient>
                   </TouchableOpacity>
                 </Card.Content>
@@ -325,9 +394,9 @@ export default function InteractiveOTPScreen({ navigation, route }: any) {
               <Text style={styles.resendText}>
                 Didn't receive the code?{' '}
               </Text>
-              <TouchableOpacity onPress={handleResend} disabled={timer > 0}>
-                <Text style={[styles.resendLink, timer === 0 && styles.resendLinkActive]}>
-                  {timer > 0 ? `Resend in ${timer}s` : 'Resend Code'}
+              <TouchableOpacity onPress={handleResend} disabled={timer > 0 || resending}>
+                <Text style={[styles.resendLink, (timer === 0 && !resending) && styles.resendLinkActive]}>
+                  {resending ? 'Sending...' : timer > 0 ? `Resend in ${timer}s` : 'Resend Code'}
                 </Text>
               </TouchableOpacity>
             </View>

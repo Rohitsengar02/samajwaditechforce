@@ -14,6 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getApiUrl } from '../utils/api';
+import { Alert } from 'react-native';
 
 import InteractiveLoginScreen from '../components/InteractiveLoginScreen';
 import InteractiveOTPScreen from '../components/InteractiveOTPScreen';
@@ -211,21 +213,71 @@ function DesktopRegisterScreen() {
     phone.trim().length > 0 &&
     password.length >= 6;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
-    setShowOtpModal(true);
-    setOtp('');
+    setLoading(true);
+
+    try {
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone,
+          name: fullName,
+          email,
+          password
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowOtpModal(true);
+        setOtp('');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to send OTP. Please try again.');
+      }
+    } catch (error) {
+      console.error('Registration Error:', error);
+      Alert.alert('Error', 'Network error. Please check your internet connection.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     if (otp.trim().length === 0 || otpLoading) return;
     setOtpLoading(true);
 
-    setTimeout(() => {
+    try {
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone, otp }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowOtpModal(false);
+        Alert.alert('Success', 'Account created successfully!', [
+          { text: 'OK', onPress: () => router.push('/(tabs)') }
+        ]);
+      } else {
+        Alert.alert('Error', data.message || 'OTP Verification failed.');
+      }
+    } catch (error) {
+      console.error('Verification Error:', error);
+      Alert.alert('Error', 'Network error. Please check your internet connection.');
+    } finally {
       setOtpLoading(false);
-      setShowOtpModal(false);
-      router.push('/(tabs)');
-    }, 1000);
+    }
   };
 
   const handleGoToSignIn = () => {
@@ -379,15 +431,15 @@ function DesktopRegisterScreen() {
                 </View>
                 <Text style={styles.otpTitle}>Verify Mobile</Text>
                 <Text style={styles.otpSubtitle}>
-                  Enter the 4-digit code sent to {phone}
+                  Enter the 6-digit code sent to {phone}
                 </Text>
 
                 <TextInput
                   style={styles.otpInput}
-                  placeholder="0000"
+                  placeholder="000000"
                   placeholderTextColor="#9ca3af"
                   keyboardType="number-pad"
-                  maxLength={4}
+                  maxLength={6}
                   value={otp}
                   onChangeText={setOtp}
                   autoFocus
@@ -396,7 +448,7 @@ function DesktopRegisterScreen() {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={handleVerifyOtp}
-                  disabled={otp.length < 4 || otpLoading}
+                  disabled={otp.length < 6 || otpLoading}
                   style={styles.otpButton}
                 >
                   <LinearGradient

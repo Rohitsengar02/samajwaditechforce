@@ -1,11 +1,12 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../utils/api';
+import { translateText } from '../services/translationService';
 
 type LanguageContextType = {
     language: string;
     setLanguage: (lang: string) => Promise<void>;
-    t: (text: string) => string; // Placeholder for translation function
+    translate: (text: string) => Promise<string>;
     availableLanguages: { code: string; name: string; nativeName: string }[];
 };
 
@@ -27,10 +28,31 @@ export const availableLanguages = [
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [language, setLanguageState] = useState('en');
+    const [translationCache, setTranslationCache] = useState<Record<string, Record<string, string>>>({});
 
     useEffect(() => {
         loadLanguage();
+        loadCache();
     }, []);
+
+    const loadCache = async () => {
+        try {
+            const cached = await AsyncStorage.getItem('translationCache');
+            if (cached) {
+                setTranslationCache(JSON.parse(cached));
+            }
+        } catch (e) {
+            console.error('Failed to load translation cache', e);
+        }
+    };
+
+    const saveCache = async (newCache: Record<string, Record<string, string>>) => {
+        try {
+            await AsyncStorage.setItem('translationCache', JSON.stringify(newCache));
+        } catch (e) {
+            console.error('Failed to save translation cache', e);
+        }
+    };
 
     const loadLanguage = async () => {
         try {
@@ -57,31 +79,24 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const setLanguage = async (lang: string) => {
         try {
-            console.log('Setting language to:', lang);
             setLanguageState(lang);
             await AsyncStorage.setItem('appLanguage', lang);
 
             // Update user profile in backend if logged in
             const token = await AsyncStorage.getItem('userToken');
-            console.log('User token exists:', !!token);
 
             if (token) {
                 const url = getApiUrl();
-                console.log('Updating language on backend:', `${url}/auth/update-language`);
-
-                const response = await fetch(`${url}/auth/update-language`, {
+                // Fire and forget backend update to avoid UI delay
+                fetch(`${url}/auth/update-language`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({ language: lang })
-                });
+                }).catch(err => console.error('Backend language update partial fail', err));
 
-                const data = await response.json();
-                console.log('Backend update response:', data);
-
-                // Update local user info
                 const userInfoStr = await AsyncStorage.getItem('userInfo');
                 if (userInfoStr) {
                     const userInfo = JSON.parse(userInfoStr);
@@ -94,14 +109,36 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
-    // Simple placeholder translation function
-    // In a real app, this would look up strings in a dictionary or call the translation API
-    const t = (text: string) => {
-        return text;
-    };
+    const translate = useCallback(async (text: string): Promise<string> => {
+        if (!text || language === 'en') return text;
+        if (translationCache[language]?.[text]) {
+            return translationCache[language][text];
+        }
+
+        try {
+            const translated = await translateText(text, language);
+
+            setTranslationCache(prev => {
+                const next = {
+                    ...prev,
+                    [language]: {
+                        ...(prev[language] || {}),
+                        [text]: translated
+                    }
+                };
+                saveCache(next); // Persist update
+                return next;
+            });
+
+            return translated;
+        } catch (error) {
+            console.error('Translate error:', error);
+            return text;
+        }
+    }, [language, translationCache]);
 
     return (
-        <LanguageContext.Provider value={{ language, setLanguage, t, availableLanguages }}>
+        <LanguageContext.Provider value={{ language, setLanguage, translate, availableLanguages }}>
             {children}
         </LanguageContext.Provider>
     );
@@ -113,4 +150,24 @@ export const useLanguage = () => {
         throw new Error('useLanguage must be used within a LanguageProvider');
     }
     return context;
+};
+
+// Helper hook for functional components
+export const useTranslation = (text: string) => {
+    const { translate, language } = useLanguage();
+    const [translated, setTranslated] = useState(text);
+
+    useEffect(() => {
+        let active = true;
+        if (language === 'en') {
+            setTranslated(text);
+        } else {
+            translate(text).then(res => {
+                if (active) setTranslated(res);
+            });
+        }
+        return () => { active = false; };
+    }, [text, language, translate]);
+
+    return translated;
 };

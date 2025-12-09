@@ -5,166 +5,171 @@ import {
     StyleSheet,
     Dimensions,
     FlatList,
-    Image,
     TouchableOpacity,
-    Share,
     StatusBar,
     Platform,
-    SafeAreaView,
-    Modal,
-    TextInput,
-    KeyboardAvoidingView,
-    TouchableWithoutFeedback,
-    Keyboard
+    ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialCommunityIcons, Ionicons, FontAwesome } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { WebView } from 'react-native-webview';
 import { TranslatedText } from '../components/TranslatedText';
+import { getApiUrl } from '../utils/api';
 
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 
-// Dummy Data
-const REELS_DATA = [
-    {
-        id: '1',
-        image: 'https://images.unsplash.com/photo-1662479696175-6ca3b10830a6?q=80&w=637&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        user: 'samajwadiparty_official',
-        userAvatar: null, // Use icon if null
-        description: 'Huge support for Samajwadi Party in the latest rally! 🚩🚴‍♂️ #SamajwadiParty #AkhileshYadav #UttarPradesh',
-        likes: '45.2k',
-        comments: '1.2k',
-        shares: '5.5k',
-        music: 'Samajwadi Anthem - Original Audio',
-        isLiked: false
-    },
-    {
-        id: '2',
-        image: 'https://images.unsplash.com/photo-1662479696175-6ca3b10830a6?q=80&w=637&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        user: 'akhilesh_yadav_fans',
-        userAvatar: null,
-        description: 'Cycle Yatra continuing across the state. Join the movement! 🚴‍♂️',
-        likes: '28.9k',
-        comments: '856',
-        shares: '3.1k',
-        music: 'Cycle Chalao - Campaign Song',
-        isLiked: true
-    },
-    {
-        id: '3',
-        image: 'https://images.unsplash.com/photo-1662479696175-6ca3b10830a6?q=80&w=637&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        user: 'sp_youth_wing',
-        userAvatar: null,
-        description: 'Youth power is with SP! ✊ #YouthForAkhilesh',
-        likes: '15.6k',
-        comments: '420',
-        shares: '1.8k',
-        music: 'Yuva Josh - Trending Audio',
-        isLiked: false
-    },
-];
+const ReelVideoCard = ({ item, index, activeIndex, onLike }: any) => {
+    const videoRef = useRef<Video>(null);
+    const [isLiked, setIsLiked] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const shouldPlay = index === activeIndex;
 
-const DUMMY_COMMENTS = [
-    { id: '1', user: 'rahul_yadav', text: 'Jai Samajwad! 🚩', time: '2m', likes: 12 },
-    { id: '2', user: 'priya_singh', text: 'Great initiative by Akhilesh ji', time: '5m', likes: 8 },
-    { id: '3', user: 'vikas_sp', text: 'Full support from Lucknow', time: '12m', likes: 25 },
-    { id: '4', user: 'amit_k', text: 'Cycle chalti jayegi 🚴‍♂️', time: '30m', likes: 15 },
-    { id: '5', user: 'neha_g', text: '2027 me badlav hoga', time: '1h', likes: 42 },
-];
-
-const ReelItem = ({ item, index, activeIndex, onOpenComments }: any) => {
-    const [isLiked, setIsLiked] = useState(item.isLiked);
-    const [likeCount, setLikeCount] = useState(item.likes);
+    useEffect(() => {
+        if (shouldPlay && videoRef.current) {
+            videoRef.current.playAsync();
+            setIsPlaying(true);
+        } else if (videoRef.current) {
+            videoRef.current.pauseAsync();
+            setIsPlaying(false);
+        }
+    }, [shouldPlay]);
 
     const handleLike = () => {
         setIsLiked(!isLiked);
-        // Simple string manipulation for demo purposes
-        if (!isLiked) {
-            // Increment logic would go here
+        onLike?.(item.id, !isLiked);
+    };
+
+    const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+        if (status.isLoaded) {
+            setIsLoading(false);
         }
     };
 
-    const handleShare = async () => {
-        try {
-            await Share.share({
-                message: `Check out this reel from ${item.user}: ${item.description}`,
-            });
-        } catch (error) {
-            console.error(error);
+    const isYoutube = item.videoUrl?.includes('youtu');
+    const isDrive = item.videoUrl?.includes('drive.google.com');
+
+    // Render YouTube or Google Drive videos
+    if (isYoutube || isDrive) {
+        let uri = item.videoUrl;
+        if (isYoutube) {
+            const id = uri.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/)?.[1];
+            if (id) {
+                // Remove controls, hide YouTube logo, disable related videos
+                uri = `https://www.youtube.com/embed/${id}?autoplay=${shouldPlay ? 1 : 0}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${id}&mute=0&disablekb=1&fs=0&iv_load_policy=3`;
+            }
+        } else if (isDrive) {
+            uri = uri.replace('/view', '/preview');
         }
-    };
 
-    return (
-        <View style={styles.reelContainer}>
-            {/* Background Image/Video */}
-            <Image
-                source={{ uri: item.image }}
-                style={styles.reelImage}
-                resizeMode="cover"
-            />
+        return (
+            <View style={styles.reelContainer}>
+                <View style={styles.videoContainer}>
+                    {shouldPlay ? (
+                        <WebView
+                            source={{ uri }}
+                            style={styles.webView}
+                            javaScriptEnabled={true}
+                            domStorageEnabled={true}
+                            allowsInlineMediaPlayback={true}
+                            mediaPlaybackRequiresUserAction={false}
+                            scrollEnabled={false}
+                            bounces={false}
+                            scalesPageToFit={true}
+                            userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+                        />
+                    ) : (
+                        <View style={styles.placeholder}>
+                            <MaterialCommunityIcons name="play-circle-outline" size={80} color="rgba(255,255,255,0.7)" />
+                        </View>
+                    )}
+                </View>
 
-            {/* Overlay Gradient */}
-            <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.6)']}
-                style={styles.gradientOverlay}
-            />
+                {/* Video Overlay Info */}
+                <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
+                    style={styles.gradientOverlay}
+                >
+                    <View style={styles.videoInfo}>
+                        <Text style={styles.videoTitle} numberOfLines={2}>
+                            {item.description || item.title}
+                        </Text>
+                    </View>
+                </LinearGradient>
 
-            {/* Right Side Actions */}
-            <View style={styles.rightActions}>
-                <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+                {/* Like Button */}
+                <TouchableOpacity
+                    style={styles.likeButton}
+                    onPress={handleLike}
+                    activeOpacity={0.7}
+                >
                     <MaterialCommunityIcons
                         name={isLiked ? "heart" : "heart-outline"}
                         size={32}
                         color={isLiked ? SP_RED : "#fff"}
                     />
-                    <Text style={styles.actionText}>{likeCount}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.actionButton} onPress={() => onOpenComments(item.id)}>
-                    <MaterialCommunityIcons name="comment-outline" size={30} color="#fff" />
-                    <Text style={styles.actionText}>{item.comments}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-                    <Ionicons name="paper-plane-outline" size={30} color="#fff" />
-                    <Text style={styles.actionText}>{item.shares}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.actionButton}>
-                    <MaterialCommunityIcons name="dots-horizontal" size={30} color="#fff" />
                 </TouchableOpacity>
             </View>
+        );
+    }
 
-            {/* Bottom Content */}
-            <View style={styles.bottomContent}>
-                <View style={styles.userInfo}>
-                    <View style={styles.avatarContainer}>
-                        {item.userAvatar ? (
-                            <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
-                        ) : (
-                            <View style={[styles.avatar, styles.defaultAvatar]}>
-                                <Text style={styles.avatarText}>{item.user.charAt(0).toUpperCase()}</Text>
-                            </View>
-                        )}
+    // Render regular video files
+    return (
+        <View style={styles.reelContainer}>
+            <View style={styles.videoContainer}>
+                <Video
+                    ref={videoRef}
+                    source={{ uri: item.videoUrl }}
+                    style={styles.video}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay={shouldPlay}
+                    isLooping
+                    isMuted={false}
+                    useNativeControls={false}
+                    onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+                />
+
+                {isLoading && (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color={SP_RED} />
                     </View>
-                    <Text style={styles.username}>{item.user}</Text>
-                    <TouchableOpacity style={styles.followButton}>
-                        <Text style={styles.followText}>
-                            <TranslatedText>Follow</TranslatedText>
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-
-                <Text style={styles.description} numberOfLines={2}>
-                    {item.description}
-                </Text>
-
-                <View style={styles.musicContainer}>
-                    <MaterialCommunityIcons name="music-note" size={16} color="#fff" />
-                    <Text style={styles.musicText}>{item.music}</Text>
-                </View>
+                )}
             </View>
+
+            {/* Video Overlay Info */}
+            <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
+                style={styles.gradientOverlay}
+            >
+                <View style={styles.videoInfo}>
+                    <Text style={styles.videoTitle} numberOfLines={2}>
+                        {item.description || item.title}
+                    </Text>
+                </View>
+            </LinearGradient>
+
+            {/* Like Button */}
+            <TouchableOpacity
+                style={styles.likeButton}
+                onPress={handleLike}
+                activeOpacity={0.7}
+            >
+                <MaterialCommunityIcons
+                    name={isLiked ? "heart" : "heart-outline"}
+                    size={32}
+                    color={isLiked ? SP_RED : "#fff"}
+                />
+            </TouchableOpacity>
+
+            {/* Play/Pause Indicator */}
+            {!isPlaying && !isLoading && (
+                <View style={styles.playIndicator}>
+                    <MaterialCommunityIcons name="play-circle-outline" size={80} color="rgba(255,255,255,0.7)" />
+                </View>
+            )}
         </View>
     );
 };
@@ -172,11 +177,33 @@ const ReelItem = ({ item, index, activeIndex, onOpenComments }: any) => {
 export default function ReelsPage() {
     const router = useRouter();
     const [activeIndex, setActiveIndex] = useState(0);
-    const [commentsVisible, setCommentsVisible] = useState(false);
-    const [commentText, setCommentText] = useState('');
+    const [reels, setReels] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleOpenComments = (reelId: string) => {
-        setCommentsVisible(true);
+    useEffect(() => {
+        fetchReels();
+    }, []);
+
+    const fetchReels = async () => {
+        try {
+            setLoading(true);
+            const url = getApiUrl();
+            const res = await fetch(`${url}/reels`);
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                setReels(data.data.map((item: any) => ({
+                    id: item._id,
+                    videoUrl: item.videoUrl,
+                    title: item.title,
+                    description: item.description,
+                    thumbnailUrl: item.thumbnailUrl,
+                })));
+            }
+        } catch (err) {
+            console.error('Failed to fetch reels:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
@@ -188,6 +215,22 @@ export default function ReelsPage() {
     const viewabilityConfig = useRef({
         itemVisiblePercentThreshold: 50
     }).current;
+
+    const handleLike = (reelId: string, liked: boolean) => {
+        console.log(`Reel ${reelId} ${liked ? 'liked' : 'unliked'}`);
+        // Add API call to save like status
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingScreen}>
+                <ActivityIndicator size="large" color={SP_RED} />
+                <Text style={styles.loadingText}>
+                    <TranslatedText>Loading Reels...</TranslatedText>
+                </Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -201,19 +244,17 @@ export default function ReelsPage() {
                 <Text style={styles.headerTitle}>
                     <TranslatedText>Reels</TranslatedText>
                 </Text>
-                <TouchableOpacity style={styles.cameraButton}>
-                    <MaterialCommunityIcons name="camera-outline" size={28} color="#fff" />
-                </TouchableOpacity>
+                <View style={{ width: 40 }} />
             </View>
 
             <FlatList
-                data={REELS_DATA}
+                data={reels}
                 renderItem={({ item, index }) => (
-                    <ReelItem
+                    <ReelVideoCard
                         item={item}
                         index={index}
                         activeIndex={activeIndex}
-                        onOpenComments={handleOpenComments}
+                        onLike={handleLike}
                     />
                 )}
                 keyExtractor={item => item.id}
@@ -229,73 +270,15 @@ export default function ReelsPage() {
                     offset: height * index,
                     index,
                 })}
+                ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                        <MaterialCommunityIcons name="video-off-outline" size={80} color="#666" />
+                        <Text style={styles.emptyText}>
+                            <TranslatedText>No reels available</TranslatedText>
+                        </Text>
+                    </View>
+                }
             />
-
-            {/* Comments Modal */}
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={commentsVisible}
-                onRequestClose={() => setCommentsVisible(false)}
-            >
-                <TouchableWithoutFeedback onPress={() => setCommentsVisible(false)}>
-                    <View style={styles.modalOverlay} />
-                </TouchableWithoutFeedback>
-
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.modalContent}
-                >
-                    <View style={styles.modalHeader}>
-                        <View style={styles.modalIndicator} />
-                        <Text style={styles.modalTitle}>Comments</Text>
-                    </View>
-
-                    <FlatList
-                        data={DUMMY_COMMENTS}
-                        keyExtractor={item => item.id}
-                        renderItem={({ item }) => (
-                            <View style={styles.commentItem}>
-                                <View style={[styles.avatar, styles.commentAvatar]}>
-                                    <Text style={styles.avatarTextSmall}>{item.user.charAt(0).toUpperCase()}</Text>
-                                </View>
-                                <View style={styles.commentTextContainer}>
-                                    <View style={styles.commentRow}>
-                                        <Text style={styles.commentUser}>{item.user}</Text>
-                                        <Text style={styles.commentTime}>{item.time}</Text>
-                                    </View>
-                                    <Text style={styles.commentContent}>{item.text}</Text>
-                                    <TouchableOpacity>
-                                        <Text style={styles.replyText}>Reply</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <TouchableOpacity style={styles.commentLike}>
-                                    <MaterialCommunityIcons name="heart-outline" size={16} color="#94a3b8" />
-                                    <Text style={styles.commentLikeCount}>{item.likes}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                        contentContainerStyle={styles.commentsList}
-                        showsVerticalScrollIndicator={false}
-                    />
-
-                    <View style={styles.commentInputContainer}>
-                        <View style={[styles.avatar, styles.inputAvatar]}>
-                            <Text style={styles.avatarTextSmall}>U</Text>
-                        </View>
-                        <TextInput
-                            style={styles.commentInput}
-                            placeholder="Add a comment..."
-                            placeholderTextColor="#94a3b8"
-                            value={commentText}
-                            onChangeText={setCommentText}
-                        />
-                        <TouchableOpacity style={styles.postButton}>
-                            <Text style={styles.postButtonText}>Post</Text>
-                        </TouchableOpacity>
-                    </View>
-                </KeyboardAvoidingView>
-            </Modal>
         </View>
     );
 }
@@ -315,263 +298,109 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
         zIndex: 10,
-        textShadowColor: 'rgba(0, 0, 0, 0.75)',
-        textShadowOffset: { width: -1, height: 1 },
-        textShadowRadius: 10
     },
     backButton: {
         padding: 5,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: 20,
     },
     headerTitle: {
         fontSize: 22,
         fontWeight: '700',
         color: '#fff',
-        textShadowColor: 'rgba(0, 0, 0, 0.5)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 5,
-    },
-    cameraButton: {
-        padding: 5,
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
     },
     reelContainer: {
         width: width,
         height: height,
-        position: 'relative',
+        backgroundColor: '#000',
         justifyContent: 'center',
-        backgroundColor: '#1a1a1a',
+        alignItems: 'center',
     },
-    reelImage: {
+    videoContainer: {
         width: '100%',
         height: '100%',
+        backgroundColor: '#000',
+    },
+    video: {
+        width: '100%',
+        height: '100%',
+    },
+    webView: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    placeholder: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#1a1a1a',
+    },
+    loadingContainer: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    playIndicator: {
         position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: [{ translateX: -40 }, { translateY: -40 }],
     },
     gradientOverlay: {
         position: 'absolute',
         left: 0,
         right: 0,
         bottom: 0,
-
-        height: '35%',
-    },
-    rightActions: {
-        position: 'absolute',
-        right: 10,
-        bottom: 100,
-        alignItems: 'center',
-        gap: 20,
-    },
-    actionButton: {
-        alignItems: 'center',
-    },
-    actionText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '600',
-        marginTop: 5,
-    },
-    bottomContent: {
-        position: 'absolute',
-        bottom: 20,
-        left: 15,
-        right: 80, // Leave space for right actions
-    },
-    userInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    avatarContainer: {
-        marginRight: 10,
-    },
-    avatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: '#fff',
-    },
-    defaultAvatar: {
-        backgroundColor: SP_RED,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    username: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 16,
-        marginRight: 10,
-        textShadowColor: 'rgba(0, 0, 0, 0.5)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 3,
-    },
-    followButton: {
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-    },
-    followText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    description: {
-        color: '#fff',
-        fontSize: 14,
-        lineHeight: 20,
-        marginBottom: 10,
-        textShadowColor: 'rgba(0, 0, 0, 0.5)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 3,
-    },
-    musicContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 15,
-    },
-    musicText: {
-        color: '#fff',
-        fontSize: 12,
-        marginLeft: 6,
-        fontWeight: '500',
-    },
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    modalContent: {
-        backgroundColor: '#1a1a1a',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        height: '60%',
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-    },
-    modalHeader: {
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#333',
-    },
-    modalIndicator: {
-        width: 40,
-        height: 4,
-        backgroundColor: '#444',
-        borderRadius: 2,
-        marginBottom: 10,
-    },
-    modalTitle: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    commentsList: {
-        padding: 16,
-    },
-    commentItem: {
-        flexDirection: 'row',
-        marginBottom: 20,
-    },
-    commentAvatar: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: SP_RED,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 0,
-        marginRight: 12,
-    },
-    avatarTextSmall: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    commentTextContainer: {
-        flex: 1,
-    },
-    commentRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    commentUser: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '700',
-        marginRight: 8,
-    },
-    commentTime: {
-        color: '#94a3b8',
-        fontSize: 12,
-    },
-    commentContent: {
-        color: '#e2e8f0',
-        fontSize: 14,
-        marginBottom: 4,
-    },
-    replyText: {
-        color: '#94a3b8',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    commentLike: {
-        alignItems: 'center',
-        paddingLeft: 10,
-    },
-    commentLikeCount: {
-        color: '#94a3b8',
-        fontSize: 10,
-        marginTop: 2,
-    },
-    commentInputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#333',
-        backgroundColor: '#1a1a1a',
-        paddingBottom: Platform.OS === 'ios' ? 30 : 12,
-    },
-    inputAvatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#333',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 0,
-        marginRight: 12,
-    },
-    commentInput: {
-        flex: 1,
-        backgroundColor: '#333',
-        borderRadius: 20,
+        height: '30%',
+        justifyContent: 'flex-end',
+        paddingBottom: 20,
         paddingHorizontal: 16,
-        paddingVertical: 8,
+    },
+    videoInfo: {
+        marginBottom: 10,
+    },
+    videoTitle: {
         color: '#fff',
-        fontSize: 14,
-        marginRight: 12,
+        fontSize: 16,
+        fontWeight: '600',
+        lineHeight: 22,
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
     },
-    postButton: {
-        paddingHorizontal: 4,
+    likeButton: {
+        position: 'absolute',
+        right: 16,
+        bottom: 100,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        padding: 12,
+        borderRadius: 30,
     },
-    postButtonText: {
-        color: SP_RED,
-        fontWeight: '700',
-        fontSize: 14,
+    loadingScreen: {
+        flex: 1,
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: '#fff',
+        fontSize: 16,
+        marginTop: 16,
+    },
+    emptyContainer: {
+        height: height,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#000',
+    },
+    emptyText: {
+        color: '#666',
+        fontSize: 18,
+        marginTop: 16,
     },
 });

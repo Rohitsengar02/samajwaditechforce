@@ -334,7 +334,7 @@ export default function VolunteersPage() {
                                 </Text>
                             </View>
                         ) : (
-                            filteredVolunteers.map((volunteer: Volunteer, idx) => (
+                            filteredVolunteers.slice(2).map((volunteer: Volunteer, idx) => (
                                 <VolunteerCard
                                     key={String(volunteer['आपका मोबाइल नंबर ']) + idx}
                                     volunteer={volunteer}

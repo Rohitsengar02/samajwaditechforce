@@ -12,23 +12,48 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
+import Footer from '../../components/Footer';
+import { TranslatedText } from '../../components/TranslatedText';
 
 export default function DesktopHome() {
     const router = useRouter();
     const [news, setNews] = useState<any[]>([]);
     const [posters, setPosters] = useState<any[]>([]);
     const [tasks, setTasks] = useState<any[]>([]);
+    const [pages, setPages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Home content from API
+    const [homeContent, setHomeContent] = useState<any>(null);
+    const [activeSlide, setActiveSlide] = useState(0);
 
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Auto-rotate slides
+    useEffect(() => {
+        const slides = homeContent?.hero?.slides || [];
+        if (slides.length > 1) {
+            const interval = setInterval(() => {
+                setActiveSlide(prev => (prev + 1) % slides.length);
+            }, homeContent?.hero?.autoPlayInterval || 5000);
+            return () => clearInterval(interval);
+        }
+    }, [homeContent]);
 
     const fetchData = async () => {
         try {
             const url = getApiUrl();
             const token = await AsyncStorage.getItem('userToken');
             const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+            // Fetch home content from dedicated API
+            const homeRes = await fetch(`${url}/home-content`);
+            const homeData = await homeRes.json();
+            if (homeData.success && homeData.data) {
+                setHomeContent(homeData.data);
+            }
 
             const newsRes = await fetch(`${url}/news`);
             const newsData = await newsRes.json();
@@ -42,12 +67,100 @@ export default function DesktopHome() {
             const tasksData = await tasksRes.json();
             if (tasksData.success && Array.isArray(tasksData.data)) setTasks(tasksData.data);
 
+            const pagesRes = await fetch(`${url}/pages`);
+            const pagesData = await pagesRes.json();
+            if (pagesData.success && Array.isArray(pagesData.data)) setPages(pagesData.data);
+
         } catch (error) {
             console.error('Error fetching home data:', error);
         } finally {
             setLoading(false);
         }
     };
+
+    // Get current slide data with defaults
+    const getHeroData = () => {
+        const slides = homeContent?.hero?.slides || [];
+        const currentSlide = slides[activeSlide] || slides[0] || {};
+        return {
+            badge: currentSlide.badge || 'भारत की सबसे बड़ी समाजवादी पार्टी',
+            title: currentSlide.title || 'समाजवादी पार्टी में\nआपका स्वागत है!',
+            subtitle: currentSlide.subtitle || 'समाज के हर वर्ग के विकास के लिए समर्पित। समानता, न्याय और समृद्धि के लिए हमारे साथ जुड़ें।',
+            image: currentSlide.image || news[0]?.coverImage || 'https://images.unsplash.com/photo-1557804506-669a67965ba0',
+            stats: currentSlide.stats || [
+                { num: '25L+', label: 'सक्रिय सदस्य' },
+                { num: '75+', label: 'सीटें जीतीं' },
+                { num: '1000+', label: 'विकास परियोजनाएं' }
+            ],
+            highlights: currentSlide.highlights || ['Free Laptop योजना', 'किसान पेंशन योजना', 'रोजगार गारंटी'],
+            totalSlides: slides.length
+        };
+    };
+
+    const heroData = getHeroData();
+
+    // Get Track Record data with defaults
+    const getTrackRecordData = () => {
+        const trackRecord = homeContent?.trackRecord || {};
+        return {
+            title: trackRecord.title || 'Our Track Record',
+            items: trackRecord.items || [
+                { icon: 'account-group', num: '10L+', label: 'Active Members' },
+                { icon: 'city', num: '75', label: 'Districts Covered' },
+                { icon: 'checkbox-marked-circle', num: '1M+', label: 'Tasks Completed' },
+                { icon: 'bullhorn', num: '5000+', label: 'Campaigns Run' }
+            ]
+        };
+    };
+
+    const trackRecordData = getTrackRecordData();
+
+    // Get President slides (only active ones) for card display
+    const getPresidentSlides = () => {
+        const president = homeContent?.president || {};
+        const allSlides = president.slides || [];
+        // Filter only active slides
+        const activeSlides = allSlides.filter((s: any) => s.isActive !== false);
+        return activeSlides;
+    };
+
+    const presidentSlides = getPresidentSlides();
+    const showPresidentSection = presidentSlides.length > 0;
+
+    // Get Legacy data (leaders and cards)
+    const getLegacyData = () => {
+        const legacy = homeContent?.legacy || {};
+        const leaders = (legacy.leaders || []).filter((l: any) => l.isActive !== false);
+        const cards = legacy.cards || [];
+        return {
+            title: legacy.title || 'Our Legacy',
+            leaders: leaders.length > 0 ? leaders : [{
+                name: 'Mulayam Singh Yadav',
+                role: 'Founder',
+                image: 'https://i.pinimg.com/474x/a5/ba/d8/a5bad8e597e3fb5b4256385476659dc9.jpg',
+                description: 'Visionary leader who founded Samajwadi Party in 1992',
+                isActive: true
+            }],
+
+        };
+    };
+
+    const legacyData = getLegacyData();
+
+    // Get Programs data
+    const getProgramsData = () => {
+        const programs = homeContent?.programs || {};
+        return {
+            title: programs.title || 'Our Programs',
+            items: programs.items || [
+                { title: 'Youth Employment', desc: 'Creating job opportunities', icon: 'briefcase' },
+                { title: 'Farmer Welfare', desc: 'Supporting agricultural community', icon: 'sprout' },
+                { title: 'Education for All', desc: 'Quality education accessible to everyone', icon: 'school' }
+            ]
+        };
+    };
+
+    const programsData = getProgramsData();
 
     if (loading) {
         return (
@@ -64,59 +177,47 @@ export default function DesktopHome() {
 
 
                 {/* Section 1: Enhanced Hero Section */}
-                < View style={styles.heroSection} >
+                <View style={styles.heroSection}>
                     <View style={styles.heroContainer}>
                         {/* Left Content */}
                         <View style={styles.heroLeft}>
                             <View style={styles.heroBadge}>
                                 <MaterialCommunityIcons name="star-circle" size={20} color={SP_RED} />
-                                <Text style={styles.heroBadgeText}>भारत की सबसे बड़ी समाजवादी पार्टी</Text>
+                                <Text style={styles.heroBadgeText}>{heroData.badge}</Text>
                             </View>
 
                             <Text style={styles.heroTitle}>
-                                समाजवादी पार्टी में{'\n'}
-                                <Text style={styles.heroTitleHighlight}>आपका स्वागत है!</Text>
+                                {heroData.title.split('\n').map((line: string, i: number) => (
+                                    <Text key={i} style={i === 1 ? styles.heroTitleHighlight : undefined}>
+                                        {line}{i === 0 ? '\n' : ''}
+                                    </Text>
+                                ))}
                             </Text>
 
-                            <Text style={styles.heroSubtitle}>
-                                समाज के हर वर्ग के विकास के लिए समर्पित। समानता, न्याय और समृद्धि के लिए
-                                हमारे साथ जुड़ें और उत्तर प्रदेश को विकास की नई ऊंचाइयों पर ले जाएं।
-                            </Text>
+                            <Text style={styles.heroSubtitle}>{heroData.subtitle}</Text>
 
-                            {/* Hero stats */}
+                            {/* Hero stats - Dynamic */}
                             <View style={styles.heroStats}>
-                                <View style={styles.heroStatItem}>
-                                    <Text style={styles.heroStatNumber}>25L+</Text>
-                                    <Text style={styles.heroStatLabel}>सक्रिय सदस्य</Text>
-                                </View>
-                                <View style={styles.heroStatDivider} />
-                                <View style={styles.heroStatItem}>
-                                    <Text style={styles.heroStatNumber}>75+</Text>
-                                    <Text style={styles.heroStatLabel}>सीटें जीतीं</Text>
-                                </View>
-                                <View style={styles.heroStatDivider} />
-                                <View style={styles.heroStatItem}>
-                                    <Text style={styles.heroStatNumber}>1000+</Text>
-                                    <Text style={styles.heroStatLabel}>विकास परियोजनाएं</Text>
-                                </View>
+                                {heroData.stats.map((stat: any, index: number) => (
+                                    <React.Fragment key={index}>
+                                        {index > 0 && <View style={styles.heroStatDivider} />}
+                                        <View style={styles.heroStatItem}>
+                                            <Text style={styles.heroStatNumber}>{stat.num}</Text>
+                                            <Text style={styles.heroStatLabel}>{stat.label}</Text>
+                                        </View>
+                                    </React.Fragment>
+                                ))}
                             </View>
 
-                            {/* Key Highlights */}
+                            {/* Key Highlights - Dynamic */}
                             <View style={styles.heroHighlights}>
-                                <View style={styles.heroHighlightItem}>
-                                    <MaterialCommunityIcons name="check-decagram" size={20} color={SP_GREEN} />
-                                    <Text style={styles.heroHighlightText}>Free Laptop योजना</Text>
-                                </View>
-                                <View style={styles.heroHighlightItem}>
-                                    <MaterialCommunityIcons name="check-decagram" size={20} color={SP_GREEN} />
-                                    <Text style={styles.heroHighlightText}>किसान पेंशन योजना</Text>
-                                </View>
-                                <View style={styles.heroHighlightItem}>
-                                    <MaterialCommunityIcons name="check-decagram" size={20} color={SP_GREEN} />
-                                    <Text style={styles.heroHighlightText}>रोजगार गारंटी</Text>
-                                </View>
+                                {heroData.highlights.map((highlight: string, index: number) => (
+                                    <View key={index} style={styles.heroHighlightItem}>
+                                        <MaterialCommunityIcons name="check-decagram" size={20} color={SP_GREEN} />
+                                        <Text style={styles.heroHighlightText}>{highlight}</Text>
+                                    </View>
+                                ))}
                             </View>
-
 
                             {/* Trust Badges */}
                             <View style={styles.heroTrustBadges}>
@@ -135,12 +236,11 @@ export default function DesktopHome() {
                             </View>
                         </View>
 
-                        {/* Right Image */}
+                        {/* Right Image - Dynamic from Cloudinary */}
                         <View style={styles.heroRight}>
-                            {/* Main Image */}
                             <View style={styles.heroImageWrapper}>
                                 <Image
-                                    source={{ uri: news[0]?.coverImage || 'https://images.unsplash.com/photo-1557804506-669a67965ba0' }}
+                                    source={{ uri: heroData.image }}
                                     style={styles.heroMainImage}
                                     resizeMode="cover"
                                 />
@@ -156,25 +256,18 @@ export default function DesktopHome() {
                                 </View>
                             </View>
 
-                            {/* Secondary Images Grid */}
-                            <View style={styles.heroSecondaryImages}>
-                                <View style={styles.secondaryImageCard}>
-                                    <Image
-                                        source={{ uri: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=400' }}
-                                        style={styles.secondaryImage}
-                                        resizeMode="cover"
-                                    />
-                                    <Text style={styles.secondaryImageLabel}>जन सभा</Text>
+                            {/* Slide Indicators */}
+                            {heroData.totalSlides > 1 && (
+                                <View style={styles.slideIndicators}>
+                                    {Array.from({ length: heroData.totalSlides }).map((_, i) => (
+                                        <Pressable
+                                            key={i}
+                                            onPress={() => setActiveSlide(i)}
+                                            style={[styles.slideIndicator, i === activeSlide && styles.slideIndicatorActive]}
+                                        />
+                                    ))}
                                 </View>
-                                <View style={styles.secondaryImageCard}>
-                                    <Image
-                                        source={{ uri: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400' }}
-                                        style={styles.secondaryImage}
-                                        resizeMode="cover"
-                                    />
-                                    <Text style={styles.secondaryImageLabel}>विकास कार्य</Text>
-                                </View>
-                            </View>
+                            )}
 
                             <View style={styles.heroDecoCircle1} />
                             <View style={styles.heroDecoCircle2} />
@@ -187,7 +280,7 @@ export default function DesktopHome() {
                 {/* Section 2: News Updates */}
                 < View style={styles.section} >
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Latest News Updates</Text>
+                        <TranslatedText text="Latest News Updates" style={styles.sectionTitle} />
                         <Button mode="text" textColor={SP_RED} onPress={() => router.push('/news' as any)}>
                             View All →
                         </Button>
@@ -215,7 +308,7 @@ export default function DesktopHome() {
                 {/* Section 3: Media Gallery / Posters */}
                 < View style={[styles.section, { backgroundColor: '#f8fafc' }]} >
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Campaign Gallery</Text>
+                        <TranslatedText text="Campaign Gallery" style={styles.sectionTitle} />
                         <Button mode="text" textColor={SP_RED} onPress={() => router.push('/posters' as any)}>
                             View All →
                         </Button>
@@ -234,175 +327,153 @@ export default function DesktopHome() {
                     </ScrollView>
                 </View >
 
-                {/* Section 4: Party Achievements */}
-                < View style={styles.section} >
-                    <Text style={styles.sectionTitle}>Our Track Record</Text>
+                {/* Section 4: Party Achievements - Dynamic */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>{trackRecordData.title}</Text>
                     <View style={styles.achievementsGrid}>
-                        <View style={styles.achievementCard}>
-                            <MaterialCommunityIcons name="account-group" size={48} color={SP_RED} />
-                            <Text style={styles.achievementNumber}>10L+</Text>
-                            <Text style={styles.achievementLabel}>Active Members</Text>
-                        </View>
-                        <View style={styles.achievementCard}>
-                            <MaterialCommunityIcons name="city" size={48} color={SP_GREEN} />
-                            <Text style={styles.achievementNumber}>75</Text>
-                            <Text style={styles.achievementLabel}>Districts Covered</Text>
-                        </View>
-                        <View style={styles.achievementCard}>
-                            <MaterialCommunityIcons name="checkbox-marked-circle" size={48} color={SP_RED} />
-                            <Text style={styles.achievementNumber}>1M+</Text>
-                            <Text style={styles.achievementLabel}>Tasks Completed</Text>
-                        </View>
-                        <View style={styles.achievementCard}>
-                            <MaterialCommunityIcons name="bullhorn" size={48} color={SP_GREEN} />
-                            <Text style={styles.achievementNumber}>5000+</Text>
-                            <Text style={styles.achievementLabel}>Campaigns Run</Text>
-                        </View>
-                    </View>
-                </View >
-
-                {/* Section 5: Party President - Premium Edition */}
-                < View style={styles.leaderSection} >
-                    {/* Decorative Background Elements */}
-                    < View style={styles.leaderDecoTop} />
-                    <View style={styles.leaderDecoBottom} />
-
-                    <View style={styles.leaderContainer}>
-                        {/* Left Side - Image & Logo */}
-                        <View style={styles.leaderLeftSide}>
-                            <View style={styles.leaderImageWrapper}>
-                                <Image
-                                    source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/6/6d/Akhilesh_Yadav_Lok_Sabha.jpg' }}
-                                    style={styles.leaderImage}
-                                    resizeMode="cover"
+                        {trackRecordData.items.map((item: any, index: number) => (
+                            <View key={index} style={styles.achievementCard}>
+                                <MaterialCommunityIcons
+                                    name={item.icon || 'star'}
+                                    size={48}
+                                    color={index % 2 === 0 ? SP_RED : SP_GREEN}
                                 />
-                                {/* Party Logo Overlay */}
-                                <View style={styles.leaderLogoOverlay}>
-                                    <View style={styles.leaderLogoBadge}>
+                                <Text style={styles.achievementNumber}>{item.num}</Text>
+                                <Text style={styles.achievementLabel}>{item.label}</Text>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Section 5: Our Leaders - Cards Layout (Only if active slides exist) */}
+                {showPresidentSection && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Our Leaders</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.leadersCardsContainer}
+                        >
+                            {presidentSlides.map((leader: any, index: number) => (
+                                <View key={index} style={styles.leaderCard}>
+                                    {/* Leader Image */}
+                                    <View style={styles.leaderCardImageWrapper}>
                                         <Image
-                                            source={require('../../assets/images/icon.png')}
-                                            style={styles.leaderLogoImage}
+                                            source={{ uri: leader.image || 'https://images.unsplash.com/photo-1557804506-669a67965ba0' }}
+                                            style={styles.leaderCardImage}
                                             resizeMode="contain"
                                         />
+                                        {/* Badge */}
+                                        <View style={styles.leaderCardBadge}>
+                                            <Text style={styles.leaderCardBadgeText}>{leader.badge || 'Leader'}</Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Leader Info */}
+                                    <View style={styles.leaderCardInfo}>
+                                        <Text style={styles.leaderCardName}>{leader.name || 'Name'}</Text>
+                                        <Text style={styles.leaderCardSubtitle}>{leader.subtitle || ''}</Text>
+
+                                        {/* Quote */}
+                                        {leader.quote && (
+                                            <View style={styles.leaderCardQuote}>
+                                                <MaterialCommunityIcons name="format-quote-open" size={16} color={SP_RED} />
+                                                <Text style={styles.leaderCardQuoteText} numberOfLines={3}>
+                                                    {leader.quote}
+                                                </Text>
+                                            </View>
+                                        )}
+
+                                        {/* Achievements */}
+                                        {leader.achievements && leader.achievements.length > 0 && (
+                                            <View style={styles.leaderCardAchievements}>
+                                                {leader.achievements.slice(0, 2).map((ach: string, idx: number) => (
+                                                    <View key={idx} style={styles.leaderCardAchievementItem}>
+                                                        <MaterialCommunityIcons name="check-circle" size={14} color={SP_GREEN} />
+                                                        <Text style={styles.leaderCardAchievementText} numberOfLines={1}>{ach}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
-                            </View>
-
-                            {/* Quick Stats Below Image */}
-                            <View style={styles.leaderQuickStats}>
-                                <View style={styles.quickStatItem}>
-                                    <MaterialCommunityIcons name="calendar-check" size={20} color={SP_GREEN} />
-                                    <Text style={styles.quickStatLabel}>In Office Since</Text>
-                                    <Text style={styles.quickStatValue}>2017</Text>
-                                </View>
-                                <View style={styles.quickStatDivider} />
-                                <View style={styles.quickStatItem}>
-                                    <MaterialCommunityIcons name="trophy-award" size={20} color="#FFB800" />
-                                    <Text style={styles.quickStatLabel}>Awards</Text>
-                                    <Text style={styles.quickStatValue}>15+</Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Right Side - Info & Content */}
-                        <View style={styles.leaderInfo}>
-                            {/* Header Badge */}
-                            <View style={styles.leaderHeaderBadge}>
-                                <View style={styles.leaderBadgeIcon}>
-                                    <MaterialCommunityIcons name="shield-star" size={18} color={SP_RED} />
-                                </View>
-                                <Text style={styles.leaderBadge}>National President</Text>
-                            </View>
-
-                            {/* Name & Title */}
-                            <Text style={styles.leaderName}>Akhilesh Yadav</Text>
-                            <Text style={styles.leaderSubtitle}>समाजवादी पार्टी के राष्ट्रीय अध्यक्ष</Text>
-
-                            {/* Quote Section */}
-                            <View style={styles.leaderQuoteWrapper}>
-                                <View style={styles.quoteIconWrapper}>
-                                    <MaterialCommunityIcons name="format-quote-open" size={32} color={SP_RED} />
-                                </View>
-                                <Text style={styles.leaderQuote}>
-                                    "समाजवाद का अर्थ है - समानता, न्याय और विकास। हम हर वर्ग के लोगों के लिए काम कर रहे हैं और उत्तर प्रदेश को देश का सबसे विकसित राज्य बनाएंगे।"
-                                </Text>
-                            </View>
-
-                            {/* Key Achievements */}
-                            <View style={styles.leaderAchievements}>
-                                <Text style={styles.achievementsTitle}>Key Achievements</Text>
-                                <View style={styles.achievementsList}>
-                                    <View style={styles.achievementItem}>
-                                        <MaterialCommunityIcons name="check-circle" size={20} color={SP_GREEN} />
-                                        <Text style={styles.achievementText}>Former Chief Minister of UP (2012-2017)</Text>
-                                    </View>
-                                    <View style={styles.achievementItem}>
-                                        <MaterialCommunityIcons name="check-circle" size={20} color={SP_GREEN} />
-                                        <Text style={styles.achievementText}>Member of 17th Lok Sabha</Text>
-                                    </View>
-                                    <View style={styles.achievementItem}>
-                                        <MaterialCommunityIcons name="check-circle" size={20} color={SP_GREEN} />
-                                        <Text style={styles.achievementText}>Launched 1000+ Development Projects</Text>
-                                    </View>
-                                </View>
-                            </View>
-
-                            {/* Social Links & CTA */}
-                            <View style={styles.leaderActions}>
-                                <Pressable
-                                    style={styles.leaderPrimaryBtn}
-                                    onPress={() => router.push('/about' as any)}
-                                >
-                                    <Text style={styles.leaderPrimaryBtnText}>Read Full Biography</Text>
-                                    <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
-                                </Pressable>
-
-                                <View style={styles.leaderSocialLinks}>
-                                    <Pressable style={styles.socialIconBtn}>
-                                        <MaterialCommunityIcons name="twitter" size={24} color="#1DA1F2" />
-                                    </Pressable>
-                                    <Pressable style={styles.socialIconBtn}>
-                                        <MaterialCommunityIcons name="facebook" size={24} color="#1877F2" />
-                                    </Pressable>
-                                    <Pressable style={styles.socialIconBtn}>
-                                        <MaterialCommunityIcons name="instagram" size={24} color="#E4405F" />
-                                    </Pressable>
-                                    <Pressable style={styles.socialIconBtn}>
-                                        <MaterialCommunityIcons name="youtube" size={24} color="#FF0000" />
-                                    </Pressable>
-                                </View>
-                            </View>
-                        </View>
+                            ))}
+                        </ScrollView>
                     </View>
-                </View >
+                )}
 
-                {/* Section 6: Party History & Legacy */}
-                < View style={[styles.section, { backgroundColor: '#fff' }]} >
-                    <Text style={styles.sectionTitle}>Our Legacy</Text>
-                    <View style={styles.legacyGrid}>
-                        <View style={styles.legacyCard}>
-                            <Image
-                                source={{ uri: 'https://i.pinimg.com/474x/a5/ba/d8/a5bad8e597e3fb5b4256385476659dc9.jpg' }}
-                                style={styles.legacyImage}
-                            />
-                            <Text style={styles.legacyName}>Mulayam Singh Yadav</Text>
-                            <Text style={styles.legacyRole}>Founder</Text>
-                        </View>
-                        <View style={styles.legacyCard}>
-                            <MaterialCommunityIcons name="history" size={80} color={SP_RED} />
-                            <Text style={styles.legacyText}>Founded in 1992</Text>
-                            <Text style={styles.legacySubtext}>30+ Years of Service</Text>
-                        </View>
-                        <View style={styles.legacyCard}>
-                            <MaterialCommunityIcons name="trophy" size={80} color={SP_GREEN} />
-                            <Text style={styles.legacyText}>Multiple Terms</Text>
-                            <Text style={styles.legacySubtext}>3 CM Tenures</Text>
-                        </View>
+                {/* Section 6: Party History & Legacy - Dynamic */}
+                <View style={[styles.section, { backgroundColor: '#fff' }]}>
+                    <Text style={styles.sectionTitle}>{legacyData.title}</Text>
+
+                    {/* Legacy Leaders Carousel */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.leadersCardsContainer}
+                    >
+                        {legacyData.leaders.map((leader: any, index: number) => (
+                            <View key={index} style={styles.legacyLeaderCard}>
+                                <Image
+                                    source={{ uri: leader.image || 'https://images.unsplash.com/photo-1557804506-669a67965ba0' }}
+                                    style={styles.legacyLeaderImage}
+                                    resizeMode="contain"
+                                />
+                                <View style={styles.legacyLeaderInfo}>
+                                    <Text style={styles.legacyLeaderName}>{leader.name}</Text>
+                                    <Text style={styles.legacyLeaderRole}>{leader.role}</Text>
+                                    {leader.description && (
+                                        <Text style={styles.legacyLeaderDesc} numberOfLines={3}>
+                                            {leader.description}
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                        ))}
+                    </ScrollView>
+
+
+
+                </View>
+
+                {/* Section 7: Our Programs - Dynamic */}
+                {programsData.items.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>{programsData.title}</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.leadersCardsContainer}
+                        >
+                            {programsData.items.map((program: any, index: number) => (
+                                <View key={index} style={styles.programCard}>
+                                    {program.image ? (
+                                        <Image
+                                            source={{ uri: program.image }}
+                                            style={styles.programCardImage}
+                                            resizeMode="contain"
+                                        />
+                                    ) : (
+                                        <LinearGradient
+                                            colors={index % 2 === 0 ? [SP_RED, '#991b1b'] : [SP_GREEN, '#166534']}
+                                            style={styles.programCardGradient}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name={program.icon || 'star'}
+                                                size={48}
+                                                color="#fff"
+                                            />
+                                        </LinearGradient>
+                                    )}
+                                    <View style={styles.programCardContent}>
+                                        <Text style={styles.programCardTitle}>{program.title}</Text>
+                                        <Text style={styles.programCardDesc} numberOfLines={2}>{program.desc}</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </ScrollView>
                     </View>
-                </View >
-
-
-
+                )}
 
                 {/* Section 8: Join the Movement */}
                 < View style={styles.joinSection} >
@@ -432,56 +503,11 @@ export default function DesktopHome() {
                     </LinearGradient>
                 </View >
 
-                {/* Section 9: Programs & Initiatives */}
-                < View style={styles.section} >
-                    <Text style={styles.sectionTitle}>Our Programs</Text>
-                    <View style={styles.programsGrid}>
-                        <View style={styles.programCard}>
-                            <Image
-                                source={{ uri: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644' }}
-                                style={styles.programImage}
-                            />
-                            <View style={styles.programContent}>
-                                <Text style={styles.programTitle}>Youth Employment</Text>
-                                <Text style={styles.programDesc}>Creating job opportunities for youth</Text>
-                            </View>
-                        </View>
-                        <View style={styles.programCard}>
-                            <Image
-                                source={{ uri: 'https://images.unsplash.com/photo-1576267423445-b2e0074d68a4' }}
-                                style={styles.programImage}
-                            />
-                            <View style={styles.programContent}>
-                                <Text style={styles.programTitle}>Farmer Welfare</Text>
-                                <Text style={styles.programDesc}>Supporting agricultural community</Text>
-                            </View>
-                        </View>
-                        <View style={styles.programCard}>
-                            <Image
-                                source={{ uri: 'https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a' }}
-                                style={styles.programImage}
-                            />
-                            <View style={styles.programContent}>
-                                <Text style={styles.programTitle}>Education for All</Text>
-                                <Text style={styles.programDesc}>Quality education accessible to everyone</Text>
-                            </View>
-                        </View>
-                        <View style={styles.programCard}>
-                            <Image
-                                source={{ uri: 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb6' }}
-                                style={styles.programImage}
-                            />
-                            <View style={styles.programContent}>
-                                <Text style={styles.programTitle}>Women Empowerment</Text>
-                                <Text style={styles.programDesc}>Empowering women through various schemes</Text>
-                            </View>
-                        </View>
-                    </View>
-                </View >
+
 
                 {/* Section 10: Interactive Tools */}
                 < View style={[styles.section, { backgroundColor: '#f1f5f9' }]} >
-                    <Text style={styles.sectionTitle}>Interact with Us</Text>
+                    <TranslatedText text="Interact with Us" style={styles.sectionTitle} />
                     <View style={styles.interactGrid}>
                         <Pressable style={styles.interactCard} onPress={() => router.push('/idcard' as any)}>
                             <MaterialCommunityIcons name="card-account-details" size={56} color={SP_RED} />
@@ -506,50 +532,46 @@ export default function DesktopHome() {
                     </View>
                 </View >
 
-                {/* Footer */}
-                < View style={styles.footer} >
-                    <View style={styles.footerContent}>
-                        <View style={styles.footerColumn}>
-                            <View style={styles.footerLogo}>
-                                <MaterialCommunityIcons name="bicycle" size={40} color="#fff" />
-                                <Text style={styles.footerBrand}>Samajwadi Tech Force</Text>
-                            </View>
-                            <Text style={styles.footerDesc}>
-                                The official digital wing of Samajwadi Party, dedicated to spreading the message of development and social justice.
-                            </Text>
-                            <View style={styles.socialLinks}>
-                                <MaterialCommunityIcons name="facebook" size={28} color="#fff" />
-                                <MaterialCommunityIcons name="twitter" size={28} color="#fff" />
-                                <MaterialCommunityIcons name="instagram" size={28} color="#fff" />
-                                <MaterialCommunityIcons name="youtube" size={28} color="#fff" />
-                            </View>
+                {/* Section: Custom Pages */}
+                {pages.length > 0 && (
+                    <View style={[styles.section, { backgroundColor: '#fff' }]}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Explore Pages</Text>
+                            <Button mode="text" textColor={SP_RED} onPress={() => router.push('/pages' as any)}>
+                                View All →
+                            </Button>
                         </View>
-                        <View style={styles.footerColumn}>
-                            <Text style={styles.footerHeading}>Quick Links</Text>
-                            <Text style={styles.footerLink} onPress={() => router.push('/about' as any)}>About Us</Text>
-                            <Text style={styles.footerLink} onPress={() => router.push('/news' as any)}>Latest News</Text>
-                            <Text style={styles.footerLink} onPress={() => router.push('/joinus' as any)}>Join Us</Text>
-                            <Text style={styles.footerLink} onPress={() => router.push('/contact' as any)}>Contact</Text>
-                        </View>
-                        <View style={styles.footerColumn}>
-                            <Text style={styles.footerHeading}>Resources</Text>
-                            <Text style={styles.footerLink} onPress={() => router.push('/posters' as any)}>Posters</Text>
-                            <Text style={styles.footerLink} onPress={() => router.push('/idcard' as any)}>ID Card</Text>
-                            <Text style={styles.footerLink} onPress={() => router.push('/daily-work' as any)}>Daily Tasks</Text>
-                            <Text style={styles.footerLink} onPress={() => router.push('/events' as any)}>Events</Text>
-                        </View>
-                        <View style={styles.footerColumn}>
-                            <Text style={styles.footerHeading}>Contact Info</Text>
-                            <Text style={styles.footerText}>Samajwadi Party HQ</Text>
-                            <Text style={styles.footerText}>19, Vikramaditya Marg</Text>
-                            <Text style={styles.footerText}>Lucknow, Uttar Pradesh</Text>
-                            <Text style={styles.footerText}>Phone: 0522-2234455</Text>
+                        <View style={styles.programsGrid}>
+                            {pages.map((page, index) => (
+                                <Pressable
+                                    key={page._id || index}
+                                    style={styles.explorePageCard}
+                                    onPress={() => router.push(`/pages/${page._id}` as any)}
+                                >
+                                    <LinearGradient
+                                        colors={[
+                                            index % 4 === 0 ? '#fef2f2' : index % 4 === 1 ? '#f0fdf4' : index % 4 === 2 ? '#eff6ff' : '#fef3c7',
+                                            index % 4 === 0 ? '#fecaca' : index % 4 === 1 ? '#bbf7d0' : index % 4 === 2 ? '#bfdbfe' : '#fde68a'
+                                        ]}
+                                        style={styles.explorePageGradient}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name="file-document-outline"
+                                            size={40}
+                                            color={index % 4 === 0 ? SP_RED : index % 4 === 1 ? SP_GREEN : index % 4 === 2 ? '#2563eb' : '#d97706'}
+                                        />
+                                    </LinearGradient>
+                                    <View style={styles.explorePageContent}>
+                                        <Text style={styles.explorePageTitle}>{page.title}</Text>
+                                        <Text style={styles.explorePageDesc}>View Details →</Text>
+                                    </View>
+                                </Pressable>
+                            ))}
                         </View>
                     </View>
-                    <View style={styles.footerBottom}>
-                        <Text style={styles.copyright}>© 2024 Samajwadi Tech Force. All rights reserved.</Text>
-                    </View>
-                </View >
+                )}
+
+                <Footer />
             </ScrollView >
         </View >
     );
@@ -1553,5 +1575,214 @@ const styles = StyleSheet.create({
     copyright: {
         color: '#64748b',
         fontSize: 14,
+    },
+    // Slide Indicators
+    slideIndicators: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 8,
+        marginTop: 20,
+    },
+    slideIndicator: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#ddd',
+    },
+    slideIndicatorActive: {
+        backgroundColor: SP_RED,
+        width: 30,
+    },
+    // Leader Cards Styles
+    leadersCardsContainer: {
+        paddingHorizontal: 60,
+        gap: 24,
+        paddingVertical: 20,
+    },
+    leaderCard: {
+        width: 320,
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        elevation: 8,
+    },
+    leaderCardImageWrapper: {
+        position: 'relative',
+        height: 200,
+    },
+    leaderCardImage: {
+        width: '100%',
+        height: '100%',
+    },
+    leaderCardBadge: {
+        position: 'absolute',
+        bottom: 12,
+        left: 12,
+        backgroundColor: SP_RED,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    leaderCardBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    leaderCardInfo: {
+        padding: 20,
+    },
+    leaderCardName: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: '#1e293b',
+        marginBottom: 4,
+    },
+    leaderCardSubtitle: {
+        fontSize: 14,
+        color: '#64748b',
+        marginBottom: 12,
+    },
+    leaderCardQuote: {
+        flexDirection: 'row',
+        gap: 8,
+        backgroundColor: '#fef2f2',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 12,
+    },
+    leaderCardQuoteText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#374151',
+        fontStyle: 'italic',
+        lineHeight: 18,
+    },
+    leaderCardAchievements: {
+        marginTop: 8,
+        gap: 6,
+    },
+    leaderCardAchievementItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    leaderCardAchievementText: {
+        flex: 1,
+        fontSize: 12,
+        color: '#4b5563',
+    },
+    // Legacy Leader Card Styles
+    legacyLeaderCard: {
+        width: 280,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
+    },
+    legacyLeaderImage: {
+        width: '100%',
+        height: 200,
+    },
+    legacyLeaderInfo: {
+        padding: 16,
+    },
+    legacyLeaderName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1e293b',
+        marginBottom: 4,
+    },
+    legacyLeaderRole: {
+        fontSize: 14,
+        color: SP_RED,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    legacyLeaderDesc: {
+        fontSize: 13,
+        color: '#64748b',
+        lineHeight: 18,
+    },
+    legacyCardsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 16,
+        marginTop: 24,
+        justifyContent: 'center',
+    },
+    legacyAchievementCard: {
+        width: 180,
+        padding: 20,
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    // Program Card Styles
+    programCardImage: {
+        width: '100%',
+        aspectRatio: 1,
+        backgroundColor: '#f8fafc', // Light bg for contain mode
+    },
+    programCardGradient: {
+        width: '100%',
+        aspectRatio: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    programCardContent: {
+        padding: 16,
+    },
+    programCardTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1e293b',
+        marginBottom: 4,
+    },
+    programCardDesc: {
+        fontSize: 13,
+        color: '#64748b',
+        lineHeight: 18,
+    },
+    // Explore Page Card Styles
+    explorePageCard: {
+        width: 220,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 3,
+    },
+    explorePageGradient: {
+        width: '100%',
+        height: 100,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    explorePageContent: {
+        padding: 16,
+    },
+    explorePageTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1e293b',
+        marginBottom: 4,
+    },
+    explorePageDesc: {
+        fontSize: 13,
+        color: SP_RED,
+        fontWeight: '600',
     },
 });

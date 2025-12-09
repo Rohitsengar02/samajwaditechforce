@@ -49,6 +49,7 @@ export default function NearbyVolunteersScreen() {
         // Map the raw data to the expected format
         const mapped = volunteersData
             .filter((v: any) => v)
+            .slice(2)
             .map((v: any) => ({
                 Name: v['Column2'] || v['आपका पूरा नाम क्या है? '] || 'Unknown',
                 District: v['Column4'] || v['जिला '] || 'Unknown',

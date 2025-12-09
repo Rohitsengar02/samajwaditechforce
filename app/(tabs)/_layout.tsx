@@ -108,6 +108,24 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="survey"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="feedback"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="child-protection"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 

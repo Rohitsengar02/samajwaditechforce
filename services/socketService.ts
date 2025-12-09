@@ -1,0 +1,109 @@
+import { io, Socket } from 'socket.io-client';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+
+// Get correct Socket.IO URL based on platform
+const getSocketUrl = () => {
+    let url = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001';
+
+    // Remove /api suffix if present
+    url = url.replace('/api', '');
+
+    // For Android, replace localhost with actual IP
+    if (Platform.OS === 'android') {
+        url = url
+            .replace('localhost', '192.168.1.34')
+            .replace('127.0.0.1', '192.168.1.34')
+            .replace('10.0.2.2', '192.168.1.34');
+    }
+
+    console.log('🔌 Socket.IO URL:', url);
+    return url;
+};
+
+const SOCKET_URL = getSocketUrl();
+
+class SocketService {
+    socket: Socket | null = null;
+    listeners = new Map<string, (notification: any) => void>();
+
+    connect(userId?: string) {
+        if (this.socket?.connected) {
+            console.log('✅ Socket already connected');
+            return;
+        }
+
+        console.log('🔌 Connecting to Socket.IO:', SOCKET_URL);
+        this.socket = io(SOCKET_URL, {
+            transports: ['websocket'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 10,
+        });
+
+        this.socket.on('connect', () => {
+            console.log('✅ Socket connected:', this.socket?.id);
+            if (userId && this.socket) {
+                this.socket.emit('join', userId);
+            }
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('❌ Socket disconnected');
+        });
+
+        this.socket.on('connect_error', (error: Error) => {
+            console.error('❌ Socket connection error:', error.message);
+        });
+
+        // Listen for 'notification' event (matches backend emission)
+        this.socket.on('notification', async (notification: any) => {
+            console.log('🔔 Notification received from backend:', notification);
+
+            // Send local push notification
+            await this.sendLocalNotification(notification);
+
+            // Notify all listeners
+            this.listeners.forEach((callback) => {
+                callback(notification);
+            });
+        });
+    }
+
+    disconnect() {
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+            console.log('Socket disconnected manually');
+        }
+    }
+
+    onNotification(id: string, callback: (notification: any) => void) {
+        this.listeners.set(id, callback);
+    }
+
+    offNotification(id: string) {
+        this.listeners.delete(id);
+    }
+
+    async sendLocalNotification(notification: any) {
+        try {
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: notification.title,
+                    body: notification.message,
+                    data: {
+                        type: notification.type,
+                        relatedItem: notification.relatedItem
+                    },
+                    sound: true,
+                },
+                trigger: null,
+            });
+        } catch (error) {
+            console.error('Error sending local notification:', error);
+        }
+    }
+}
+
+export default new SocketService();

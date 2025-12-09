@@ -1,17 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Image, useWindowDimensions, ScrollView, Modal, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLanguage, useTranslation } from '../context/LanguageContext';
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
+// Helper Component for Translation
+const TranslatedText = ({ text, style }: { text: string, style?: any }) => {
+    const translated = useTranslation(text);
+    return <Text style={style}>{translated}</Text>;
+};
+
 export default function DesktopHeader() {
     const router = useRouter();
+    const { width } = useWindowDimensions();
+    const isMobile = width < 1024;
+    const { language, setLanguage, availableLanguages } = useLanguage();
+
     const [user, setUser] = useState<any>(null);
     const [showMegaMenu, setShowMegaMenu] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [mobileQuickAccessOpen, setMobileQuickAccessOpen] = useState(false);
+    const [showLangMenu, setShowLangMenu] = useState(false);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -37,26 +51,212 @@ export default function DesktopHeader() {
             await AsyncStorage.removeItem('userInfo');
             await AsyncStorage.removeItem('userToken');
             setUser(null);
+            if (sidebarOpen) setSidebarOpen(false);
             router.push('/signin' as any);
         } catch (error) {
             console.error('Error logging out:', error);
         }
     };
 
+    const navigateTo = (route: string) => {
+        setSidebarOpen(false);
+        setShowMegaMenu(false);
+        setShowLangMenu(false);
+        router.push(route as any);
+    };
+
+    if (isMobile) {
+        return (
+            <>
+                <View style={styles.mobileHeader}>
+                    <Pressable onPress={() => navigateTo('/desktop-screen-pages/home')} style={styles.logoContainer}>
+                        <Image
+                            source={require('../assets/images/icon.png')}
+                            style={styles.logoImageMobile}
+                            resizeMode="contain"
+                        />
+                    </Pressable>
+                    <Pressable onPress={() => setSidebarOpen(true)} style={styles.menuIcon}>
+                        <MaterialCommunityIcons name="menu" size={28} color="#1e293b" />
+                    </Pressable>
+                </View>
+
+                {/* Mobile Sidebar Modal */}
+                <Modal
+                    visible={sidebarOpen}
+                    animationType="slide"
+                    transparent={true}
+                    onRequestClose={() => setSidebarOpen(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.sidebar}>
+                            <View style={styles.sidebarHeader}>
+                                <Text style={styles.sidebarTitle}>Menu</Text>
+                                <Pressable onPress={() => setSidebarOpen(false)}>
+                                    <MaterialCommunityIcons name="close" size={28} color="#64748b" />
+                                </Pressable>
+                            </View>
+
+                            <ScrollView style={styles.sidebarContent} contentContainerStyle={{ paddingBottom: 40 }}>
+                                {/* User Profile / Auth */}
+                                {user ? (
+                                    <View style={styles.sidebarProfile}>
+                                        <Image
+                                            source={user.photo ? { uri: user.photo } : require('../assets/images/icon.png')}
+                                            style={styles.sidebarAvatar}
+                                        />
+                                        <View>
+                                            <Text style={styles.sidebarName} numberOfLines={1}>{user.name || 'User'}</Text>
+                                            <Pressable onPress={handleLogout}>
+                                                <Text style={styles.sidebarLogout}>Logout</Text>
+                                            </Pressable>
+                                        </View>
+                                    </View>
+                                ) : (
+                                    <View style={styles.sidebarAuth}>
+                                        <Pressable style={styles.sidebarLoginBtn} onPress={() => navigateTo('/signin')}>
+                                            <Text style={styles.sidebarLoginText}>Login</Text>
+                                        </Pressable>
+                                        <Pressable style={styles.sidebarJoinBtn} onPress={() => navigateTo('/joinus')}>
+                                            <Text style={styles.sidebarJoinText}>Join Us</Text>
+                                        </Pressable>
+                                    </View>
+                                )}
+
+                                <View style={styles.divider} />
+
+                                {/* Language Selector Mobile */}
+                                <Pressable
+                                    style={styles.sidebarLink}
+                                    onPress={() => setShowLangMenu(!showLangMenu)}
+                                >
+                                    <MaterialCommunityIcons name="translate" size={24} color="#64748b" />
+                                    <Text style={styles.sidebarLinkText}>Language: {availableLanguages.find(l => l.code === language)?.nativeName || language.toUpperCase()}</Text>
+                                    <MaterialCommunityIcons
+                                        name={showLangMenu ? "chevron-up" : "chevron-down"}
+                                        size={24} color="#64748b"
+                                        style={{ marginLeft: 'auto' }}
+                                    />
+                                </Pressable>
+                                {showLangMenu && (
+                                    <View style={styles.sidebarSubMenu}>
+                                        {availableLanguages.map(lang => (
+                                            <Pressable
+                                                key={lang.code}
+                                                style={styles.sidebarSubLink}
+                                                onPress={() => {
+                                                    setLanguage(lang.code);
+                                                    setShowLangMenu(false);
+                                                }}
+                                            >
+                                                <Text style={[styles.sidebarSubText, language === lang.code && { color: SP_RED, fontWeight: '700' }]}>
+                                                    {lang.nativeName} ({lang.name})
+                                                </Text>
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                )}
+
+                                <View style={styles.divider} />
+
+                                {/* Nav Links */}
+                                <Pressable style={styles.sidebarLink} onPress={() => navigateTo('/desktop-screen-pages/home')}>
+                                    <MaterialCommunityIcons name="home-outline" size={24} color="#64748b" />
+                                    <Text style={styles.sidebarLinkText}>Home</Text>
+                                </Pressable>
+                                {/* ... Other links ... */}
+                                <Pressable style={styles.sidebarLink} onPress={() => navigateTo('/desktop-screen-pages/news')}>
+                                    <MaterialCommunityIcons name="newspaper" size={24} color="#64748b" />
+                                    <Text style={styles.sidebarLinkText}>News</Text>
+                                </Pressable>
+                                <Pressable style={styles.sidebarLink} onPress={() => navigateTo('/desktop-screen-pages/events')}>
+                                    <MaterialCommunityIcons name="calendar" size={24} color="#64748b" />
+                                    <Text style={styles.sidebarLinkText}>Events</Text>
+                                </Pressable>
+                                <Pressable style={styles.sidebarLink} onPress={() => navigateTo('/desktop-screen-pages/reels')}>
+                                    <MaterialCommunityIcons name="video-outline" size={24} color="#64748b" />
+                                    <Text style={styles.sidebarLinkText}>Reels</Text>
+                                </Pressable>
+                                <Pressable style={styles.sidebarLink} onPress={() => navigateTo('/desktop-screen-pages/about')}>
+                                    <MaterialCommunityIcons name="information-outline" size={24} color="#64748b" />
+                                    <Text style={styles.sidebarLinkText}>About</Text>
+                                </Pressable>
+                                <Pressable style={styles.sidebarLink} onPress={() => navigateTo('/desktop-screen-pages/volunteers')}>
+                                    <MaterialCommunityIcons name="account-group-outline" size={24} color="#64748b" />
+                                    <Text style={styles.sidebarLinkText}>Volunteers</Text>
+                                </Pressable>
+
+                                {/* Quick Access */}
+                                <View style={styles.divider} />
+                                <Pressable
+                                    style={styles.sidebarLink}
+                                    onPress={() => setMobileQuickAccessOpen(!mobileQuickAccessOpen)}
+                                >
+                                    <MaterialCommunityIcons name="view-grid-outline" size={24} color="#64748b" />
+                                    <Text style={styles.sidebarLinkText}>Quick Access</Text>
+                                    <MaterialCommunityIcons
+                                        name={mobileQuickAccessOpen ? "chevron-up" : "chevron-down"}
+                                        size={24}
+                                        color="#64748b"
+                                        style={{ marginLeft: 'auto' }}
+                                    />
+                                </Pressable>
+
+                                {mobileQuickAccessOpen && (
+                                    <View style={styles.sidebarSubMenu}>
+                                        <Pressable style={styles.sidebarSubLink} onPress={() => navigateTo('/desktop-screen-pages/posters')}>
+                                            <MaterialCommunityIcons name="image-multiple" size={20} color={SP_GREEN} />
+                                            <Text style={styles.sidebarSubText}>Posters</Text>
+                                        </Pressable>
+                                        <Pressable style={styles.sidebarSubLink} onPress={() => navigateTo('/desktop-screen-pages/resources')}>
+                                            <MaterialCommunityIcons name="folder-download" size={20} color={SP_RED} />
+                                            <Text style={styles.sidebarSubText}>Resources</Text>
+                                        </Pressable>
+                                        <Pressable style={styles.sidebarSubLink} onPress={() => navigateTo('/desktop-screen-pages/training')}>
+                                            <MaterialCommunityIcons name="school" size={20} color="#3B82F6" />
+                                            <Text style={styles.sidebarSubText}>Training</Text>
+                                        </Pressable>
+                                        <Pressable style={styles.sidebarSubLink} onPress={() => navigateTo('/desktop-screen-pages/survey')}>
+                                            <MaterialCommunityIcons name="clipboard-text" size={20} color="#3B82F6" />
+                                            <Text style={styles.sidebarSubText}>Survey</Text>
+                                        </Pressable>
+                                        <Pressable style={styles.sidebarSubLink} onPress={() => navigateTo('/desktop-screen-pages/feedback')}>
+                                            <MaterialCommunityIcons name="message-text" size={20} color="#F59E0B" />
+                                            <Text style={styles.sidebarSubText}>Feedback</Text>
+                                        </Pressable>
+                                        <Pressable style={styles.sidebarSubLink} onPress={() => navigateTo('/desktop-screen-pages/child-protection')}>
+                                            <MaterialCommunityIcons name="shield-account" size={20} color="#DC2626" />
+                                            <Text style={styles.sidebarSubText}>Child Protection</Text>
+                                        </Pressable>
+                                    </View>
+                                )}
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
+            </>
+        );
+    }
+
+    // Desktop Header
     return (
         <View style={styles.header}>
-            <Pressable onPress={() => router.push('/desktop-screen-pages/home' as any)}>
-                <Text style={styles.headerLogo}>समाजवादी टेक फ़ोर्स</Text>
+            <Pressable onPress={() => navigateTo('/desktop-screen-pages/home')} style={styles.logoContainer}>
+                <Image
+                    source={require('../assets/images/icon.png')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                />
             </Pressable>
 
             <View style={styles.navMenu}>
-                <Pressable onPress={() => router.push('/desktop-screen-pages/home' as any)}><Text style={styles.navItem}>Home</Text></Pressable>
-                <Pressable onPress={() => router.push('/desktop-screen-pages/news' as any)}><Text style={styles.navItem}>News</Text></Pressable>
-                <Pressable onPress={() => router.push('/desktop-screen-pages/events' as any)}><Text style={styles.navItem}>Events</Text></Pressable>
-                <Pressable onPress={() => router.push('/desktop-screen-pages/reels' as any)}><Text style={styles.navItem}>Reels</Text></Pressable>
-                <Pressable onPress={() => router.push('/desktop-screen-pages/about' as any)}><Text style={styles.navItem}>About</Text></Pressable>
-                <Pressable onPress={() => router.push('/desktop-screen-pages/volunteers' as any)}><Text style={styles.navItem}>Volunteers</Text></Pressable>
-                <Pressable onPress={() => router.push('/desktop-screen-pages/daily-work' as any)}><Text style={styles.navItem}>Daily Work</Text></Pressable>
+                <Pressable onPress={() => navigateTo('/desktop-screen-pages/home')}><TranslatedText text="Home" style={styles.navItem} /></Pressable>
+                <Pressable onPress={() => navigateTo('/desktop-screen-pages/news')}><TranslatedText text="News" style={styles.navItem} /></Pressable>
+                <Pressable onPress={() => navigateTo('/events')}><TranslatedText text="Events" style={styles.navItem} /></Pressable>
+                <Pressable onPress={() => navigateTo('/desktop-screen-pages/reels')}><TranslatedText text="Reels" style={styles.navItem} /></Pressable>
+                <Pressable onPress={() => navigateTo('/desktop-screen-pages/about')}><TranslatedText text="About" style={styles.navItem} /></Pressable>
+                <Pressable onPress={() => navigateTo('/desktop-screen-pages/volunteers')}><TranslatedText text="Volunteers" style={styles.navItem} /></Pressable>
+                <Pressable onPress={() => navigateTo('/desktop-screen-pages/daily-work')}><TranslatedText text="Daily Work" style={styles.navItem} /></Pressable>
 
                 {/* Quick Access Dropdown */}
                 <View style={styles.dropdownWrapper}>
@@ -64,7 +264,7 @@ export default function DesktopHeader() {
                         style={styles.dropdownTrigger}
                         onPress={() => setShowMegaMenu(!showMegaMenu)}
                     >
-                        <Text style={styles.navItem}>Quick Access</Text>
+                        <TranslatedText text="Quick Access" style={styles.navItem} />
                         <MaterialCommunityIcons
                             name={showMegaMenu ? "chevron-up" : "chevron-down"}
                             size={20}
@@ -75,10 +275,17 @@ export default function DesktopHeader() {
                     {showMegaMenu && (
                         <View style={styles.megaMenu}>
                             <View style={styles.megaMenuGrid}>
-                                <Pressable
-                                    style={styles.megaMenuItem}
-                                    onPress={() => { router.push('/desktop-screen-pages/posters' as any); setShowMegaMenu(false); }}
-                                >
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/pages')}>
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#8b5cf615' }]}>
+                                        <MaterialCommunityIcons name="layers-triple" size={24} color="#8b5cf6" />
+                                    </View>
+                                    <View style={styles.megaMenuText}>
+                                        <TranslatedText text="All Pages" style={styles.megaMenuTitle} />
+                                        <TranslatedText text="Browse Custom Pages" style={styles.megaMenuSubtitle} />
+                                    </View>
+                                </Pressable>
+
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/posters')}>
                                     <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_GREEN}15` }]}>
                                         <MaterialCommunityIcons name="image-multiple" size={24} color={SP_GREEN} />
                                     </View>
@@ -87,11 +294,7 @@ export default function DesktopHeader() {
                                         <Text style={styles.megaMenuSubtitle}>Download & customize</Text>
                                     </View>
                                 </Pressable>
-
-                                <Pressable
-                                    style={styles.megaMenuItem}
-                                    onPress={() => { router.push('/desktop-screen-pages/resources' as any); setShowMegaMenu(false); }}
-                                >
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/resources')}>
                                     <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_RED}15` }]}>
                                         <MaterialCommunityIcons name="folder-download" size={24} color={SP_RED} />
                                     </View>
@@ -100,11 +303,7 @@ export default function DesktopHeader() {
                                         <Text style={styles.megaMenuSubtitle}>Documents & Assets</Text>
                                     </View>
                                 </Pressable>
-
-                                <Pressable
-                                    style={styles.megaMenuItem}
-                                    onPress={() => { router.push('/desktop-screen-pages/training' as any); setShowMegaMenu(false); }}
-                                >
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/training')}>
                                     <View style={[styles.megaMenuIcon, { backgroundColor: '#3B82F615' }]}>
                                         <MaterialCommunityIcons name="school" size={24} color="#3B82F6" />
                                     </View>
@@ -113,11 +312,7 @@ export default function DesktopHeader() {
                                         <Text style={styles.megaMenuSubtitle}>Learn & Grow</Text>
                                     </View>
                                 </Pressable>
-
-                                <Pressable
-                                    style={styles.megaMenuItem}
-                                    onPress={() => { router.push('/desktop-screen-pages/survey' as any); setShowMegaMenu(false); }}
-                                >
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/survey')}>
                                     <View style={[styles.megaMenuIcon, { backgroundColor: '#3B82F615' }]}>
                                         <MaterialCommunityIcons name="clipboard-text" size={24} color="#3B82F6" />
                                     </View>
@@ -126,11 +321,7 @@ export default function DesktopHeader() {
                                         <Text style={styles.megaMenuSubtitle}>Share Your Opinion</Text>
                                     </View>
                                 </Pressable>
-
-                                <Pressable
-                                    style={styles.megaMenuItem}
-                                    onPress={() => { router.push('/desktop-screen-pages/feedback' as any); setShowMegaMenu(false); }}
-                                >
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/feedback')}>
                                     <View style={[styles.megaMenuIcon, { backgroundColor: '#F59E0B15' }]}>
                                         <MaterialCommunityIcons name="message-text" size={24} color="#F59E0B" />
                                     </View>
@@ -139,17 +330,13 @@ export default function DesktopHeader() {
                                         <Text style={styles.megaMenuSubtitle}>Tell Us Your Thoughts</Text>
                                     </View>
                                 </Pressable>
-
-                                <Pressable
-                                    style={styles.megaMenuItem}
-                                    onPress={() => { router.push('/desktop-screen-pages/child-protection' as any); setShowMegaMenu(false); }}
-                                >
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/child-protection')}>
                                     <View style={[styles.megaMenuIcon, { backgroundColor: '#DC262615' }]}>
                                         <MaterialCommunityIcons name="shield-account" size={24} color="#DC2626" />
                                     </View>
                                     <View style={styles.megaMenuText}>
                                         <Text style={styles.megaMenuTitle}>Child Protection</Text>
-                                        <Text style={styles.megaMenuSubtitle}>Report Abuse Confidentially</Text>
+                                        <Text style={styles.megaMenuSubtitle}>Report Abuse</Text>
                                     </View>
                                 </Pressable>
                             </View>
@@ -159,19 +346,20 @@ export default function DesktopHeader() {
             </View>
 
             <View style={styles.headerActions}>
-                <Text style={styles.langSwitch}>EN</Text>
+
+
                 {user ? (
                     <Pressable style={styles.profileBtn} onPress={() => router.push('/(tabs)/profile' as any)}>
                         <Image
-                            source={{ uri: user.photo || 'https://avatar.iran.liara.run/public' }}
+                            source={user.photo ? { uri: user.photo } : require('../assets/images/icon.png')}
                             style={styles.avatar}
                         />
                         <Text style={styles.profileName}>{user.name?.split(' ')[0] || 'User'}</Text>
                     </Pressable>
                 ) : (
                     <>
-                        <Pressable onPress={() => router.push('/signin' as any)}><Text style={styles.loginBtn}>Login</Text></Pressable>
-                        <Pressable style={styles.signupBtn} onPress={() => router.push('/joinus' as any)}><Text style={styles.signupBtnText}>Join Us</Text></Pressable>
+                        <Pressable onPress={() => navigateTo('/signin')}><TranslatedText text="Login" style={styles.loginBtn} /></Pressable>
+                        <Pressable style={styles.signupBtn} onPress={() => navigateTo('/joinus')}><TranslatedText text="Join Us" style={styles.signupBtnText} /></Pressable>
                     </>
                 )}
             </View>
@@ -180,12 +368,25 @@ export default function DesktopHeader() {
 }
 
 const styles = StyleSheet.create({
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 60, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', zIndex: 1000, position: 'relative' },
+    // Desktop Styles
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 60, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', zIndex: 1000, position: 'relative' },
     headerLogo: { fontSize: 24, fontWeight: '900', color: SP_RED },
+    logoContainer: { padding: 4 },
+    logoImage: { width: 50, height: 50 },
+    logoImageMobile: { width: 40, height: 40 },
     navMenu: { flexDirection: 'row', alignItems: 'center', gap: 32 },
     navItem: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    langSwitch: { fontSize: 14, fontWeight: '600', color: '#64748b', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#f1f5f9' },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16, zIndex: 3000 },
+
+    // Lang Selector Styles
+    langWrapper: { position: 'relative', zIndex: 3000 },
+    langSwitch: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: '#f1f5f9' },
+    langText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+    langDropdown: { position: 'absolute', top: '120%', right: 0, width: 180, backgroundColor: '#fff', borderRadius: 12, padding: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 5, borderWidth: 1, borderColor: '#f1f5f9' },
+    langItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
+    langItemText: { fontSize: 14, color: '#334155', fontWeight: '500' },
+    langItemTextActive: { color: SP_RED, fontWeight: '700' },
+
     loginBtn: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
     signupBtn: { backgroundColor: SP_RED, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
     signupBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
@@ -201,4 +402,132 @@ const styles = StyleSheet.create({
     megaMenuText: { flex: 1 },
     megaMenuTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', marginBottom: 4 },
     megaMenuSubtitle: { fontSize: 13, color: '#64748b' },
+
+    // Mobile Styles
+    mobileHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    headerLogoMobile: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: SP_RED,
+    },
+    menuIcon: {
+        padding: 4,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end', // or flex-start for full drawer
+    },
+    sidebar: {
+        flex: 1,
+        backgroundColor: '#fff',
+        width: '80%', // Sidebar width
+        alignSelf: 'flex-start', // Left side
+    },
+    sidebarHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 24,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
+    },
+    sidebarTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#1e293b',
+    },
+    sidebarContent: {
+        flex: 1,
+    },
+    sidebarAuth: {
+        flexDirection: 'row',
+        padding: 24,
+        gap: 12,
+    },
+    sidebarLoginBtn: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        alignItems: 'center',
+    },
+    sidebarLoginText: {
+        fontWeight: '600',
+        color: '#1e293b',
+    },
+    sidebarJoinBtn: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: SP_RED,
+        alignItems: 'center',
+    },
+    sidebarJoinText: {
+        fontWeight: '600',
+        color: '#fff',
+    },
+    sidebarProfile: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 24,
+        gap: 16,
+    },
+    sidebarAvatar: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+    },
+    sidebarName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1e293b',
+    },
+    sidebarLogout: {
+        color: '#64748b',
+        fontSize: 14,
+        marginTop: 4,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#f1f5f9',
+    },
+    sidebarLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 20,
+        gap: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f8fafc',
+    },
+    sidebarLinkText: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#334155',
+    },
+    sidebarSubMenu: {
+        backgroundColor: '#f8fafc',
+        paddingVertical: 8,
+    },
+    sidebarSubLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 56, // Indented
+        gap: 12,
+    },
+    sidebarSubText: {
+        fontSize: 15,
+        color: '#475569',
+    },
 });

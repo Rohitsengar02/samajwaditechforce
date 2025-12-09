@@ -1,20 +1,31 @@
 import './global.css';
 import { LanguageProvider } from '../context/LanguageContext';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack, useSegments, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { View, TouchableOpacity, StyleSheet, Linking, Image } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
-
-
+// Configure notifications globally
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function RootLayout() {
   useFrameworkReady();
   const segments = useSegments();
   const router = useRouter();
   const currentRoute = segments[0];
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -33,6 +44,34 @@ export default function RootLayout() {
 
     checkAuth();
   }, [segments]);
+
+  // Setup global notification handling
+  useEffect(() => {
+    // Setup Socket.IO connection for notifications
+    const socketService = require('../services/socketService').default;
+    socketService.connect();
+
+    // Listener for when notification is received while app is in foreground
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('📱 Notification received in foreground:', notification);
+    });
+
+    // Listener for when user taps on notification
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('👆 User tapped notification:', response);
+      // Navigate to notifications page
+      router.push('/notifications');
+    });
+
+    return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
+    };
+  }, []);
 
   // Hide WhatsApp button on these screens
   const hideOnRoutes = ['onboarding', 'register', 'signin'];

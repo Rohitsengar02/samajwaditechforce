@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, Image, Modal, TouchableOpacity, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,17 +9,75 @@ const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
 
+import { getApiUrl } from '../../utils/api';
+import { Linking } from 'react-native';
+
 export default function DesktopReels() {
     const router = useRouter();
+    const [reels, setReels] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedReel, setSelectedReel] = useState<any>(null);
 
-    const reels = [
-        { id: 1, thumbnail: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400', title: 'Rally Highlights - Lucknow', views: '125K', likes: '12K' },
-        { id: 2, thumbnail: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=400', title: 'Akhilesh Yadav Speech', views: '250K', likes: '28K' },
-        { id: 3, thumbnail: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400', title: 'Development Projects Tour', views: '89K', likes: '9.5K' },
-        { id: 4, thumbnail: 'https://images.unsplash.com/photo-1523875194681-bedd468c58bf?w=400', title: 'Women Empowerment Event', views: '156K', likes: '18K' },
-        { id: 5, thumbnail: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=400', title: 'Community Service Drive', views: '72K', likes: '8.2K' },
-        { id: 6, thumbnail: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400', title: 'Youth Leaders Meet', views: '198K', likes: '22K' },
-    ];
+    useEffect(() => {
+        fetchReels();
+    }, []);
+
+    const fetchReels = async () => {
+        try {
+            const url = getApiUrl();
+            const res = await fetch(`${url}/reels`);
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                setReels(data.data);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePlayReel = (reel: any) => {
+        if (reel?.videoUrl) {
+            setSelectedReel(reel);
+        }
+    };
+
+    const renderVideoContent = (url: string) => {
+        if (!url) return null;
+
+        // YouTube
+        const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/);
+        if (ytMatch && ytMatch[1]) {
+            // @ts-ignore
+            return <iframe
+                src={`https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&rel=0`}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+            />;
+        }
+
+        // Google Drive
+        if (url.includes('drive.google.com')) {
+            // @ts-ignore
+            return <iframe
+                src={url.replace('/view', '/preview')}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                allow="autoplay"
+                allowFullScreen
+            />;
+        }
+
+        // Generic Video
+        // @ts-ignore
+        return <video
+            src={url}
+            controls
+            autoPlay
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />;
+    };
 
     return (
         <View style={styles.container}>
@@ -34,8 +92,16 @@ export default function DesktopReels() {
                 <View style={styles.reelsSection}>
                     <View style={styles.reelsGrid}>
                         {reels.map((reel) => (
-                            <Pressable key={reel.id} style={styles.reelCard}>
-                                <Image source={{ uri: reel.thumbnail }} style={styles.reelThumbnail} resizeMode="cover" />
+                            <Pressable
+                                key={reel._id}
+                                style={styles.reelCard}
+                                onPress={() => handlePlayReel(reel)}
+                            >
+                                <Image
+                                    source={{ uri: reel.thumbnailUrl || 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400' }}
+                                    style={styles.reelThumbnail}
+                                    resizeMode="cover"
+                                />
                                 <View style={styles.playOverlay}>
                                     <View style={styles.playButton}>
                                         <MaterialCommunityIcons name="play" size={32} color="#fff" />
@@ -46,18 +112,48 @@ export default function DesktopReels() {
                                     <View style={styles.reelStats}>
                                         <View style={styles.reelStat}>
                                             <MaterialCommunityIcons name="eye" size={14} color="#fff" />
-                                            <Text style={styles.reelStatText}>{reel.views}</Text>
+                                            <Text style={styles.reelStatText}>2k+</Text>
                                         </View>
                                         <View style={styles.reelStat}>
-                                            <MaterialCommunityIcons name="heart" size={14} color="#fff" />
-                                            <Text style={styles.reelStatText}>{reel.likes}</Text>
+                                            <MaterialCommunityIcons name="open-in-new" size={14} color="#fff" />
+                                            <Text style={styles.reelStatText}>{reel.platform || 'Link'}</Text>
                                         </View>
                                     </View>
                                 </View>
                             </Pressable>
                         ))}
+                        {reels.length === 0 && !loading && (
+                            <Text style={{ fontSize: 18, color: '#64748b' }}>No reels available at the moment.</Text>
+                        )}
                     </View>
                 </View>
+                {selectedReel && (
+                    <Modal
+                        visible={true}
+                        transparent={true}
+                        animationType="fade"
+                        onRequestClose={() => setSelectedReel(null)}
+                    >
+                        <View style={styles.modalOverlay}>
+                            <TouchableOpacity
+                                style={styles.modalBackdrop}
+                                activeOpacity={1}
+                                onPress={() => setSelectedReel(null)}
+                            />
+                            <View style={styles.modalContent}>
+                                <TouchableOpacity
+                                    style={styles.closeButton}
+                                    onPress={() => setSelectedReel(null)}
+                                >
+                                    <MaterialCommunityIcons name="close" size={24} color="#fff" />
+                                </TouchableOpacity>
+                                <View style={styles.videoContainer}>
+                                    {renderVideoContent(selectedReel.videoUrl)}
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
+                )}
             </ScrollView>
         </View>
     );
@@ -90,4 +186,9 @@ const styles = StyleSheet.create({
     reelStats: { flexDirection: 'row', gap: 16 },
     reelStat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     reelStatText: { fontSize: 12, color: '#fff', fontWeight: '600' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+    modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    modalContent: { width: '85%', height: '85%', backgroundColor: '#000', borderRadius: 16, overflow: 'hidden', maxWidth: 1200, elevation: 5 },
+    closeButton: { position: 'absolute', top: 20, right: 20, zIndex: 50, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20 },
+    videoContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
 });

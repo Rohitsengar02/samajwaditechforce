@@ -24,6 +24,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { captureRef } from 'react-native-view-shot';
 import { removeBackground as imglyRemoveBackground } from '../utils/backgroundRemoval';
 import { getApiUrl } from '../utils/api';
+import { TEMPLATES, RenderBottomBar } from '../components/posteredit/BottomBarTemplates';
+import { FlatList } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
@@ -59,6 +61,17 @@ interface PosterAsset {
 
 const FONTS = ['System', 'Roboto', 'serif', 'monospace'];
 const COLORS = ['#000000', '#FFFFFF', '#E30512', '#1e293b', '#2563eb', '#16a34a', '#d97706', '#dc2626'];
+
+const FILTERS = [
+    { id: 'none', name: 'Original', overlay: 'transparent' },
+    { id: 'grayscale', name: 'Grayscale', overlay: 'rgba(128, 128, 128, 0.3)' },
+    { id: 'sepia', name: 'Sepia', overlay: 'rgba(112, 66, 20, 0.4)' },
+    { id: 'warm', name: 'Warm', overlay: 'rgba(255, 140, 0, 0.2)' },
+    { id: 'cool', name: 'Cool', overlay: 'rgba(0, 100, 255, 0.2)' },
+    { id: 'vintage', name: 'Vintage', overlay: 'rgba(240, 200, 140, 0.3)' },
+    { id: 'dramatic', name: 'Dramatic', overlay: 'rgba(0, 0, 0, 0.3)' },
+    { id: 'bright', name: 'Bright', overlay: 'rgba(255, 255, 255, 0.15)' },
+];
 
 export default function PosterEditor() {
     const router = useRouter();
@@ -100,18 +113,31 @@ export default function PosterEditor() {
     // Zoom State
     const [zoomScale, setZoomScale] = useState(1);
 
+    // Bottom Bar Template Modal State
+    const [showBottomBarModal, setShowBottomBarModal] = useState(false);
+    const [selectedBottomBarTemplate, setSelectedBottomBarTemplate] = useState(TEMPLATES[0].id);
+    const [bottomBarDetails, setBottomBarDetails] = useState({
+        name: 'Your Name',
+        designation: 'Designation',
+        mobile: '+91 XXXXX XXXXX',
+        social: '@username',
+        address: 'Your Address',
+        photo: null as string | null,
+    });
+    const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
+
+    // Filter State
+    const [showFilterModal, setShowFilterModal] = useState(false);
+    const [selectedFilter, setSelectedFilter] = useState('none');
+
     // Tools Configuration
     const tools = [
         { id: 'layout', name: 'Layout', icon: 'aspect-ratio' },
         { id: 'banner', name: 'Posters', icon: 'image-multiple' },
         { id: 'text', name: 'Add Text', icon: 'format-text' },
         { id: 'image', name: 'Add Image', icon: 'image-plus' },
-        { id: 'music', name: 'Music', icon: 'music-note' },
         { id: 'filter', name: 'Filters', icon: 'filter-variant' },
         { id: 'sticker', name: 'Stickers', icon: 'sticker-emoji' },
-        { id: 'shape', name: 'Shapes', icon: 'shape' },
-        { id: 'draw', name: 'Draw', icon: 'draw' },
-        { id: 'bg', name: 'Background', icon: 'format-color-fill' },
     ];
 
     useEffect(() => {
@@ -124,10 +150,10 @@ export default function PosterEditor() {
     const fetchPosterAssets = async () => {
         try {
             setLoadingAssets(true);
-            const response = await fetch(`${API_URL}/posters?limit=100`);
+            const response = await fetch(`${API_URL}/api/posters?limit=100`);
             const data = await response.json();
-            if (data.posters) {
-                setPosterAssets(data.posters);
+            if (data.success && data.data) {
+                setPosterAssets(data.data);
             }
         } catch (error) {
             console.error('Error fetching poster assets:', error);
@@ -181,6 +207,12 @@ export default function PosterEditor() {
                 break;
             case 'banner':
                 setShowBannerModal(true);
+                break;
+            case 'sticker':
+                setShowBottomBarModal(true);
+                break;
+            case 'filter':
+                setShowFilterModal(true);
                 break;
             case 'music':
                 Alert.alert('Coming Soon', 'Music feature will be available in the next update!');
@@ -323,22 +355,64 @@ export default function PosterEditor() {
             // Wait a tick for state to update
             setTimeout(async () => {
                 try {
-                    const uri = await captureRef(canvasRef, {
-                        format: 'jpg',
-                        quality: 0.9,
-                    });
+                    let uri: string;
 
                     if (Platform.OS === 'web') {
+                        // For web, use canvas.toDataURL instead of captureRef
+                        const canvasElement = canvasRef.current as any;
+                        if (!canvasElement) {
+                            throw new Error('Canvas ref not found');
+                        }
+
+                        // Try using html2canvas if available, otherwise use a manual canvas approach
+                        if (typeof window !== 'undefined' && (window as any).html2canvas) {
+                            const html2canvas = (window as any).html2canvas;
+                            const canvas = await html2canvas(canvasElement, {
+                                useCORS: true,
+                                allowTaint: true,
+                                backgroundColor: null,
+                            });
+                            uri = canvas.toDataURL('image/jpeg', 0.9);
+                        } else {
+                            // Fallback: create a manual download link
+                            // This is a simpler approach that just saves the current view
+                            const link = document.createElement('a');
+                            link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}.jpg`;
+
+                            // Try to get the image from the canvas if it's a simple image view
+                            const imgElement = canvasElement.querySelector('img');
+                            if (imgElement) {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = canvasSize.w;
+                                canvas.height = canvasSize.h;
+                                const ctx = canvas.getContext('2d');
+                                if (ctx) {
+                                    ctx.drawImage(imgElement, 0, 0, canvasSize.w, canvasSize.h);
+                                    uri = canvas.toDataURL('image/jpeg', 0.9);
+                                } else {
+                                    throw new Error('Could not get canvas context');
+                                }
+                            } else {
+                                Alert.alert('Info', 'Please use the desktop version for better download support on web');
+                                return;
+                            }
+                        }
+
                         const link = document.createElement('a');
                         link.href = uri;
                         link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}.jpg`;
                         link.click();
                     } else {
+                        // For mobile, use captureRef
+                        uri = await captureRef(canvasRef, {
+                            format: 'jpg',
+                            quality: 0.9,
+                        });
                         await Sharing.shareAsync(uri);
                     }
                 } catch (innerError) {
                     console.error('Capture error:', innerError);
-                    Alert.alert('Error', 'Failed to capture poster');
+                    Alert.alert('Error', 'Failed to capture poster. Please try using the desktop editor for web downloads.');
                 }
             }, 100);
         } catch (error) {
@@ -359,6 +433,9 @@ export default function PosterEditor() {
             rotation.setValue(element.rotation);
         }, [element.x, element.y, element.scale, element.rotation]);
 
+        const [dragStartPos, setDragStartPos] = useState({ x: element.x, y: element.y });
+        const [currentGesture, setCurrentGesture] = useState({ dx: 0, dy: 0 });
+
         const panResponder = useRef(
             PanResponder.create({
                 onStartShouldSetPanResponder: () => true,
@@ -366,23 +443,21 @@ export default function PosterEditor() {
                 onPanResponderGrant: () => {
                     setIsDragging(true);
                     setSelectedElementId(element.id);
-                    pan.setOffset({
-                        x: element.x,
-                        y: element.y
-                    });
-                    pan.setValue({ x: 0, y: 0 });
+                    setDragStartPos({ x: element.x, y: element.y });
+                    setCurrentGesture({ dx: 0, dy: 0 });
                 },
-                onPanResponderMove: Animated.event(
-                    [null, { dx: pan.x, dy: pan.y }],
-                    { useNativeDriver: false }
-                ),
+                onPanResponderMove: (_, gestureState) => {
+                    // Update position smoothly during drag
+                    setCurrentGesture({ dx: gestureState.dx, dy: gestureState.dy });
+                },
                 onPanResponderRelease: (_, gestureState) => {
-                    pan.flattenOffset();
                     setIsDragging(false);
+                    // Update final position
                     updateElement(element.id, {
-                        x: element.x + gestureState.dx,
-                        y: element.y + gestureState.dy
+                        x: dragStartPos.x + gestureState.dx,
+                        y: dragStartPos.y + gestureState.dy
                     });
+                    setCurrentGesture({ dx: 0, dy: 0 });
                 }
             })
         ).current;
@@ -427,81 +502,93 @@ export default function PosterEditor() {
         });
 
         return (
-            <Animated.View
-                {...panResponder.panHandlers}
-                style={[
-                    styles.element,
-                    {
-                        transform: [
-                            ...pan.getTranslateTransform(),
-                            { rotate: rotateStr },
-                            { scale: scale }
-                        ],
-                        borderColor: isSelected ? SP_RED : 'transparent',
-                        borderStyle: isSelected ? 'dashed' : 'solid',
-                        borderWidth: isSelected ? 1 : 0,
-                    }
-                ]}
+            <View
+                style={{
+                    position: 'absolute',
+                    left: isDragging ? dragStartPos.x + currentGesture.dx : element.x,
+                    top: isDragging ? dragStartPos.y + currentGesture.dy : element.y,
+                }}
             >
-                <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
-                    {element.type === 'text' ? (
-                        <Text style={[
-                            styles.elementText,
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => setSelectedElementId(element.id)}
+                >
+                    <Animated.View
+                        style={[
+                            styles.element,
                             {
-                                color: element.color,
-                                fontSize: element.fontSize,
-                                fontFamily: element.fontFamily
+                                transform: [
+                                    { rotate: rotateStr },
+                                    { scale: scale }
+                                ],
+                                borderColor: isSelected ? SP_RED : 'transparent',
+                                borderStyle: isSelected ? 'dashed' : 'solid',
+                                borderWidth: isSelected ? 2 : 0,
                             }
-                        ]}>
-                            {element.content}
-                        </Text>
-                    ) : (
-                        <Image source={{ uri: element.content }} style={styles.elementImage} />
-                    )}
-                </View>
-
-                {isSelected && (
-                    <>
-                        {/* Top Left - Delete */}
-                        <TouchableOpacity
-                            style={[styles.controlBtn, styles.controlBtnTL]}
-                            onPress={(e) => {
-                                e.stopPropagation();
-                                deleteSelectedElement();
-                            }}
-                        >
-                            <MaterialCommunityIcons name="close" size={14} color="#fff" />
-                        </TouchableOpacity>
-
-                        {/* Top Right - Mirror/Flip */}
-                        <TouchableOpacity
-                            style={[styles.controlBtn, styles.controlBtnTR]}
-                            onPress={(e) => {
-                                e.stopPropagation();
-                                updateElement(element.id, { isFlipped: !element.isFlipped });
-                            }}
-                        >
-                            <MaterialCommunityIcons name="flip-horizontal" size={14} color="#fff" />
-                        </TouchableOpacity>
-
-                        {/* Bottom Left - Rotate */}
-                        <View
-                            {...rotateResponder.panHandlers}
-                            style={[styles.controlBtn, styles.controlBtnBL]}
-                        >
-                            <MaterialCommunityIcons name="rotate-right" size={14} color="#fff" />
+                        ]}
+                    >
+                        <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
+                            {element.type === 'text' ? (
+                                <Text style={[
+                                    styles.elementText,
+                                    {
+                                        color: element.color,
+                                        fontSize: element.fontSize,
+                                        fontFamily: element.fontFamily
+                                    }
+                                ]}>
+                                    {element.content}
+                                </Text>
+                            ) : (
+                                <Image source={{ uri: element.content }} style={styles.elementImage} />
+                            )}
                         </View>
 
-                        {/* Bottom Right - Resize */}
-                        <View
-                            {...resizeResponder.panHandlers}
-                            style={[styles.controlBtn, styles.controlBtnBR]}
-                        >
-                            <MaterialCommunityIcons name="arrow-expand-all" size={14} color="#fff" />
-                        </View>
-                    </>
-                )}
-            </Animated.View>
+                        {isSelected && (
+                            <>
+                                {/* Top Left - Delete */}
+                                <TouchableOpacity
+                                    style={[styles.controlBtn, styles.controlBtnTL]}
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        deleteSelectedElement();
+                                    }}
+                                >
+                                    <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                                </TouchableOpacity>
+
+                                {/* Top Right - Rotate 90deg */}
+                                <TouchableOpacity
+                                    style={[styles.controlBtn, styles.controlBtnTR]}
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        const newRotation = (element.rotation + 90) % 360;
+                                        updateElement(element.id, { rotation: newRotation });
+                                    }}
+                                >
+                                    <MaterialCommunityIcons name="rotate-right" size={16} color="#fff" />
+                                </TouchableOpacity>
+
+                                {/* Bottom Left - Move/Drag Handle */}
+                                <View
+                                    {...panResponder.panHandlers}
+                                    style={[styles.controlBtn, styles.controlBtnBL]}
+                                >
+                                    <MaterialCommunityIcons name="cursor-move" size={16} color="#fff" />
+                                </View>
+
+                                {/* Bottom Right - Resize by dragging */}
+                                <View
+                                    {...resizeResponder.panHandlers}
+                                    style={[styles.controlBtn, styles.controlBtnBR]}
+                                >
+                                    <MaterialCommunityIcons name="arrow-expand-all" size={16} color="#fff" />
+                                </View>
+                            </>
+                        )}
+                    </Animated.View>
+                </TouchableOpacity>
+            </View>
         );
     };
 
@@ -551,32 +638,59 @@ export default function PosterEditor() {
                                 source={{ uri: currentImage }}
                                 style={[
                                     styles.baseImage,
-                                    { height: canvasSize.h - BANNER_HEIGHT }
+                                    { height: canvasSize.h }
                                 ]}
-                                resizeMode="stretch"
+                                resizeMode="cover"
                             />
 
-                            {/* Footer Banner */}
-                            <LinearGradient
-                                colors={[SP_RED, '#b91c1c']}
-                                style={[styles.bannerOverlay, { height: BANNER_HEIGHT }]}
-                            >
-                                <View style={styles.bannerContent}>
-                                    <Image
-                                        source={require('../assets/images/icon.png')}
-                                        style={styles.bannerLogo}
-                                    />
-                                    <View>
-                                        <Text style={styles.bannerTitle}>{bannerText}</Text>
-                                        <Text style={styles.bannerSubtitle}>Samajwadi Tech Force</Text>
-                                    </View>
-                                </View>
-                            </LinearGradient>
+                            {/* Filter Overlay */}
+                            {selectedFilter !== 'none' && (
+                                <View style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    height: canvasSize.h,
+                                    backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
+                                    pointerEvents: 'none',
+                                }} />
+                            )}
 
                             {/* Added Elements */}
                             {elements.map((el) => (
                                 <DraggableItem key={el.id} element={el} />
                             ))}
+
+                            {/* Dynamic Footer Bottom Bar - Positioned at Bottom */}
+                            <View style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                height: BANNER_HEIGHT,
+                                width: '100%'
+                            }}>
+                                <RenderBottomBar
+                                    template={selectedBottomBarTemplate}
+                                    details={bottomBarDetails}
+                                    width={canvasSize.w}
+                                />
+                                {/* Edit Button Overlay */}
+                                <TouchableOpacity
+                                    style={{
+                                        position: 'absolute',
+                                        top: 8,
+                                        right: 8,
+                                        backgroundColor: 'rgba(0,0,0,0.6)',
+                                        borderRadius: 20,
+                                        padding: 8,
+                                        zIndex: 10,
+                                    }}
+                                    onPress={() => setShowBottomBarEditForm(true)}
+                                >
+                                    <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -979,6 +1093,261 @@ export default function PosterEditor() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Bottom Bar Template Modal */}
+            <Modal
+                visible={showBottomBarModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowBottomBarModal(false)}
+            >
+                <View style={styles.modalOverlay2}>
+                    <TouchableOpacity
+                        style={styles.modalBackdrop2}
+                        activeOpacity={1}
+                        onPress={() => setShowBottomBarModal(false)}
+                    />
+                    <View style={styles.bottomSheet2}>
+                        <View style={styles.modalHeader2}>
+                            <Text style={styles.modalTitle2}>Select Bottom Bar Frame</Text>
+                            <TouchableOpacity onPress={() => setShowBottomBarModal(false)} style={styles.closeButton2}>
+                                <MaterialCommunityIcons name="close" size={24} color="#0f172a" />
+                            </TouchableOpacity>
+                        </View>
+                        <FlatList
+                            data={TEMPLATES}
+                            horizontal
+                            pagingEnabled
+                            showsHorizontalScrollIndicator={false}
+                            keyExtractor={item => item.id}
+                            contentContainerStyle={styles.carouselContent2}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.carouselItem2,
+                                        { width: width }
+                                    ]}
+                                    onPress={() => {
+                                        setSelectedBottomBarTemplate(item.id);
+                                        setShowBottomBarModal(false);
+                                        setShowBottomBarEditForm(true);
+                                    }}
+                                >
+                                    <View style={{ paddingHorizontal: 40, width: '100%' }}>
+                                        <View style={[
+                                            styles.framePreviewContainer2,
+                                            selectedBottomBarTemplate === item.id && styles.selectedFrameBorder2
+                                        ]}>
+                                            <RenderBottomBar
+                                                template={item.id}
+                                                details={bottomBarDetails}
+                                                width={width - 80 - 28}
+                                            />
+                                        </View>
+                                        <Text style={[
+                                            styles.templateName2,
+                                            selectedBottomBarTemplate === item.id && styles.selectedTemplateName2
+                                        ]}>{item.name}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+                        />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Bottom Bar Edit Form Modal */}
+            <Modal
+                visible={showBottomBarEditForm}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowBottomBarEditForm(false)}
+            >
+                <View style={styles.modalOverlay2}>
+                    <TouchableOpacity
+                        style={styles.modalBackdrop2}
+                        activeOpacity={1}
+                        onPress={() => setShowBottomBarEditForm(false)}
+                    />
+                    <View style={[styles.bottomSheet2, { height: '70%' }]}>
+                        <View style={styles.modalHeader2}>
+                            <Text style={styles.modalTitle2}>Edit Bottom Bar Details</Text>
+                            <TouchableOpacity onPress={() => setShowBottomBarEditForm(false)} style={styles.closeButton2}>
+                                <MaterialCommunityIcons name="close" size={24} color="#0f172a" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+                            {/* Name Field */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Name</Text>
+                                <TextInput
+                                    style={styles.formInput}
+                                    value={bottomBarDetails.name}
+                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, name: text }))}
+                                    placeholder="Enter your name"
+                                    placeholderTextColor="#94a3b8"
+                                />
+                            </View>
+
+                            {/* Designation Field */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Designation</Text>
+                                <TextInput
+                                    style={styles.formInput}
+                                    value={bottomBarDetails.designation}
+                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, designation: text }))}
+                                    placeholder="e.g. District President"
+                                    placeholderTextColor="#94a3b8"
+                                />
+                            </View>
+
+                            {/* Mobile Field */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Mobile Number</Text>
+                                <TextInput
+                                    style={styles.formInput}
+                                    value={bottomBarDetails.mobile}
+                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, mobile: text }))}
+                                    placeholder="+91 XXXXX XXXXX"
+                                    keyboardType="phone-pad"
+                                    placeholderTextColor="#94a3b8"
+                                />
+                            </View>
+
+                            {/* Social Handle Field */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Social Handle</Text>
+                                <TextInput
+                                    style={styles.formInput}
+                                    value={bottomBarDetails.social}
+                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, social: text }))}
+                                    placeholder="@username"
+                                    placeholderTextColor="#94a3b8"
+                                />
+                            </View>
+
+                            {/* Address Field */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Address</Text>
+                                <TextInput
+                                    style={[styles.formInput, { height: 80 }]}
+                                    value={bottomBarDetails.address}
+                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, address: text }))}
+                                    placeholder="Enter your address"
+                                    multiline
+                                    numberOfLines={3}
+                                    placeholderTextColor="#94a3b8"
+                                />
+                            </View>
+
+                            {/* Photo Upload */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Profile Photo</Text>
+                                <TouchableOpacity
+                                    style={styles.photoUploadButton}
+                                    onPress={async () => {
+                                        const result = await ImagePicker.launchImageLibraryAsync({
+                                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                                            allowsEditing: true,
+                                            aspect: [1, 1],
+                                            quality: 1,
+                                        });
+                                        if (!result.canceled) {
+                                            setBottomBarDetails(prev => ({ ...prev, photo: result.assets[0].uri }));
+                                        }
+                                    }}
+                                >
+                                    {bottomBarDetails.photo ? (
+                                        <Image source={{ uri: bottomBarDetails.photo }} style={styles.photoPreviewSmall} />
+                                    ) : (
+                                        <View style={styles.photoPlaceholderSmall}>
+                                            <MaterialCommunityIcons name="camera-plus" size={32} color="#94a3b8" />
+                                            <Text style={styles.photoPlaceholderText}>Tap to upload</Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.saveFormButton}
+                                onPress={() => setShowBottomBarEditForm(false)}
+                            >
+                                <Text style={styles.saveFormButtonText}>Save Changes</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Filter Carousel Modal */}
+            <Modal
+                visible={showFilterModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowFilterModal(false)}
+            >
+                <View style={styles.modalOverlay2}>
+                    <TouchableOpacity
+                        style={styles.modalBackdrop2}
+                        activeOpacity={1}
+                        onPress={() => setShowFilterModal(false)}
+                    />
+                    <View style={[styles.bottomSheet2, { height: '50%' }]}>
+                        <View style={styles.modalHeader2}>
+                            <Text style={styles.modalTitle2}>Select Filter</Text>
+                            <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.closeButton2}>
+                                <MaterialCommunityIcons name="close" size={24} color="#0f172a" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <FlatList
+                            data={FILTERS}
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 20 }}
+                            keyExtractor={item => item.id}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.filterItem,
+                                        selectedFilter === item.id && styles.selectedFilterItem
+                                    ]}
+                                    onPress={() => {
+                                        setSelectedFilter(item.id);
+                                        setShowFilterModal(false);
+                                    }}
+                                >
+                                    {/* Filter Preview */}
+                                    <View style={styles.filterPreviewContainer}>
+                                        <Image
+                                            source={{ uri: currentImage }}
+                                            style={styles.filterPreviewImage}
+                                            resizeMode="cover"
+                                        />
+                                        <View style={[
+                                            styles.filterPreviewOverlay,
+                                            { backgroundColor: item.overlay }
+                                        ]} />
+                                    </View>
+                                    <Text style={[
+                                        styles.filterName,
+                                        selectedFilter === item.id && styles.selectedFilterName
+                                    ]}>{item.name}</Text>
+                                    {selectedFilter === item.id && (
+                                        <MaterialCommunityIcons
+                                            name="check-circle"
+                                            size={20}
+                                            color={SP_RED}
+                                            style={{ marginTop: 4 }}
+                                        />
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                        />
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -1086,7 +1455,7 @@ const styles = StyleSheet.create({
     },
     zoomControls: {
         position: 'absolute',
-        bottom: 280,
+        bottom: 150,
         right: 20,
         backgroundColor: '#ffffff',
         borderRadius: 20,
@@ -1481,5 +1850,170 @@ const styles = StyleSheet.create({
     controlBtnBR: {
         bottom: -12,
         right: -12,
+    },
+    // Bottom Bar Modal Styles
+    modalOverlay2: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalBackdrop2: {
+        flex: 1,
+    },
+    bottomSheet2: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingBottom: 40,
+        height: '40%',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+    },
+    modalHeader2: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 20,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e2e8f0',
+    },
+    modalTitle2: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#0f172a',
+    },
+    closeButton2: {
+        padding: 4,
+    },
+    carouselContent2: {
+        alignItems: 'center',
+    },
+    carouselItem2: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    framePreviewContainer2: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+        overflow: 'hidden',
+        padding: 12,
+    },
+    selectedFrameBorder2: {
+        borderColor: SP_RED,
+    },
+    templateName2: {
+        padding: 12,
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#64748b',
+        textAlign: 'center',
+    },
+    selectedTemplateName2: {
+        color: SP_RED,
+        fontWeight: 'bold',
+    },
+    // Form Styles
+    formField: {
+        marginBottom: 20,
+    },
+    formLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1e293b',
+        marginBottom: 8,
+    },
+    formInput: {
+        backgroundColor: '#f8fafc',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+        color: '#0f172a',
+    },
+    photoUploadButton: {
+        backgroundColor: '#f8fafc',
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+        borderStyle: 'dashed',
+        borderRadius: 12,
+        height: 120,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    photoPreviewSmall: {
+        width: '100%',
+        height: '100%',
+    },
+    photoPlaceholderSmall: {
+        alignItems: 'center',
+    },
+    photoPlaceholderText: {
+        fontSize: 12,
+        color: '#64748b',
+        marginTop: 8,
+    },
+    saveFormButton: {
+        backgroundColor: SP_RED,
+        borderRadius: 12,
+        paddingVertical: 16,
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 20,
+    },
+    saveFormButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    // Filter Styles
+    filterItem: {
+        alignItems: 'center',
+        marginRight: 16,
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: '#f8fafc',
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+    },
+    selectedFilterItem: {
+        borderColor: SP_RED,
+        backgroundColor: '#fff',
+    },
+    filterPreviewContainer: {
+        width: 100,
+        height: 120,
+        borderRadius: 8,
+        overflow: 'hidden',
+        marginBottom: 8,
+        position: 'relative',
+    },
+    filterPreviewImage: {
+        width: '100%',
+        height: '100%',
+    },
+    filterPreviewOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    filterName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#64748b',
+        textAlign: 'center',
+    },
+    selectedFilterName: {
+        color: SP_RED,
     },
 });

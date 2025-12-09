@@ -49,6 +49,7 @@ export default function DesktopNormalEdit() {
     const [selectedTemplate, setSelectedTemplate] = useState(TEMPLATES[0].id);
     const [imageAspectRatio, setImageAspectRatio] = useState(4 / 5);
     const viewShotRef = useRef<any>(null);
+    const posterRef = useRef<any>(null); // For web DOM access
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -75,18 +76,161 @@ export default function DesktopNormalEdit() {
     };
 
     const handleSave = async () => {
-        if (!viewShotRef.current) return;
         setSaving(true);
         try {
-            const uri = await viewShotRef.current.capture();
-            const link = document.createElement('a');
-            link.href = uri;
-            link.download = `poster-${Date.now()}.png`;
-            link.click();
-            Alert.alert('Success', 'Poster downloaded!');
+            if (Platform.OS === 'web') {
+                // For web: Create proper PDF with image and bottom bar content
+                const { jsPDF } = await import('jspdf');
+
+                // Get template colors
+                const getTemplateColors = () => {
+                    switch (selectedTemplate) {
+                        case 'modern_curve': return { bg: '#0ea5e9', text: '#ffffff', accent: '#e0f2fe' };
+                        case 'bold_strip': return { bg: '#1e3a8a', text: '#ffffff', accent: '#fbbf24' };
+                        case 'minimal_white': return { bg: '#ffffff', text: '#333333', accent: '#666666' };
+                        case 'red_accent': return { bg: '#E30512', text: '#ffffff', accent: '#ffffff' };
+                        case 'yellow_theme': return { bg: '#FFD700', text: '#000000', accent: '#000000' };
+                        default: return { bg: '#ffffff', text: '#0f172a', accent: '#E30512' };
+                    }
+                };
+
+                const templateColors = getTemplateColors();
+                const templateName = TEMPLATES.find(t => t.id === selectedTemplate)?.name || 'Default';
+
+                // Create PDF (A4 size in portrait)
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const margin = 10;
+
+                // Add poster image at the top
+                if (imageUrl) {
+                    try {
+                        // Load image and add to PDF
+                        const img = new window.Image();
+                        img.crossOrigin = 'anonymous';
+
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                            img.src = imageUrl as string;
+                        });
+
+                        // Calculate image dimensions to fit page width
+                        const imgAspect = img.width / img.height;
+                        const imgWidth = pageWidth - (margin * 2);
+                        const imgHeight = imgWidth / imgAspect;
+
+                        pdf.addImage(img, 'JPEG', margin, margin, imgWidth, imgHeight);
+
+                        // Position for bottom bar below image
+                        let yPos = margin + imgHeight;
+
+                        // Draw bottom bar background based on template
+                        const barHeight = 35;
+
+                        // Parse color to RGB
+                        const hexToRgb = (hex: string) => {
+                            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                            return result ? {
+                                r: parseInt(result[1], 16),
+                                g: parseInt(result[2], 16),
+                                b: parseInt(result[3], 16)
+                            } : { r: 255, g: 255, b: 255 };
+                        };
+
+                        const bgColor = hexToRgb(templateColors.bg);
+                        const textColor = hexToRgb(templateColors.text);
+                        const accentColor = hexToRgb(templateColors.accent);
+
+                        // Draw background rect for bottom bar
+                        pdf.setFillColor(bgColor.r, bgColor.g, bgColor.b);
+                        pdf.rect(margin, yPos, imgWidth, barHeight, 'F');
+
+                        // Add accent strip for some templates
+                        if (selectedTemplate === 'default') {
+                            pdf.setFillColor(0, 153, 51); // SP Green
+                            pdf.rect(margin, yPos + barHeight - 3, imgWidth, 3, 'F');
+                        } else if (selectedTemplate === 'red_accent') {
+                            pdf.setFillColor(227, 5, 18); // SP Red
+                            pdf.rect(margin, yPos, imgWidth, 2, 'F');
+                        } else if (selectedTemplate === 'yellow_theme') {
+                            pdf.setFillColor(0, 0, 0);
+                            pdf.rect(margin, yPos + barHeight - 8, imgWidth, 8, 'F');
+                        }
+
+                        // Add profile photo circle indicator
+                        const photoX = margin + 8;
+                        const photoY = yPos + 8;
+                        pdf.setDrawColor(accentColor.r, accentColor.g, accentColor.b);
+                        pdf.setLineWidth(0.5);
+                        pdf.setFillColor(200, 200, 200);
+                        pdf.circle(photoX + 8, photoY + 8, 8, 'FD');
+
+                        // Add name
+                        pdf.setFontSize(14);
+                        pdf.setTextColor(textColor.r, textColor.g, textColor.b);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.text(details.name || 'Your Name', margin + 30, yPos + 12);
+
+                        // Add designation
+                        pdf.setFontSize(10);
+                        pdf.setTextColor(accentColor.r, accentColor.g, accentColor.b);
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.text(details.designation || 'Designation', margin + 30, yPos + 18);
+
+                        // Add contact info on right side
+                        const rightX = pageWidth - margin - 5;
+                        pdf.setFontSize(9);
+                        pdf.setTextColor(textColor.r, textColor.g, textColor.b);
+
+                        if (details.mobile) {
+                            pdf.text(details.mobile, rightX, yPos + 10, { align: 'right' });
+                        }
+                        if (details.social) {
+                            pdf.text(details.social, rightX, yPos + 16, { align: 'right' });
+                        }
+                        if (details.address) {
+                            const shortAddr = details.address.length > 35 ? details.address.substring(0, 35) + '...' : details.address;
+                            pdf.text(shortAddr, rightX, yPos + 22, { align: 'right' });
+                        }
+
+                        // Add template name footer
+                        yPos += barHeight + 5;
+                        pdf.setFontSize(8);
+                        pdf.setTextColor(150, 150, 150);
+                        pdf.text(`Template: ${templateName} | Generated from Samajwadi Party App`, pageWidth / 2, yPos, { align: 'center' });
+
+                    } catch (imgError) {
+                        console.error('Image load error:', imgError);
+                        pdf.setFontSize(14);
+                        pdf.text('Poster could not be loaded', margin, 20);
+                    }
+                }
+
+                // Download PDF
+                pdf.save(`poster-${title || 'custom'}-${Date.now()}.pdf`);
+                Alert.alert('Success', 'PDF downloaded successfully!');
+            } else {
+                // For mobile: Use ViewShot
+                if (!viewShotRef.current) return;
+                const uri = await viewShotRef.current.capture({
+                    format: 'png',
+                    quality: 1,
+                });
+                const { shareAsync } = await import('expo-sharing');
+                await shareAsync(uri, {
+                    mimeType: 'image/png',
+                    dialogTitle: 'Save or Share Poster'
+                });
+            }
         } catch (error) {
             console.error('Save error:', error);
-            Alert.alert('Error', 'Failed to save poster');
+            Alert.alert('Error', 'Failed to save poster. Please try again.');
         } finally {
             setSaving(false);
         }
@@ -102,8 +246,10 @@ export default function DesktopNormalEdit() {
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Normal Edit</Text>
                 <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-                    <MaterialCommunityIcons name="download" size={20} color="#fff" />
-                    <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Download'}</Text>
+                    <MaterialCommunityIcons name={Platform.OS === 'web' ? 'file-pdf-box' : 'download'} size={20} color="#fff" />
+                    <Text style={styles.saveButtonText}>
+                        {saving ? 'Generating...' : (Platform.OS === 'web' ? 'Download PDF' : 'Share')}
+                    </Text>
                 </TouchableOpacity>
             </View>
 
@@ -111,20 +257,22 @@ export default function DesktopNormalEdit() {
                 {/* Left: Preview */}
                 <View style={styles.previewSection}>
                     <View style={styles.previewCard}>
-                        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={styles.posterContainer}>
-                            <Image
-                                source={{ uri: imageUrl as string }}
-                                style={[styles.posterImage, { aspectRatio: imageAspectRatio }]}
-                                resizeMode="cover"
-                            />
-                            <View style={{ width: '100%' }}>
-                                <RenderBottomBar
-                                    template={selectedTemplate}
-                                    details={details}
-                                    width={500} // Fixed width for desktop preview
+                        <View ref={posterRef} style={styles.posterContainer}>
+                            <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={{ width: '100%' }}>
+                                <Image
+                                    source={{ uri: imageUrl as string }}
+                                    style={[styles.posterImage, { aspectRatio: imageAspectRatio }]}
+                                    resizeMode="cover"
                                 />
-                            </View>
-                        </ViewShot>
+                                <View style={{ width: '100%' }}>
+                                    <RenderBottomBar
+                                        template={selectedTemplate}
+                                        details={details}
+                                        width={500} // Fixed width for desktop preview
+                                    />
+                                </View>
+                            </ViewShot>
+                        </View>
                     </View>
                 </View>
 

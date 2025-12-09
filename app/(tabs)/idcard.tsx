@@ -81,8 +81,11 @@ export default function IDCardTab() {
                 const userData = JSON.parse(userInfoStr);
                 setUserInfo(userData);
 
-                // Check if user is verified
-                if (userData.verificationStatus === 'Verified') {
+                // Check if user is verified AND has all required fields
+                const hasAllRequiredFields = userData.district && userData.vidhanSabha && userData.qualification;
+                const isVerifiedStatus = userData.verificationStatus === 'Verified';
+
+                if (isVerifiedStatus && hasAllRequiredFields) {
                     setIsVerified(true);
                     setShowVerificationModal(false);
                 } else {
@@ -537,9 +540,11 @@ export default function IDCardTab() {
                                     <MaterialCommunityIcons name="shield-alert" size={60} color={SP_RED} />
                                 </View>
 
-                                <Text style={styles.modalTitle}>प्रोफ़ाइल सत्यापन आवश्यक</Text>
+                                <Text style={styles.modalTitle}>प्रोफ़ाइल पूर्ण करें</Text>
                                 <Text style={styles.modalMessage}>
-                                    ID कार्ड देखने के लिए आपकी प्रोफ़ाइल का सत्यापन होना आवश्यक है।{'\n\n'}
+                                    ID कार्ड देखने के लिए:{'\n\n'}
+                                    1. सभी आवश्यक जानकारी भरें (जिला, विधानसभा, योग्यता){'\n'}
+                                    2. प्रोफ़ाइल सत्यापन पूर्ण करें{'\n\n'}
                                     कृपया अपनी प्रोफ़ाइल पूर्ण करें और सत्यापन के लिए आवेदन करें।
                                 </Text>
 
@@ -560,16 +565,17 @@ export default function IDCardTab() {
                                     <View style={styles.statusBadge}>
                                         <Text style={styles.statusText}>
                                             वर्तमान स्थिति: {
-                                                userInfo.verificationStatus === 'Pending' ? '⏳ लंबित' :
-                                                    userInfo.verificationStatus === 'Rejected' ? '❌ अस्वीकृत' :
-                                                        '✓ सत्यापित नहीं'
+                                                userInfo.verificationStatus === 'Verified' ? '✓ सत्यापित' :
+                                                    userInfo.verificationStatus === 'Pending' ? '⏳ लंबित' :
+                                                        userInfo.verificationStatus === 'Rejected' ? '❌ अस्वीकृत' :
+                                                            '✗ सत्यापित नहीं'
                                             }
                                         </Text>
                                     </View>
                                 )}
 
                                 <Text style={styles.warningNote}>
-                                    नोट: सत्यापन के बिना आप ID कार्ड नहीं देख सकते
+                                    नोट: पूर्ण सत्यापन के बिना आप ID कार्ड नहीं देख सकते
                                 </Text>
                             </View>
                         </View>

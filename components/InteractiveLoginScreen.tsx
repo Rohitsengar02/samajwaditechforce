@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { Card, Title, Text, TextInput } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getApiUrl } from '../utils/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -77,6 +78,7 @@ const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 
 export default function InteractiveLoginScreen({ navigation }: any) {
   const [phone, setPhone] = useState('');
   const [focused, setFocused] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Animation Values
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -165,8 +167,40 @@ export default function InteractiveLoginScreen({ navigation }: any) {
 
   const handleSendOTP = async () => {
     if (phone.length < 10) return;
+
+    setLoading(true);
     Keyboard.dismiss();
-    navigation.navigate('OTPVerification', { phone });
+
+    try {
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        Alert.alert(
+          'OTP Sent!',
+          `Verification code has been sent to ${phone}`,
+          [{
+            text: 'OK',
+            onPress: () => navigation.navigate('OTPVerification', { phone })
+          }]
+        );
+      } else {
+        Alert.alert('Error', data.message || 'Failed to send OTP. Please try again.');
+      }
+    } catch (error) {
+      console.error('Send OTP Error:', error);
+      Alert.alert('Error', 'Network error. Please check your internet connection.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Interpolations
@@ -294,11 +328,22 @@ export default function InteractiveLoginScreen({ navigation }: any) {
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientButton}
               >
-                <Text style={[styles.buttonText, phone.length < 10 && styles.buttonTextDisabled]}>
-                  Get Verification Code
-                </Text>
-                {phone.length >= 10 && (
-                  <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+                {loading ? (
+                  <>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={[styles.buttonText, phone.length < 10 && styles.buttonTextDisabled]}>
+                      Sending OTP...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.buttonText, phone.length < 10 && styles.buttonTextDisabled]}>
+                      Get Verification Code
+                    </Text>
+                    {phone.length >= 10 && (
+                      <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+                    )}
+                  </>
                 )}
               </LinearGradient>
             </TouchableOpacity>
@@ -312,22 +357,6 @@ export default function InteractiveLoginScreen({ navigation }: any) {
               <Text style={styles.signInText}>Already have an account? </Text>
               <Text style={styles.signInLink}>Sign In</Text>
             </TouchableOpacity>
-
-            {/* Features Grid - Removed as per request */}
-            {/* <View style={styles.featuresGrid}>
-              <View style={styles.featureItem}>
-                <View style={[styles.featureIconBox, { backgroundColor: '#fef2f2' }]}>
-                  <MaterialCommunityIcons name="bullhorn-outline" size={24} color={SP_RED} />
-                </View>
-                <Text style={styles.featureText}>Campaign Updates</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <View style={[styles.featureIconBox, { backgroundColor: '#f0fdf4' }]}>
-                  <MaterialCommunityIcons name="account-group-outline" size={24} color={SP_GREEN} />
-                </View>
-                <Text style={styles.featureText}>Join Community</Text>
-              </View>
-            </View> */}
 
             {/* Stats Section */}
             <View style={styles.statsContainer}>
@@ -344,8 +373,6 @@ export default function InteractiveLoginScreen({ navigation }: any) {
                 <Text style={styles.statLabel}>Support</Text>
               </View>
             </View>
-
-            {/* Info Card */}
 
           </View>
         </ScrollView>
@@ -532,34 +559,6 @@ const styles = StyleSheet.create({
   buttonTextDisabled: {
     color: '#94a3b8',
   },
-  featuresGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  featureItem: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  featureIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  featureText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-    textAlign: 'center',
-  },
   bubblesContainer: {
     position: 'absolute',
     left: 0,
@@ -601,30 +600,6 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '600',
     textAlign: 'center',
-  },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fef2f2',
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: SP_RED,
-    marginBottom: 20,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#475569',
-    lineHeight: 20,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#94a3b8',
-    textAlign: 'center',
-    lineHeight: 18,
-    paddingBottom: 20,
   },
   signInButton: {
     flexDirection: 'row',

@@ -277,7 +277,23 @@ export default function HomeScreen() {
 
   useEffect(() => {
     fetchNearbyVolunteers();
+    fetchDynamicPages();
   }, []);
+
+  const [dynamicPages, setDynamicPages] = useState<any[]>([]);
+
+  const fetchDynamicPages = async () => {
+    try {
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/pages`);
+      const data = await response.json();
+      if (data.success && Array.isArray(data.data)) {
+        setDynamicPages(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching dynamic pages:', error);
+    }
+  };
 
   const fetchNearbyVolunteers = async () => {
     // Map the raw data to the expected format
@@ -344,6 +360,14 @@ export default function HomeScreen() {
     { icon: 'school', title: 'Training', subtitle: 'Learn & grow', color: '#3B82F6', route: '/training' },
     { icon: 'card-account-details', title: 'ID Card', subtitle: 'Digital identity', color: '#EF4444', route: '/idcard' },
     { icon: 'play-box-multiple', title: 'Reels', subtitle: 'Watch & Share', color: '#E1306C', route: '/reels' },
+    ...dynamicPages.slice(0, 4).map((page) => ({
+      icon: 'web',
+      title: page.title,
+      subtitle: page.slug || 'Custom Page',
+      color: '#6366f1',
+      route: `/pages/${page._id}`
+    })),
+    { icon: 'view-grid-plus', title: 'All Pages', subtitle: 'View Directory', color: '#111827', route: '/pages' }
   ];
 
 
