@@ -15,6 +15,7 @@ import {
     PanResponder,
     Animated
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -865,8 +866,8 @@ export default function PosterEditor() {
                 </TouchableOpacity>
             </View>
 
-            {/* Bottom Toolbar */}
-            <View style={styles.toolbarContainer}>
+            {/* Bottom Toolbar - Safe from navbar */}
+            <SafeAreaView edges={['bottom']} style={styles.toolbarContainer}>
                 {selectedElement && selectedElement.type === 'text' ? (
                     // Text Editing Toolbar
                     <View style={styles.textToolbar}>
@@ -985,7 +986,7 @@ export default function PosterEditor() {
                         ))}
                     </ScrollView>
                 )}
-            </View>
+            </SafeAreaView>
 
             {/* Layout Modal */}
             <Modal
@@ -1506,7 +1507,7 @@ export default function PosterEditor() {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </View >
     );
 }
 

@@ -12,8 +12,9 @@ import {
     ScrollView,
     Alert,
     Modal,
-    FlatList
+    FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -275,8 +276,8 @@ export default function NormalEditScreen() {
                     </ViewShot>
                 </View>
 
-                {/* Bottom Action Area */}
-                <View style={styles.formArea}>
+                {/* Bottom Action Area - Safe from navbar */}
+                <SafeAreaView edges={['bottom']} style={styles.formArea}>
                     {!isEditMode ? (
                         /* Preview Mode - Show 3 buttons: Save, Edit, Change Frame */
                         <View style={styles.navigationButtons}>
@@ -410,7 +411,7 @@ export default function NormalEditScreen() {
                             </View>
                         </>
                     )}
-                </View>
+                </SafeAreaView>
             </ScrollView>
 
             <Modal
@@ -425,7 +426,7 @@ export default function NormalEditScreen() {
                         activeOpacity={1}
                         onPress={() => setShowFrameModal(false)}
                     />
-                    <View style={styles.bottomSheet}>
+                    <SafeAreaView edges={['bottom']} style={styles.bottomSheet}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Select Frame</Text>
                             <TouchableOpacity onPress={() => setShowFrameModal(false)} style={styles.closeButton}>
@@ -489,10 +490,10 @@ export default function NormalEditScreen() {
                                 )}
                             />
                         </View>
-                    </View>
+                    </SafeAreaView>
                 </View>
             </Modal>
-        </KeyboardAvoidingView>
+        </KeyboardAvoidingView >
     );
 }
 
@@ -795,7 +796,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        paddingBottom: 40,
+        paddingBottom: 60,
         height: '35%', // Approx 35% of screen
         elevation: 5,
         shadowColor: '#000',
@@ -805,6 +806,7 @@ const styles = StyleSheet.create({
     },
     carouselContent: {
         alignItems: 'center',
+        paddingBottom: 20, // Extra padding to ensure frames are visible above navbar
     },
     carouselItem: {
         justifyContent: 'center',
