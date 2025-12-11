@@ -207,13 +207,20 @@ function DesktopRegisterScreen() {
   const [otpLoading, setOtpLoading] = useState(false);
 
   // Google OAuth Hook
-  // Use Expo Auth Proxy by default via makeRedirectUri implicit behavior or explicit if needed
-  // We found that explicitly setting the proxy URI can caus issues if not matched with request
-  // So we mirror DesktopSignInScreen logic which is simple:
+  // For Web, we need to explicitly set the redirect URI
+  const redirectUri = Platform.OS === 'web'
+    ? AuthSession.makeRedirectUri({ path: 'auth' })
+    : undefined;
 
   const config: any = {
     clientId: GOOGLE_WEB_CLIENT_ID,
   };
+
+  if (redirectUri) {
+    config.redirectUri = redirectUri;
+    console.log('🔹 Using explicit redirectUri for web:', redirectUri);
+  }
+
   if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
   if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
 

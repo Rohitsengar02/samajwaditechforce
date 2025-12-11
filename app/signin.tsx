@@ -53,23 +53,24 @@ function MobileSignInScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+
   // Google OAuth Hook
-  // Use Expo Auth Proxy to avoid Google's "Invalid Redirect" error with IPs
+  // Different redirect URIs for web vs native
   const redirectUri = AuthSession.makeRedirectUri({
-    // scheme: 'samajwaditechforce', // Native scheme
     path: 'auth',
     preferLocalhost: false,
-    // useProxy: true, // Removed as it caused TS error and isn't needed with manual proxy string
   });
 
-  // Fallback / Hardcode if makeRedirectUri fails to generate the proxy url locally
-  const proxyRedirectUri = "https://auth.expo.io/@peterparker12345/samajwadi-party";
+  // For native dev, use Expo proxy (update to match new owner)
+  const proxyRedirectUri = Platform.OS === 'web' ? redirectUri : "https://auth.expo.io/@gaga4422/samajwadi-party";
 
   const config: any = {
     clientId: GOOGLE_WEB_CLIENT_ID,
-    // Use the explicit proxy URI for Expo Go
-    redirectUri: __DEV__ ? proxyRedirectUri : redirectUri
+    // Use web redirect URI for web, proxy for native dev
+    redirectUri: Platform.OS === 'web' ? redirectUri : (__DEV__ ? proxyRedirectUri : redirectUri)
   };
+
+  console.log('🔹 Mobile Sign In - Using redirectUri:', config.redirectUri);
 
   if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
   if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
@@ -327,9 +328,20 @@ function DesktopSignInScreen() {
   const [loading, setLoading] = useState(false);
 
   // Google OAuth Hook
+  // For Web, explicitly set redirect URI
+  const redirectUri = Platform.OS === 'web'
+    ? AuthSession.makeRedirectUri({ path: 'auth' })
+    : undefined;
+
   const config: any = {
     clientId: GOOGLE_WEB_CLIENT_ID,
   };
+
+  if (redirectUri) {
+    config.redirectUri = redirectUri;
+    console.log('🔹 Desktop Sign In - Using redirectUri:', redirectUri);
+  }
+
   if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
   if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
 
