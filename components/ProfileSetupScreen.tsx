@@ -354,7 +354,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
           <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             {/* Header */}
             <View style={styles.header}>
-              <Title style={styles.headerTitle}>Complete Your Profile</Title>
+              <Text style={styles.headerTitle}>Complete Your Profile</Text>
               <Text style={styles.headerSubtitle}>Just a few more details to get  started</Text>
             </View>
 

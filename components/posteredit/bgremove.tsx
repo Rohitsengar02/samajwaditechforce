@@ -16,20 +16,7 @@ import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { removeBackground } from '../../utils/backgroundRemoval';
 
-// API URL Helper
-const getApiUrl = () => {
-    const envUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (Platform.OS === 'android') {
-        if (envUrl) {
-            return envUrl
-                .replace('localhost', '192.168.1.46')
-                .replace('127.0.0.1', '192.168.1.46')
-                .replace('10.0.2.2', '192.168.1.46');
-        }
-        return 'http://192.168.1.46:5001/api';
-    }
-    return envUrl || 'http://localhost:5001/api';
-};
+import { getApiUrl } from '../../utils/api';
 
 const API_URL = getApiUrl();
 

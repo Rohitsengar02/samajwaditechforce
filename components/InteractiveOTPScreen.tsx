@@ -296,7 +296,7 @@ export default function InteractiveOTPScreen({ navigation, route }: any) {
                 <View style={styles.ring2} />
               </View>
 
-              <Title style={styles.title}>Verify Your Number</Title>
+              <Text style={styles.title}>Verify Your Number</Text>
               <Text style={styles.subtitle}>
                 Enter the 6-digit code sent to
               </Text>

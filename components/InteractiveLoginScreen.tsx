@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { Card, Title, Text, TextInput } from 'react-native-paper';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getApiUrl } from '../utils/api';
@@ -291,7 +290,7 @@ export default function InteractiveLoginScreen({ navigation }: any) {
               <Animated.View style={[styles.particle, { bottom: 20, right: 20, transform: [{ translateY: Animated.multiply(particleY, -1) }] }]} />
             </View>
 
-            <Title style={styles.title}>Samajwadi Tech Force</Title>
+            <Text style={styles.title}>Samajwadi Tech Force</Text>
             <Text style={styles.subtitle}>Digital Revolution Begins With You</Text>
           </View>
 

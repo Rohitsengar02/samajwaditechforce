@@ -8,6 +8,7 @@ import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { View, TouchableOpacity, StyleSheet, Linking, Image } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
+import { Provider as PaperProvider } from 'react-native-paper';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -94,14 +95,18 @@ export default function RootLayout() {
 
   return (
     <LanguageProvider>
-      <View style={{ flex: 1 }}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
-      </View>
+      <PaperProvider>
+        <View style={{ flex: 1 }}>
+          {!appIsReady ? null : (
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="onboarding" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+          )}
+          <StatusBar style="auto" />
+        </View>
+      </PaperProvider>
     </LanguageProvider>
   );
 }

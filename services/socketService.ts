@@ -4,20 +4,31 @@ import { Platform } from 'react-native';
 
 // Get correct Socket.IO URL based on platform
 const getSocketUrl = () => {
-    let url = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001';
-
-    // Remove /api suffix if present
-    url = url.replace('/api', '');
-
-    // For Android, replace localhost with actual IP
-    if (Platform.OS === 'android') {
-        url = url
-            .replace('localhost', '192.168.1.34')
-            .replace('127.0.0.1', '192.168.1.34')
-            .replace('10.0.2.2', '192.168.1.34');
+    // 1. If explicitly set in env (e.g. for specific builds OR dev override), use it
+    if (process.env.EXPO_PUBLIC_API_URL) {
+        let url = process.env.EXPO_PUBLIC_API_URL;
+        // Remove /api if present to get best base URL
+        url = url.replace(/\/api\/?$/, '');
+        console.log('🔌 Using Configured Socket URL:', url);
+        return url;
     }
 
-    console.log('🔌 Socket.IO URL:', url);
+    // 2. In DEV, force local IP logic if no env var
+    if (__DEV__) {
+        console.log('🔌 DEV Mode: Forcing Local Socket URL (192.168.1.38)');
+        return 'http://192.168.1.38:5001';
+    }
+
+    // 3. Fallback / Production default
+    // If we're here in production (and no env var), we assume Render
+    // Or if we are in a weird state, default to localhost
+    let url = 'https://api-samajwaditechforce.onrender.com';
+
+    // Development Fallback (Localhost)
+    if (Platform.OS === 'android' && __DEV__) {
+        return 'http://192.168.1.38:5001';
+    }
+
     return url;
 };
 
