@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { signOutUser } from '../utils/firebase';
 
 const SP_RED = '#E30512';
 
@@ -12,6 +14,22 @@ interface SidebarProps {
 export default function DesktopSidebar({ activePage }: SidebarProps) {
     const router = useRouter();
     const pathname = usePathname();
+
+    const handleLogout = async () => {
+        try {
+            // Sign out from Firebase
+            await signOutUser();
+
+            // Clear local storage
+            await AsyncStorage.removeItem('userInfo');
+            await AsyncStorage.removeItem('userToken');
+
+            // Navigate to login
+            router.replace('/signin');
+        } catch (error) {
+            console.error('Error logging out:', error);
+        }
+    };
 
     const menuItems = [
         { icon: 'home', label: 'Home', route: '/(tabs)', key: 'home' },
@@ -57,7 +75,7 @@ export default function DesktopSidebar({ activePage }: SidebarProps) {
             </View>
 
             <View style={styles.sidebarFooter}>
-                <TouchableOpacity style={styles.logoutButton}>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                     <MaterialCommunityIcons name="logout" size={20} color="#64748b" />
                     <Text style={styles.logoutText}>Logout</Text>
                 </TouchableOpacity>

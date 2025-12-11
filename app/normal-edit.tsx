@@ -22,19 +22,26 @@ import ViewShot from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { TEMPLATES, RenderBottomBar } from '../components/posteredit/BottomBarTemplates';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../utils/api';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
+// Preview mode: Large poster with minimal buttons
+const PREVIEW_POSTER_WIDTH = width - 20; // Almost full width
+// Edit mode: Smaller poster to make room for form
+const EDIT_AVAILABLE_HEIGHT = height - 80 - 280 - 60;
+const EDIT_POSTER_WIDTH = Math.min(width - 40, EDIT_AVAILABLE_HEIGHT * 0.7);
+
 const STEPS = [
     { key: 'name', label: 'Your Name', placeholder: 'Enter your full name', icon: 'account' },
-    { key: 'designation', label: 'Designation', placeholder: 'e.g. District President', icon: 'badge-account-horizontal' },
+    { key: 'designation', label: 'Designation', placeholder: 'e.g. MLA, District President', icon: 'badge-account-horizontal' },
     { key: 'mobile', label: 'Mobile Number', placeholder: 'Enter 10-digit number', icon: 'phone', keyboardType: 'phone-pad' },
     { key: 'social', label: 'Social Handle', placeholder: '@username', icon: 'at' },
     { key: 'address', label: 'Address', placeholder: 'Enter your address', icon: 'map-marker' },
     { key: 'photo', label: 'Profile Photo', placeholder: 'Select your photo', icon: 'camera' },
-    { key: 'frame', label: 'Select Frame', placeholder: 'Choose a style', icon: 'image-frame' },
 ];
 
 export default function NormalEditScreen() {
@@ -43,6 +50,7 @@ export default function NormalEditScreen() {
     const { id, imageUrl, title } = params;
 
     const [currentStep, setCurrentStep] = useState(0);
+    const [isEditMode, setIsEditMode] = useState(false); // Start in preview mode
     const [details, setDetails] = useState({
         name: '',
         designation: '',
@@ -57,6 +65,80 @@ export default function NormalEditScreen() {
 
     const viewShotRef = useRef<any>(null);
     const [saving, setSaving] = useState(false);
+
+    // Auto-fill from user profile on mount
+    useEffect(() => {
+        loadUserProfile();
+    }, []);
+
+    const loadUserProfile = async () => {
+        try {
+            // Try to get token for API call
+            const token = await AsyncStorage.getItem('userToken');
+            let user = null;
+
+            // Fetch fresh data from API if token exists
+            if (token) {
+                try {
+                    const apiUrl = getApiUrl();
+                    const response = await fetch(`${apiUrl}/auth/profile`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (response.ok) {
+                        user = await response.json();
+                        console.log('Fresh user data from API:', user);
+                        // Update AsyncStorage with fresh data
+                        await AsyncStorage.setItem('userInfo', JSON.stringify(user));
+                    }
+                } catch (apiError) {
+                    console.log('API fetch failed, using cached data');
+                }
+            }
+
+            // Fall back to cached data if API failed
+            if (!user) {
+                const userInfoStr = await AsyncStorage.getItem('userInfo');
+                if (userInfoStr) {
+                    user = JSON.parse(userInfoStr);
+                    console.log('Cached user data:', user);
+                }
+            }
+
+            if (user) {
+                // Build address from nested address object
+                let fullAddress = '';
+                if (user.address && typeof user.address === 'object') {
+                    const parts = [
+                        user.address.street,
+                        user.address.city,
+                        user.address.state
+                    ].filter(Boolean);
+                    fullAddress = parts.join(', ');
+                } else if (user.district) {
+                    fullAddress = `${user.vidhanSabha || ''}, ${user.district}`;
+                }
+
+                console.log('Setting details:', {
+                    name: user.name,
+                    designation: user.partyRole,
+                    mobile: user.phone,
+                    address: fullAddress,
+                    photo: user.profileImage
+                });
+
+                setDetails({
+                    name: user.name || '',
+                    designation: user.partyRole || '',
+                    mobile: user.phone || '',
+                    social: user.socialHandle || (user.email ? `@${user.email.split('@')[0]}` : ''),
+                    address: fullAddress,
+                    photo: user.profileImage || null,
+                });
+            }
+        } catch (error) {
+            console.error('Error loading user profile:', error);
+        }
+    };
 
     useEffect(() => {
         if (imageUrl) {
@@ -144,16 +226,6 @@ export default function NormalEditScreen() {
             );
         }
 
-        if (step.key === 'frame') {
-            return (
-                <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                    <Text style={{ color: '#64748b', fontSize: 14 }}>
-                        Current Frame: {TEMPLATES.find(t => t.id === selectedTemplate)?.name}
-                    </Text>
-                </View>
-            );
-        }
-
         return (
             <View style={styles.inputContainer}>
                 <MaterialCommunityIcons name={step.icon as any} size={24} color={SP_RED} style={styles.inputIcon} />
@@ -182,17 +254,14 @@ export default function NormalEditScreen() {
                 <View style={{ width: 24 }} />
             </LinearGradient>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                {/* Poster Preview Area */}
+            <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={false}>
+                {/* Poster Preview Area - No label */}
                 <View style={styles.previewContainer}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: 12 }}>
-                        <Text style={styles.previewLabel}>Preview</Text>
-                    </View>
-                    <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={styles.posterContainer}>
+                    <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={[styles.posterContainer, { width: isEditMode ? EDIT_POSTER_WIDTH : PREVIEW_POSTER_WIDTH }]}>
                         <Image
                             source={{ uri: imageUrl as string }}
-                            style={[styles.posterImage, { height: undefined, aspectRatio: imageAspectRatio }]}
-                            resizeMode="cover"
+                            style={[styles.posterImage, { width: '100%', height: undefined, aspectRatio: imageAspectRatio }]}
+                            resizeMode="contain"
                         />
 
                         {/* Dynamic Bottom Bar - External (Below Image) */}
@@ -200,79 +269,147 @@ export default function NormalEditScreen() {
                             <RenderBottomBar
                                 template={selectedTemplate}
                                 details={details}
-                                width={width - 40}
+                                width={isEditMode ? EDIT_POSTER_WIDTH : PREVIEW_POSTER_WIDTH}
                             />
                         </View>
                     </ViewShot>
                 </View>
 
-                {/* Form Area */}
+                {/* Bottom Action Area */}
                 <View style={styles.formArea}>
-                    <View style={styles.stepIndicator}>
-                        {STEPS.map((_, index) => (
-                            <View
-                                key={index}
-                                style={[
-                                    styles.stepDot,
-                                    index <= currentStep ? styles.activeDot : styles.inactiveDot
-                                ]}
-                            />
-                        ))}
-                    </View>
-
-                    <Text style={styles.stepTitle}>
-                        Step {currentStep + 1}: {STEPS[currentStep].label}
-                    </Text>
-
-                    {renderInput()}
-
-                    <View style={styles.navigationButtons}>
-                        {currentStep === STEPS.length - 1 ? (
-                            <>
-                                <TouchableOpacity
-                                    style={[styles.navButton, { backgroundColor: '#3b82f6' }]}
-                                    onPress={() => setShowFrameModal(true)}
-                                >
-
-                                    <Text style={[styles.nextButtonText, { marginLeft: 8 }]}>Change Frame</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[styles.navButton, styles.prevButton]}
-                                    onPress={handleBack}
-                                >
-                                    <Text style={styles.prevButtonText}>Back</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[styles.navButton, styles.nextButton]}
-                                    onPress={handleSave}
-                                >
-                                    <Text style={styles.nextButtonText}>
+                    {!isEditMode ? (
+                        /* Preview Mode - Show 3 buttons: Save, Edit, Change Frame */
+                        <View style={styles.navigationButtons}>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: SP_RED,
+                                    borderRadius: 16,
+                                    paddingVertical: 16,
+                                    alignItems: 'center',
+                                }}
+                                onPress={handleSave}
+                            >
+                                <View style={{ alignItems: 'center' }}>
+                                    <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                                        <MaterialCommunityIcons name="download" size={28} color="#fff" />
+                                    </View>
+                                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
                                         {saving ? 'Saving...' : 'Save'}
                                     </Text>
-                                    <MaterialCommunityIcons name="download" size={20} color="#fff" />
-                                </TouchableOpacity>
-                            </>
-                        ) : (
-                            <>
-                                <TouchableOpacity
-                                    style={[styles.navButton, styles.prevButton]}
-                                    onPress={handleBack}
-                                >
-                                    <Text style={styles.prevButtonText}>Back</Text>
-                                </TouchableOpacity>
+                                </View>
+                            </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={[styles.navButton, styles.nextButton]}
-                                    onPress={handleNext}
-                                >
-                                    <Text style={styles.nextButtonText}>Next</Text>
-                                    <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
-                                </TouchableOpacity>
-                            </>
-                        )}
-                    </View>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#3b82f6',
+                                    borderRadius: 16,
+                                    paddingVertical: 16,
+                                    alignItems: 'center',
+                                    marginHorizontal: 6,
+                                }}
+                                onPress={() => {
+                                    setCurrentStep(0);
+                                    setIsEditMode(true);
+                                }}
+                            >
+                                <View style={{ alignItems: 'center' }}>
+                                    <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                                        <MaterialCommunityIcons name="pencil" size={28} color="#fff" />
+                                    </View>
+                                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Edit</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#f1f5f9',
+                                    borderRadius: 16,
+                                    paddingVertical: 16,
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: '#e2e8f0',
+                                }}
+                                onPress={() => setShowFrameModal(true)}
+                            >
+                                <View style={{ alignItems: 'center' }}>
+                                    <View style={{ backgroundColor: SP_RED + '20', width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                                        <MaterialCommunityIcons name="image-frame" size={28} color={SP_RED} />
+                                    </View>
+                                    <Text style={{ color: '#334155', fontWeight: '700', fontSize: 14 }}>Frame</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        /* Edit Mode - Show step-by-step form */
+                        <>
+                            <View style={styles.stepIndicator}>
+                                {STEPS.map((_, index) => (
+                                    <View
+                                        key={index}
+                                        style={[
+                                            styles.stepDot,
+                                            index <= currentStep ? styles.activeDot : styles.inactiveDot
+                                        ]}
+                                    />
+                                ))}
+                            </View>
+
+                            <Text style={styles.stepTitle}>
+                                Step {currentStep + 1}: {STEPS[currentStep].label}
+                            </Text>
+
+                            {renderInput()}
+
+                            <View style={styles.navigationButtons}>
+                                {currentStep === STEPS.length - 1 ? (
+                                    <>
+                                        <TouchableOpacity
+                                            style={[styles.navButton, styles.prevButton]}
+                                            onPress={() => setCurrentStep(prev => prev - 1)}
+                                        >
+                                            <Text style={styles.prevButtonText}>Back</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.navButton, styles.nextButton]}
+                                            onPress={() => setIsEditMode(false)}
+                                        >
+                                            <MaterialCommunityIcons name="check" size={20} color="#fff" />
+                                            <Text style={[styles.nextButtonText, { marginLeft: 4 }]}>Done</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                ) : (
+                                    <>
+                                        <TouchableOpacity
+                                            style={[styles.navButton, styles.prevButton]}
+                                            onPress={() => {
+                                                if (currentStep > 0) {
+                                                    setCurrentStep(prev => prev - 1);
+                                                } else {
+                                                    setIsEditMode(false);
+                                                }
+                                            }}
+                                        >
+                                            <Text style={styles.prevButtonText}>
+                                                {currentStep === 0 ? 'Cancel' : 'Back'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.navButton, styles.nextButton]}
+                                            onPress={handleNext}
+                                        >
+                                            <Text style={styles.nextButtonText}>Next</Text>
+                                            <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </View>
+                        </>
+                    )}
                 </View>
             </ScrollView>
 
@@ -295,43 +432,63 @@ export default function NormalEditScreen() {
                                 <MaterialCommunityIcons name="close" size={24} color="#0f172a" />
                             </TouchableOpacity>
                         </View>
-                        <FlatList
-                            data={TEMPLATES}
-                            horizontal
-                            pagingEnabled
-                            showsHorizontalScrollIndicator={false}
-                            keyExtractor={item => item.id}
-                            contentContainerStyle={styles.carouselContent}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={[
-                                        styles.carouselItem,
-                                        { width: width }
-                                    ]}
-                                    onPress={() => {
-                                        setSelectedTemplate(item.id);
-                                        setShowFrameModal(false);
-                                    }}
-                                >
-                                    <View style={{ paddingHorizontal: 40, width: '100%' }}>
-                                        <View style={[
-                                            styles.framePreviewContainer,
-                                            selectedTemplate === item.id && styles.selectedFrameBorder
-                                        ]}>
-                                            <RenderBottomBar
-                                                template={item.id}
-                                                details={{ ...details, name: 'Your Name', designation: 'Designation' }}
-                                                width={width - 80 - 28} // width - outerPadding - innerPadding(approx)
-                                            />
+
+                        {/* Swipe hint */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}>
+                            <MaterialCommunityIcons name="chevron-left" size={24} color="#94a3b8" />
+                            <Text style={{ color: '#94a3b8', fontSize: 12, marginHorizontal: 8 }}>Swipe to see more frames</Text>
+                            <MaterialCommunityIcons name="chevron-right" size={24} color="#94a3b8" />
+                        </View>
+
+                        <View style={{ position: 'relative' }}>
+                            {/* Left Arrow */}
+                            <View style={{ position: 'absolute', left: 5, top: '40%', zIndex: 10 }}>
+                                <MaterialCommunityIcons name="chevron-left" size={32} color={SP_RED} />
+                            </View>
+
+                            {/* Right Arrow */}
+                            <View style={{ position: 'absolute', right: 5, top: '40%', zIndex: 10 }}>
+                                <MaterialCommunityIcons name="chevron-right" size={32} color={SP_RED} />
+                            </View>
+
+                            <FlatList
+                                data={TEMPLATES}
+                                horizontal
+                                pagingEnabled
+                                showsHorizontalScrollIndicator={false}
+                                keyExtractor={item => item.id}
+                                contentContainerStyle={styles.carouselContent}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.carouselItem,
+                                            { width: width }
+                                        ]}
+                                        onPress={() => {
+                                            setSelectedTemplate(item.id);
+                                            setShowFrameModal(false);
+                                        }}
+                                    >
+                                        <View style={{ paddingHorizontal: 50, width: '100%' }}>
+                                            <View style={[
+                                                styles.framePreviewContainer,
+                                                selectedTemplate === item.id && styles.selectedFrameBorder
+                                            ]}>
+                                                <RenderBottomBar
+                                                    template={item.id}
+                                                    details={{ ...details, name: 'Your Name', designation: 'Designation' }}
+                                                    width={width - 100 - 28}
+                                                />
+                                            </View>
+                                            <Text style={[
+                                                styles.templateName,
+                                                selectedTemplate === item.id && styles.selectedTemplateName
+                                            ]}>{item.name}</Text>
                                         </View>
-                                        <Text style={[
-                                            styles.templateName,
-                                            selectedTemplate === item.id && styles.selectedTemplateName
-                                        ]}>{item.name}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-                        />
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        </View>
                     </View>
                 </View>
             </Modal>
@@ -361,10 +518,12 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     scrollContent: {
-        paddingBottom: 40,
+        flexGrow: 1,
+        justifyContent: 'space-between', // Distribute space evenly
     },
     previewContainer: {
-        padding: 20,
+        padding: 8,
+        paddingTop: 5, // Minimal top padding
         alignItems: 'center',
     },
     previewLabel: {
@@ -381,11 +540,11 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 8,
+        overflow: 'hidden', // Clip any overflow
     },
     posterImage: {
         width: '100%',
-        height: (width - 40) * 1.2, // Aspect ratio 4:5 approx
-        backgroundColor: '#e2e8f0',
+        // Height is set dynamically based on aspect ratio
     },
     bottomBar: {
         width: '100%',
@@ -445,9 +604,9 @@ const styles = StyleSheet.create({
     },
     formArea: {
         backgroundColor: '#fff',
-        marginHorizontal: 20,
-        borderRadius: 20,
-        padding: 24,
+        marginHorizontal: 10, // Reduced from 20
+        borderRadius: 16,
+        padding: 16, // Reduced from 24
         elevation: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -457,8 +616,8 @@ const styles = StyleSheet.create({
     stepIndicator: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginBottom: 24,
-        gap: 8,
+        marginBottom: 12, // Reduced from 24
+        gap: 6, // Reduced from 8
     },
     stepDot: {
         width: 8,

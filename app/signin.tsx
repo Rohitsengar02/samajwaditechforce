@@ -20,6 +20,12 @@ import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../utils/api';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+
+// Enable web browser redirect for OAuth
+WebBrowser.maybeCompleteAuthSession();
 
 const { width } = Dimensions.get('window');
 
@@ -28,7 +34,10 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
 
-
+// Google OAuth Client IDs
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
 
 export default function SignInScreen() {
   const isWideLayout = width >= 768;
@@ -43,6 +52,29 @@ function MobileSignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Google OAuth Hook
+  // Use Expo Auth Proxy to avoid Google's "Invalid Redirect" error with IPs
+  const redirectUri = AuthSession.makeRedirectUri({
+    // scheme: 'samajwaditechforce', // Native scheme
+    path: 'auth',
+    preferLocalhost: false,
+    // useProxy: true, // Removed as it caused TS error and isn't needed with manual proxy string
+  });
+
+  // Fallback / Hardcode if makeRedirectUri fails to generate the proxy url locally
+  const proxyRedirectUri = "https://auth.expo.io/@peterparker12345/samajwadi-party";
+
+  const config: any = {
+    clientId: GOOGLE_WEB_CLIENT_ID,
+    // Use the explicit proxy URI for Expo Go
+    redirectUri: __DEV__ ? proxyRedirectUri : redirectUri
+  };
+
+  if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
+  if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
+
+  const [request, response, promptAsync] = Google.useAuthRequest(config);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -63,6 +95,92 @@ function MobileSignInScreen() {
     ]).start();
   }, []);
 
+  // Handle Google Response
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      if (authentication?.accessToken) {
+        handleGoogleBackendSync(authentication.accessToken);
+      }
+    } else if (response?.type === 'error') {
+      console.error('Google Auth Error:', response.error);
+      Alert.alert('Authentication Error', 'Could not sign in with Google. Check Redirect URI configuration.');
+    }
+  }, [response]);
+
+  const handleGoogleBackendSync = async (accessToken: string) => {
+    try {
+      setLoading(true);
+      // 1. Get User Details from Google
+      const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const userInfo = await userInfoResponse.json();
+      console.log('🔹 Google User Info:', userInfo);
+
+      // 2. Call Backend API to Create/Login User
+      const apiUrl = getApiUrl();
+      const backendResponse = await fetch(`${apiUrl}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userInfo.email,
+          name: userInfo.name,
+          photo: userInfo.picture,
+          googleId: userInfo.id
+        })
+      });
+
+      const backendData = await backendResponse.json();
+      console.log('🔹 Backend Sync Response:', backendData);
+
+      if (!backendResponse.ok) {
+        throw new Error(backendData.message || 'Failed to sync with backend');
+      }
+
+      // 3. Save to Local Storage
+      await AsyncStorage.setItem('userInfo', JSON.stringify(backendData));
+      if (backendData.token) {
+        await AsyncStorage.setItem('userToken', backendData.token);
+      }
+
+      setLoading(false);
+      router.push('/(tabs)');
+
+    } catch (error: any) {
+      console.error('Error syncing Google user:', error);
+      Alert.alert('Login Failed', 'Could not sync with server. ' + error.message);
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    // Check if Google Client IDs are configured
+    if (!GOOGLE_WEB_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_IOS_CLIENT_ID) {
+      Alert.alert("Configuration Missing", "Google Client IDs are not configured.");
+      return;
+    }
+
+    // Force show the Redirect URI
+    const uriToShow = __DEV__ ? proxyRedirectUri : redirectUri;
+    console.log('🔹 LOGIN Redirect URI:', uriToShow);
+
+    Alert.alert(
+      "Redirect URI Info",
+      `Please add this EXACT URI to Google Console > Authorized redirect URIs:\n\n${uriToShow}`,
+      [{
+        text: "I have added it",
+        onPress: () => {
+          // Only start auth after user confirms they saw the URI
+          promptAsync();
+        }
+      }, {
+        text: "Cancel",
+        style: 'cancel'
+      }]
+    );
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password');
@@ -71,8 +189,6 @@ function MobileSignInScreen() {
 
     setLoading(true);
     try {
-      // Dynamic URL determination to ensure Android works
-      // Dynamic URL determination to ensure Android works
       const url = getApiUrl();
       const loginUrl = `${url}/auth/login`;
 
@@ -135,6 +251,22 @@ function MobileSignInScreen() {
             </Animated.View>
 
             <Animated.View style={[styles.cardGlass, !isDark && styles.cardGlassLight, { opacity: fadeAnim }]}>
+              {/* Google Login Button (Mobile) */}
+              <TouchableOpacity
+                style={styles.googleButton}
+                onPress={handleGoogleLogin}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="google" size={20} color="#EA4335" />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </TouchableOpacity>
+
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or email</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Email Address</Text>
                 <TextInput
@@ -194,8 +326,98 @@ function DesktopSignInScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Google OAuth Hook
+  const config: any = {
+    clientId: GOOGLE_WEB_CLIENT_ID,
+  };
+  if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
+  if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
+
+  const [request, response, promptAsync] = Google.useAuthRequest(config);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const heroAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      if (authentication?.accessToken) {
+        fetchGoogleUserInfo(authentication.accessToken);
+      }
+    }
+  }, [response]);
+
+  const fetchGoogleUserInfo = async (accessToken: string) => {
+    try {
+      setLoading(true);
+      // 1. Get Google User Info
+      const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const userInfo = await userInfoResponse.json();
+      console.log('🔹 Desktop Google Info:', userInfo);
+
+      // 2. Call Backend API to Get Real JWT
+      const apiUrl = getApiUrl();
+      const backendResponse = await fetch(`${apiUrl}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userInfo.email,
+          name: userInfo.name,
+          photo: userInfo.picture,
+          googleId: userInfo.id
+        })
+      });
+
+      const backendData = await backendResponse.json();
+      console.log('🔹 Backend Sync Response (Desktop):', backendData);
+
+      if (!backendResponse.ok) {
+        throw new Error(backendData.message || 'Failed to sync with backend');
+      }
+
+      // 3. Save Backend JWT, NOT Google Token
+      await AsyncStorage.setItem('userInfo', JSON.stringify(backendData));
+      if (backendData.token) {
+        await AsyncStorage.setItem('userToken', backendData.token);
+      }
+
+      setLoading(false);
+      router.push('/(tabs)');
+    } catch (error: any) {
+      console.error('Error syncing Google user:', error);
+      Alert.alert('Sign In Failed', 'Could not sync with server. ' + error.message);
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    // Check if Google Client IDs are configured
+    if (!GOOGLE_WEB_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_IOS_CLIENT_ID) {
+      Alert.alert("Configuration Missing", "Google Client IDs are not configured.");
+      return;
+    }
+
+    // Since Desktop/Wide might run in web browser directly or native, handle appropriately
+    // For Web, promptAsync usually handles it.
+    // But let's log it too.
+    const uriToShow = __DEV__ && Platform.OS !== 'web' ? "https://auth.expo.io/@peterparker12345/samajwadi-party" : (AuthSession.makeRedirectUri({ path: 'auth' }));
+
+    if (Platform.OS !== 'web') {
+      Alert.alert(
+        "Redirect URI Info",
+        `Please add this EXACT URI to Google Console:\n\n${uriToShow}`,
+        [{
+          text: "OK",
+          onPress: () => promptAsync()
+        }]
+      );
+    } else {
+      // On Web, just go
+      await promptAsync();
+    }
+  };
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -242,10 +464,7 @@ function DesktopSignInScreen() {
     setLoading(true);
 
     try {
-      // Dynamic URL determination to ensure Android works
-      // Dynamic URL determination to ensure Android works
       const url = getApiUrl();
-
       const response = await fetch(`${url}/auth/login`, {
         method: 'POST',
         headers: {
@@ -347,6 +566,21 @@ function DesktopSignInScreen() {
               <Text style={styles.desktopSignCardSubtitle}>
                 Use your registered email and password.
               </Text>
+
+              {/* Google Button Desktop */}
+              <TouchableOpacity
+                style={styles.desktopGoogleButton}
+                onPress={handleGoogleLogin}
+              >
+                <MaterialCommunityIcons name="google" size={20} color="#EA4335" />
+                <Text style={styles.desktopGoogleText}>Continue with Google</Text>
+              </TouchableOpacity>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb' }} />
+                <Text style={{ marginHorizontal: 10, color: '#9ca3af', fontSize: 13, fontWeight: '500' }}>OR EMAIL</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb' }} />
+              </View>
 
               <View style={styles.desktopSignFieldGroup}>
                 <Text style={styles.desktopSignFieldLabel}>Email address</Text>
@@ -511,6 +745,42 @@ const styles = StyleSheet.create({
   },
   cardGlassLight: {
     backgroundColor: '#fff',
+  },
+  // Mobile Google Button
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    height: 50,
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 12,
+    zIndex: 10, // Ensure clickable
+    elevation: 2,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontWeight: '500',
   },
   formGroup: {
     marginBottom: 20,
@@ -690,7 +960,26 @@ const styles = StyleSheet.create({
   desktopSignCardSubtitle: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 40,
+    marginBottom: 24,
+  },
+  // Desktop Google Button
+  desktopGoogleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    height: 50,
+    borderRadius: 12,
+    gap: 12,
+    zIndex: 10, // Ensure clickable
+    elevation: 2,
+  },
+  desktopGoogleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
   },
   desktopSignFieldGroup: {
     marginBottom: 20,

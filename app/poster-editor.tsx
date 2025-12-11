@@ -26,10 +26,19 @@ import { removeBackground as imglyRemoveBackground } from '../utils/backgroundRe
 import { getApiUrl } from '../utils/api';
 import { TEMPLATES, RenderBottomBar } from '../components/posteredit/BottomBarTemplates';
 import { FlatList } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
-const BANNER_HEIGHT = 80;
+const BANNER_HEIGHT = 60; // Reduced from 80
+
+// Calculate available canvas height to fit in one view without scrolling
+// Be aggressive with deductions to ensure no scrolling
+const HEADER_HEIGHT = 60;
+const TOOLBAR_HEIGHT = 140; // Increased to account for text editing toolbar
+const ZOOM_HEIGHT = 50;
+const SAFE_AREA = 100;
+const MAX_CANVAS_HEIGHT = height - HEADER_HEIGHT - TOOLBAR_HEIGHT - ZOOM_HEIGHT - SAFE_AREA;
 
 // API URL Helper
 
@@ -81,7 +90,8 @@ export default function PosterEditor() {
     const canvasRef = useRef(null);
     const [elements, setElements] = useState<EditorElement[]>([]);
     const [selectedTool, setSelectedTool] = useState<ToolType | null>(null);
-    const [canvasSize, setCanvasSize] = useState({ w: width, h: width * 1.2 }); // Default aspect ratio
+    // Initial canvas fits in view - will be adjusted based on image aspect ratio
+    const [canvasSize, setCanvasSize] = useState({ w: width * 0.85, h: Math.min(width * 0.85, MAX_CANVAS_HEIGHT) });
     const [bannerText, setBannerText] = useState('Samajwadi Party');
     const [showTextModal, setShowTextModal] = useState(false);
     const [newText, setNewText] = useState('');
@@ -110,8 +120,8 @@ export default function PosterEditor() {
     const [processedImageUri, setProcessedImageUri] = useState<string | null>(null);
     const [isProcessingBg, setIsProcessingBg] = useState(false);
 
-    // Zoom State
-    const [zoomScale, setZoomScale] = useState(1);
+    // Zoom State - Start at 80% to fit in view
+    const [zoomScale, setZoomScale] = useState(0.8);
 
     // Bottom Bar Template Modal State
     const [showBottomBarModal, setShowBottomBarModal] = useState(false);
@@ -130,9 +140,41 @@ export default function PosterEditor() {
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [selectedFilter, setSelectedFilter] = useState('none');
 
+    // Poster Pan/Move State
+    const posterOffsetRef = useRef({ x: 0, y: 0 });
+    const [posterOffset, setPosterOffset] = useState({ x: 0, y: 0 });
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        posterOffsetRef.current = posterOffset;
+    }, [posterOffset]);
+
+    const posterPanResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onPanResponderGrant: () => {
+                // Capture current position at start of gesture
+            },
+            onPanResponderMove: (_, gestureState) => {
+                setPosterOffset({
+                    x: gestureState.dx,
+                    y: gestureState.dy,
+                });
+            },
+            onPanResponderRelease: (_, gestureState) => {
+                // Update the base position
+                posterOffsetRef.current = {
+                    x: posterOffsetRef.current.x + gestureState.dx,
+                    y: posterOffsetRef.current.y + gestureState.dy,
+                };
+                setPosterOffset(posterOffsetRef.current);
+            },
+        })
+    ).current;
+
     // Tools Configuration
     const tools = [
-        { id: 'layout', name: 'Layout', icon: 'aspect-ratio' },
         { id: 'banner', name: 'Posters', icon: 'image-multiple' },
         { id: 'text', name: 'Add Text', icon: 'format-text' },
         { id: 'image', name: 'Add Image', icon: 'image-plus' },
@@ -145,15 +187,96 @@ export default function PosterEditor() {
         if (imageUrl) {
             updateCanvasToImageSize(imageUrl as string);
         }
+        loadUserProfile(); // Auto-fill user data
     }, []);
+
+    // Auto-fill from user profile
+    const loadUserProfile = async () => {
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            let user = null;
+
+            // Fetch fresh data from API if token exists
+            if (token) {
+                try {
+                    const response = await fetch(`${API_URL}/auth/profile`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (response.ok) {
+                        user = await response.json();
+                        console.log('Fresh user data from API:', user);
+                        await AsyncStorage.setItem('userInfo', JSON.stringify(user));
+                    }
+                } catch (apiError) {
+                    console.log('API fetch failed, using cached data');
+                }
+            }
+
+            // Fall back to cached data
+            if (!user) {
+                const userInfoStr = await AsyncStorage.getItem('userInfo');
+                if (userInfoStr) {
+                    user = JSON.parse(userInfoStr);
+                }
+            }
+
+            if (user) {
+                // Build address from nested address object
+                let fullAddress = 'Your Address';
+                if (user.address && typeof user.address === 'object') {
+                    const parts = [
+                        user.address.street,
+                        user.address.city,
+                        user.address.state
+                    ].filter(Boolean);
+                    if (parts.length > 0) {
+                        fullAddress = parts.join(', ');
+                    }
+                } else if (user.district) {
+                    fullAddress = `${user.vidhanSabha || ''}, ${user.district}`;
+                }
+
+                setBottomBarDetails({
+                    name: user.name || 'Your Name',
+                    designation: user.partyRole || 'Designation',
+                    mobile: user.phone || '+91 XXXXX XXXXX',
+                    social: user.socialHandle || (user.email ? `@${user.email.split('@')[0]}` : '@username'),
+                    address: fullAddress,
+                    photo: user.profileImage || null,
+                });
+            }
+        } catch (error) {
+            console.error('Error loading user profile:', error);
+        }
+    };
 
     const fetchPosterAssets = async () => {
         try {
             setLoadingAssets(true);
-            const response = await fetch(`${API_URL}/api/posters?limit=100`);
+            // API_URL already includes /api, so don't add it again
+            const url = `${API_URL}/posters?limit=100`;
+            console.log('Fetching posters from:', url);
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                console.error('Poster fetch failed with status:', response.status);
+                return;
+            }
+
             const data = await response.json();
-            if (data.success && data.data) {
+            console.log('Poster API response:', JSON.stringify(data).substring(0, 200));
+
+            // Handle different response formats
+            if (data.posters && Array.isArray(data.posters)) {
+                // Backend returns { posters: [...] }
+                console.log('Found', data.posters.length, 'posters');
+                setPosterAssets(data.posters);
+            } else if (data.success && data.data && Array.isArray(data.data)) {
                 setPosterAssets(data.data);
+            } else if (Array.isArray(data)) {
+                setPosterAssets(data);
+            } else {
+                console.log('Unknown response format:', Object.keys(data));
             }
         } catch (error) {
             console.error('Error fetching poster assets:', error);
@@ -165,8 +288,15 @@ export default function PosterEditor() {
     const updateCanvasToImageSize = (uri: string) => {
         Image.getSize(uri, (w, h) => {
             const aspectRatio = h / w;
-            const newWidth = width;
-            const newHeight = (width * aspectRatio) + BANNER_HEIGHT;
+            let newWidth = width * 0.85;
+            let newHeight = (newWidth * aspectRatio) + BANNER_HEIGHT;
+
+            // If height exceeds max, scale down to fit
+            if (newHeight > MAX_CANVAS_HEIGHT) {
+                newHeight = MAX_CANVAS_HEIGHT;
+                newWidth = (newHeight - BANNER_HEIGHT) / aspectRatio;
+            }
+
             setCanvasSize({ w: newWidth, h: newHeight });
         }, (error) => {
             console.error('Error getting image size:', error);
@@ -223,18 +353,25 @@ export default function PosterEditor() {
     };
 
     const applyLayout = () => {
-        let newWidth = width;
-        let newHeight = width;
+        let newWidth = width * 0.85;
+        let newHeight = newWidth;
+        let aspectRatio = 1;
 
         if (selectedRatio === 'custom') {
             const w = parseInt(customSize.w) || 1080;
             const h = parseInt(customSize.h) || 1080;
-            const ratio = h / w;
-            newWidth = width;
-            newHeight = (width * ratio) + BANNER_HEIGHT;
+            aspectRatio = h / w;
         } else {
             const [w, h] = selectedRatio.split(':').map(Number);
-            newHeight = (width * (h / w)) + BANNER_HEIGHT;
+            aspectRatio = h / w;
+        }
+
+        newHeight = (newWidth * aspectRatio) + BANNER_HEIGHT;
+
+        // Scale down to fit if needed
+        if (newHeight > MAX_CANVAS_HEIGHT) {
+            newHeight = MAX_CANVAS_HEIGHT;
+            newWidth = (newHeight - BANNER_HEIGHT) / aspectRatio;
         }
 
         setCanvasSize({ w: newWidth, h: newHeight });
@@ -612,20 +749,29 @@ export default function PosterEditor() {
             {/* Main Canvas Area */}
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={styles.scrollViewContent}
+                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 10 }]}
                 scrollEnabled={!isDragging} // Disable scroll when dragging element
                 showsHorizontalScrollIndicator={false}
                 showsVerticalScrollIndicator={false}
-                centerContent={true}
             >
                 {/* Zoom Wrapper */}
                 <View style={{
                     width: canvasSize.w * zoomScale,
                     height: canvasSize.h * zoomScale,
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'flex-start' // Position at top
                 }}>
-                    <View style={{ transform: [{ scale: zoomScale }] }}>
+                    {/* Entire canvas is movable */}
+                    <View
+                        {...posterPanResponder.panHandlers}
+                        style={{
+                            transform: [
+                                { scale: zoomScale },
+                                { translateX: posterOffset.x },
+                                { translateY: posterOffset.y }
+                            ]
+                        }}
+                    >
                         <View
                             ref={canvasRef}
                             style={[
@@ -704,6 +850,18 @@ export default function PosterEditor() {
                 <Text style={styles.zoomText}>{Math.round(zoomScale * 100)}%</Text>
                 <TouchableOpacity onPress={() => handleZoom(true)} style={styles.zoomButton}>
                     <Ionicons name="add" size={24} color="#1e293b" />
+                </TouchableOpacity>
+                <View style={{ width: 1, height: 20, backgroundColor: '#cbd5e1', marginHorizontal: 8 }} />
+                <TouchableOpacity
+                    onPress={() => {
+                        setPosterOffset({ x: 0, y: 0 });
+                        posterOffsetRef.current = { x: 0, y: 0 };
+                        setZoomScale(1); // Reset to 100%
+                    }}
+                    style={[styles.zoomButton, { paddingHorizontal: 8 }]}
+                >
+                    <Ionicons name="refresh" size={18} color="#1e293b" />
+                    <Text style={{ fontSize: 10, color: '#64748b', marginLeft: 4 }}>Reset</Text>
                 </TouchableOpacity>
             </View>
 
@@ -1395,8 +1553,8 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
-        paddingBottom: 250,
+        padding: 10,
+        paddingBottom: 10, // Reduced to fit in one view
     },
     canvas: {
         backgroundColor: SP_RED,
@@ -1722,13 +1880,15 @@ const styles = StyleSheet.create({
     bannersGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 12,
+        justifyContent: 'space-between',
+        paddingHorizontal: 4,
     },
     bannerItem: {
-        width: '30%',
-        aspectRatio: 1,
-        marginBottom: 12,
+        width: (width - 48) / 3, // 3 items per row with spacing
+        aspectRatio: 0.8,
+        marginBottom: 8,
         alignItems: 'center',
+        padding: 4,
     },
     selectedBannerItem: {
         borderColor: SP_RED,
@@ -1738,14 +1898,14 @@ const styles = StyleSheet.create({
     bannerPreview: {
         width: '100%',
         height: '80%',
-        borderRadius: 8,
+        borderRadius: 6,
         backgroundColor: '#f1f5f9',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 2,
     },
     bannerName: {
-        fontSize: 10,
+        fontSize: 9,
         color: '#64748b',
         textAlign: 'center',
     },

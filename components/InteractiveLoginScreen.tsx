@@ -4,6 +4,11 @@ import { Card, Title, Text, TextInput } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getApiUrl } from '../utils/api';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+
+// Enable web browser redirect for OAuth
+WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,6 +16,11 @@ const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
+
+// Google OAuth Client IDs
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
 
 // Floating Bubble Component
 const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 }: any) => {
@@ -57,38 +67,47 @@ const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 
 
   return (
     <Animated.View
-      style={[
-        styles.bubble,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: color,
-          transform: [
-            { translateY },
-            { translateX },
-            { scale },
-          ],
-        },
-      ]}
+      style={{
+        position: 'absolute',
+        bottom: -100,
+        backgroundColor: color,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        opacity: 0.15,
+        transform: [
+          { translateY },
+          { translateX },
+          { scale },
+        ],
+      }}
     />
   );
 };
 
 export default function InteractiveLoginScreen({ navigation }: any) {
-  const [phone, setPhone] = useState('');
-  const [focused, setFocused] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Google OAuth Hook
+  const config: any = {
+    clientId: GOOGLE_WEB_CLIENT_ID,
+  };
+
+  // Only add platform-specific IDs if they are defined
+  if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
+  if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
+
+  const [request, response, promptAsync] = Google.useAuthRequest(config);
 
   // Animation Values
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const inputScale = useRef(new Animated.Value(1)).current;
   const bgGradientAnim = useRef(new Animated.Value(0)).current;
   const particlesAnim = useRef(new Animated.Value(0)).current;
 
   const isWideLayout = width >= 768;
 
+  // Animation effects
   useEffect(() => {
     // Continuous rotation for the tech ring
     Animated.loop(
@@ -119,87 +138,82 @@ export default function InteractiveLoginScreen({ navigation }: any) {
     ).start();
   }, []);
 
-  // React to typing
-  const handlePhoneChange = (text: string) => {
-    setPhone(text);
-
-    // "Energize" animation on typing
-    Animated.sequence([
-      Animated.timing(pulseAnim, {
-        toValue: 1.2,
-        duration: 100,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.spring(pulseAnim, {
-        toValue: 1,
-        friction: 4,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Shift background gradient slightly
-    Animated.timing(bgGradientAnim, {
-      toValue: text.length / 10, // 0 to 1 based on length
-      duration: 300,
-      useNativeDriver: false, // Color interpolation doesn't support native driver
-    }).start();
-  };
-
-  const handleFocus = () => {
-    setFocused(true);
-    Animated.spring(inputScale, {
-      toValue: 1.02,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handleBlur = () => {
-    setFocused(false);
-    Animated.spring(inputScale, {
-      toValue: 1,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handleSendOTP = async () => {
-    if (phone.length < 10) return;
-
-    setLoading(true);
-    Keyboard.dismiss();
-
-    try {
-      const API_URL = getApiUrl();
-      const response = await fetch(`${API_URL}/auth/send-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phone }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        Alert.alert(
-          'OTP Sent!',
-          `Verification code has been sent to ${phone}`,
-          [{
-            text: 'OK',
-            onPress: () => navigation.navigate('OTPVerification', { phone })
-          }]
-        );
-      } else {
-        Alert.alert('Error', data.message || 'Failed to send OTP. Please try again.');
+  // Handle Google Auth Response
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      if (authentication?.accessToken) {
+        fetchGoogleUserInfo(authentication.accessToken);
       }
-    } catch (error) {
-      console.error('Send OTP Error:', error);
-      Alert.alert('Error', 'Network error. Please check your internet connection.');
-    } finally {
+    } else if (response?.type === 'error') {
       setLoading(false);
+      Alert.alert('Error', 'Google sign-in failed. Please try again.');
+    }
+  }, [response]);
+
+  const fetchGoogleUserInfo = async (accessToken: string) => {
+    try {
+      const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const userInfo = await userInfoResponse.json();
+
+      setLoading(false);
+
+      // Navigate to Profile Setup with Google data pre-filled
+      navigation.navigate('ProfileSetup', {
+        googleData: {
+          name: userInfo.name || '',
+          email: userInfo.email || '',
+          photo: userInfo.picture || '',
+        }
+      });
+    } catch (error) {
+      setLoading(false);
+      console.error('Error fetching Google user info:', error);
+      Alert.alert('Error', 'Failed to get user information from Google.');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+
+    // Check if Google Client IDs are configured
+    if (!GOOGLE_WEB_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_IOS_CLIENT_ID) {
+      // Alert user about mock mode
+      Alert.alert(
+        "Configuration Missing",
+        "Google Client IDs are not configured. Using mock login for demonstration.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              // For demo/development - use mock data
+              setTimeout(() => {
+                setLoading(false);
+                // Navigate to Profile Setup page first (not Address directly)
+                navigation.navigate('ProfileSetup', {
+                  googleData: {
+                    name: 'Test User',
+                    email: 'test@example.com',
+                    photo: '' // Empty string for no photo
+                  }
+                });
+              }, 1000);
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    // Real Google Sign-In
+    try {
+      await promptAsync();
+    } catch (error) {
+      setLoading(false);
+      console.error('Google login error:', error);
+      Alert.alert('Error', 'Failed to start Google sign-in.');
     }
   };
 
@@ -266,7 +280,7 @@ export default function InteractiveLoginScreen({ navigation }: any) {
               {/* Central Pulsing Core */}
               <Animated.View style={[styles.coreCircle, { transform: [{ scale: pulseAnim }] }]}>
                 <MaterialCommunityIcons
-                  name={phone.length > 0 ? "cellphone-text" : "bicycle"}
+                  name="bicycle"
                   size={40}
                   color="#fff"
                 />
@@ -283,70 +297,30 @@ export default function InteractiveLoginScreen({ navigation }: any) {
 
           {/* Interactive Form Area */}
           <View style={styles.formContainer}>
-            <Animated.View style={[styles.inputWrapper, { transform: [{ scale: inputScale }] }]}>
-              <View style={[styles.inputCard, focused && styles.inputCardFocused]}>
-                <View style={styles.countryCode}>
-                  <Text style={styles.flag}>🇮🇳</Text>
-                  <Text style={styles.code}>+91</Text>
-                </View>
 
-                <TextInput
-                  mode="flat"
-                  value={phone}
-                  onChangeText={handlePhoneChange}
-                  onFocus={handleFocus}
-                  onBlur={handleBlur}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  placeholder="Enter Mobile Number"
-                  placeholderTextColor="#94a3b8"
-                  style={styles.input}
-                  underlineColor="transparent"
-                  activeUnderlineColor="transparent"
-                  textColor={SP_DARK}
-                  selectionColor={SP_RED}
-                />
-
-                {/* Validation Checkmark */}
-                {phone.length === 10 && (
-                  <View style={styles.checkIcon}>
-                    <MaterialCommunityIcons name="check-circle" size={24} color={SP_GREEN} />
-                  </View>
-                )}
-              </View>
-            </Animated.View>
-
+            {/* Google Login Button - Primary */}
             <TouchableOpacity
-              style={[styles.buttonContainer, phone.length < 10 && styles.buttonDisabled]}
-              onPress={handleSendOTP}
-              disabled={phone.length < 10}
-              activeOpacity={0.9}
+              style={styles.googleButton}
+              onPress={handleGoogleLogin}
+              activeOpacity={0.8}
+              disabled={loading}
             >
-              <LinearGradient
-                colors={phone.length >= 10 ? [SP_RED, '#b91c1c'] : ['#e2e8f0', '#cbd5e1']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
-              >
-                {loading ? (
-                  <>
-                    <ActivityIndicator size="small" color="#fff" />
-                    <Text style={[styles.buttonText, phone.length < 10 && styles.buttonTextDisabled]}>
-                      Sending OTP...
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={[styles.buttonText, phone.length < 10 && styles.buttonTextDisabled]}>
-                      Get Verification Code
-                    </Text>
-                    {phone.length >= 10 && (
-                      <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
-                    )}
-                  </>
-                )}
-              </LinearGradient>
+              {loading ? (
+                <>
+                  <ActivityIndicator size="small" color={SP_RED} />
+                  <Text style={styles.googleButtonText}>Connecting...</Text>
+                </>
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="gmail" size={28} color="#EA4335" />
+                  <Text style={styles.googleButtonText}>Continue with Gmail</Text>
+                </>
+              )}
             </TouchableOpacity>
+
+            <Text style={styles.termsText}>
+              By continuing, you agree to our Terms of Service and Privacy Policy
+            </Text>
 
             {/* Sign In Button */}
             <TouchableOpacity
@@ -617,5 +591,59 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: SP_RED,
     fontWeight: '700',
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 24,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  googleButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    gap: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '600',
+  },
+  otpNoteContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  otpNoteText: {
+    color: '#64748b',
+    fontSize: 13,
+  },
+  termsText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+    paddingHorizontal: 20,
   },
 });

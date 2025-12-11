@@ -8,9 +8,19 @@
     "scheme": "samajwaditechforce",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E30512"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.samajwadiparty.app"
+      "bundleIdentifier": "com.samajwadiparty.app",
+      "splash": {
+        "image": "./assets/images/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#E30512"
+      }
     },
     "android": {
       "package": "com.samajwadiparty.app",
@@ -27,7 +37,12 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "splash": {
+        "image": "./assets/images/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#E30512"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -37,6 +52,15 @@
       "expo-router",
       "expo-font",
       "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#E30512"
+        }
+      ],
       [
         "expo-media-library",
         {
@@ -64,9 +88,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "83366d17-09b0-4335-a00d-7f717d521690"
+        "projectId": "d334f529-d8de-4819-a49e-51970f79a54c"
       }
     },
-    "owner": "ironman22"
+    "owner": "peterparker12345"
   }
 }

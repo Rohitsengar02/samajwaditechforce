@@ -8,7 +8,6 @@ const SP_GREEN = '#009933';
 
 export const TEMPLATES = [
     { id: 'default', name: 'Default' },
-    { id: 'modern_curve', name: 'Modern Curve' },
     { id: 'bold_strip', name: 'Bold Blue' },
     { id: 'minimal_white', name: 'Clean White' },
     { id: 'red_accent', name: 'Red Accent' },
@@ -41,17 +40,22 @@ const DefaultBar = ({ details, width }: { details: any, width: number }) => (
             </View>
             <View style={styles.barContactContainer}>
                 <View style={styles.contactItem}>
-                    <MaterialCommunityIcons name="phone" size={12} color={SP_RED} />
-                    <Text style={styles.contactText}>{details.mobile || '+91 XXXXX XXXXX'}</Text>
+                    <MaterialCommunityIcons name="phone" size={10} color={SP_RED} />
+                    <Text style={styles.contactText} numberOfLines={1}>{details.mobile || '+91 XXXXX'}</Text>
                 </View>
                 <View style={styles.contactItem}>
-                    <MaterialCommunityIcons name="twitter" size={12} color={SP_RED} />
-                    <Text style={styles.contactText}>{details.social || '@username'}</Text>
+                    <MaterialCommunityIcons name="twitter" size={10} color={SP_RED} />
+                    <Text style={styles.contactText} numberOfLines={1}>{details.social || '@user'}</Text>
                 </View>
-                <View style={styles.contactItem}>
-                    <MaterialCommunityIcons name="map-marker" size={12} color={SP_RED} />
-                    <Text style={styles.contactText} numberOfLines={1}>{details.address || 'Your Address'}</Text>
-                </View>
+            </View>
+        </View>
+        {/* Address on separate line */}
+        <View style={{ paddingHorizontal: 12, paddingBottom: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="map-marker" size={10} color={SP_RED} />
+                <Text style={{ fontSize: 8, color: '#334155', marginLeft: 4 }} numberOfLines={1}>
+                    {details.address || 'Your Address'}
+                </Text>
             </View>
         </View>
         <LinearGradient
@@ -274,6 +278,7 @@ const styles = StyleSheet.create({
     },
     barContactContainer: {
         alignItems: 'flex-end',
+        maxWidth: 120, // Limit width to prevent overflow
     },
     contactItem: {
         flexDirection: 'row',
@@ -281,10 +286,11 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     contactText: {
-        fontSize: 10,
+        fontSize: 9, // Smaller font
         color: '#334155',
-        marginLeft: 4,
+        marginLeft: 3,
         fontWeight: '600',
+        maxWidth: 100, // Limit text width
     },
     partyStrip: {
         height: 6,

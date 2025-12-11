@@ -1,12 +1,16 @@
 import './global.css';
 import { LanguageProvider } from '../context/LanguageContext';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { View, TouchableOpacity, StyleSheet, Linking, Image } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
 
 // Configure notifications globally
 Notifications.setNotificationHandler({
@@ -26,9 +30,11 @@ export default function RootLayout() {
   const currentRoute = segments[0];
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
+  const [appIsReady, setAppIsReady] = useState(false);
 
+  // Hide splash screen and check auth
   useEffect(() => {
-    const checkAuth = async () => {
+    const prepareApp = async () => {
       try {
         const userToken = await AsyncStorage.getItem('userToken');
         const inAuthGroup = ['signin', 'register', 'onboarding'].includes(currentRoute as string);
@@ -37,12 +43,18 @@ export default function RootLayout() {
           // User is logged in but trying to access auth screens, redirect to tabs
           router.replace('/(tabs)');
         }
+
+        setAppIsReady(true);
       } catch (e) {
         console.error('Auth check failed:', e);
+        setAppIsReady(true);
+      } finally {
+        // Hide splash screen after app is ready
+        await SplashScreen.hideAsync();
       }
     };
 
-    checkAuth();
+    prepareApp();
   }, [segments]);
 
   // Setup global notification handling

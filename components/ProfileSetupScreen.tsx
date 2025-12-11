@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Animated, Easing, TextInput as RNTextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { registerWithEmail } from '../utils/firebase';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Animated, Easing, TextInput as RNTextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Card, Title, Text, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,7 +14,7 @@ const SP_GREEN = '#009933';
 
 interface ProfileSetupProps {
   navigation: any;
-  route: { params?: { phone?: string; mode?: 'edit' } };
+  route: { params?: { phone?: string; mode?: 'edit'; googleData?: { name?: string; email?: string; photo?: string } } };
 }
 
 // Floating Bubble Component
@@ -148,15 +149,18 @@ const AnimatedInput = ({ label, value, onChangeText, icon, error, ...props }: an
 export default function ProfileSetupScreen({ navigation, route }: ProfileSetupProps) {
   const phoneFromLogin = route?.params?.phone ?? '';
   const mode = route?.params?.mode;
+  const googleData = route?.params?.googleData;
 
   const isEditMode = mode === 'edit';
 
-  const [fullName, setFullName] = useState('');
+  // Pre-fill from Google data if available
+  const [fullName, setFullName] = useState(googleData?.name || '');
+  const [phone, setPhone] = useState(phoneFromLogin || '');
   const [gender, setGender] = useState('');
   const [dob, setDob] = useState('');
-  const [email, setEmail] = useState('');
-  const [hasPhoto, setHasPhoto] = useState<boolean>(false);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [email, setEmail] = useState(googleData?.email || '');
+  const [hasPhoto, setHasPhoto] = useState<boolean>(!!googleData?.photo);
+  const [photoUri, setPhotoUri] = useState<string | null>(googleData?.photo || null);
   const [password, setPassword] = useState('');
   const [showErrors, setShowErrors] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -238,6 +242,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
   const handleNext = async () => {
     const valid =
       !!fullName &&
+      phone.length === 10 &&
       !!gender &&
       !!dob &&
       isValidEmail(email) &&
@@ -248,28 +253,37 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
       return;
     }
 
+    setUploading(true);
+
     let uploadedImageUrl = photoUri;
 
     if (photoUri && hasPhoto) {
-      setUploading(true);
       const cloudUrl = await uploadImageToCloudinary(photoUri);
-      setUploading(false);
 
       if (cloudUrl) {
         uploadedImageUrl = cloudUrl;
-      } else {
-        // Fallback or error handling? For now, proceed with local URI or alert
-        // Alert.alert("Upload Failed", "Could not upload profile image. Proceeding without it.");
-        // For now we keep the local URI if upload fails, but ideally we should block or retry
       }
     }
+
+    // Register with Firebase if not in edit mode
+    if (!isEditMode) {
+      const { user, error } = await registerWithEmail(email, password);
+
+      if (error) {
+        setUploading(false);
+        Alert.alert('Registration Failed', error);
+        return;
+      }
+    }
+
+    setUploading(false);
 
     const profileData: any = {
       name: fullName,
       email,
       gender,
       dob,
-      phone: phoneFromLogin,
+      phone: phone,
       password,
       profileImage: uploadedImageUrl,
     };
@@ -299,6 +313,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
 
   const isValid =
     !!fullName &&
+    phone.length === 10 &&
     !!gender &&
     !!dob &&
     isValidEmail(email) &&
@@ -307,7 +322,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
   const handleDobChange = (value: string) => {
     let digits = value.replace(/[^0-9]/g, '').slice(0, 8);
     if (digits.length >= 5) {
-      digits = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
+      digits = `${digits.slice(0, 2)} /${digits.slice(2, 4)}/${digits.slice(4, 8)} `;
     } else if (digits.length >= 3) {
       digits = `${digits.slice(0, 2)}/${digits.slice(2, 4)}`;
     }
@@ -386,6 +401,19 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
                   <Text style={styles.errorText}>Full name is required</Text>
                 )}
 
+                <AnimatedInput
+                  label="Mobile Number"
+                  value={phone}
+                  onChangeText={(text: string) => setPhone(text.replace(/[^0-9]/g, '').slice(0, 10))}
+                  icon="phone-outline"
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  error={showErrors && phone.length !== 10}
+                />
+                {showErrors && phone.length !== 10 && (
+                  <Text style={styles.errorText}>Enter a valid 10-digit mobile number</Text>
+                )}
+
                 {/* Gender Selection */}
                 <View style={styles.inputWrapper}>
                   <Text style={styles.sectionLabel}>Gender</Text>
@@ -440,6 +468,8 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
                   icon="email-outline"
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  // Email is read-only as it comes from auth
+                  editable={false}
                   error={showErrors && !isValidEmail(email)}
                 />
                 {showErrors && !isValidEmail(email) && (

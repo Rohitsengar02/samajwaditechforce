@@ -8,12 +8,15 @@ import {
   Dimensions,
   Animated,
   Easing,
+  Image,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { TranslatedText } from '../../components/TranslatedText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import { getApiUrl } from '../../utils/api';
 import { DEFAULT_VOLUNTEERS } from '../../constants/volunteersData';
 
@@ -35,6 +38,39 @@ const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
+
+// District coordinates for location-based sorting (copy from nearby-volunteers)
+const DISTRICT_COORDINATES: { [key: string]: { lat: number; lng: number } } = {
+  'ghaziabad': { lat: 28.6692, lng: 77.4538 },
+  'noida': { lat: 28.5355, lng: 77.3910 },
+  'delhi': { lat: 28.7041, lng: 77.1025 },
+  'kanpur': { lat: 26.4499, lng: 80.3319 },
+  'kanpur nagar': { lat: 26.4499, lng: 80.3319 },
+  'kanpur dehat': { lat: 26.3000, lng: 79.9500 },
+  'lucknow': { lat: 26.8467, lng: 80.9462 },
+  'varanasi': { lat: 25.3176, lng: 82.9739 },
+  'prayagraj': { lat: 25.4358, lng: 81.8463 },
+  'agra': { lat: 27.1767, lng: 78.0081 },
+  'meerut': { lat: 28.9845, lng: 77.7064 },
+  'gorakhpur': { lat: 26.7606, lng: 83.3732 },
+  'gorkhapur': { lat: 26.7606, lng: 83.3732 },  // Common typo
+  'kaushambi': { lat: 25.5315, lng: 81.3870 },
+  'sirathu': { lat: 25.5320, lng: 81.3280 },
+  'renukoot': { lat: 24.2166, lng: 83.0318 },
+  'kannauj': { lat: 27.0545, lng: 79.9219 },
+  'kannoj': { lat: 27.0545, lng: 79.9219 },
+  'sitapur': { lat: 27.5706, lng: 80.6817 },
+  'barabanki': { lat: 26.9260, lng: 81.1916 },
+  'pratapgarh': { lat: 25.8961, lng: 81.9450 },
+  'rasulabad': { lat: 25.9000, lng: 81.9500 },
+  'mohammdabad': { lat: 26.7600, lng: 83.4100 },
+  'kalyanpur': { lat: 26.4999, lng: 80.2919 },
+  'kidwai nagar': { lat: 26.4580, lng: 80.3500 },
+  'lahrpur': { lat: 27.5500, lng: 80.7800 },
+  'shamli': { lat: 29.4527, lng: 77.3148 },
+  'kairana': { lat: 29.3949, lng: 77.2042 },
+  'chilupar': { lat: 26.7606, lng: 83.3732 },  // Near Gorakhpur
+};
 
 // Floating Particle Component
 const FloatingParticle = ({ delay = 0, duration = 8000 }: any) => {
@@ -296,15 +332,82 @@ export default function HomeScreen() {
   };
 
   const fetchNearbyVolunteers = async () => {
-    // Map the raw data to the expected format
-    const mapped = volunteersData.slice(0, 5)
-      .filter((v: any) => v)
-      .map((v: any) => ({
-        Name: v['Column2'] || v['आपका पूरा नाम क्या है? '] || 'Unknown',
-        District: v['Column4'] || v['जिला '] || 'Unknown',
-        distance: null
-      }));
-    setNearbyVolunteers(mapped);
+    try {
+      // Try to get user location
+      let userLoc: { latitude: number; longitude: number } | null = null;
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        userLoc = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+      }
+
+      // Helper to get coordinates for a district/place
+      const getCoords = (place: any) => {
+        // Handle non-string values (numbers, undefined, null)
+        if (!place || typeof place !== 'string') return null;
+        const normalized = place.toLowerCase().trim().replace(/\s+/g, ' ') || '';
+        if (!normalized) return null;
+        if (DISTRICT_COORDINATES[normalized]) return DISTRICT_COORDINATES[normalized];
+        // Try first word
+        const firstWord = normalized.split(' ')[0];
+        if (DISTRICT_COORDINATES[firstWord]) return DISTRICT_COORDINATES[firstWord];
+        // Try partial match
+        for (const [key, coords] of Object.entries(DISTRICT_COORDINATES)) {
+          if (normalized.includes(key) || key.includes(normalized)) return coords;
+        }
+        return null;
+      };
+
+      // Map ALL volunteers with distance
+      const allVolunteers = volunteersData
+        .filter((v: any) => v)
+        .map((v: any) => {
+          const district = v['Column4'] || v['Column12'] || '';
+          const vidhanSabha = v['Column5'] || '';
+          const coords = getCoords(district) || getCoords(vidhanSabha);
+
+          let distance: number | null = null;
+          if (userLoc && coords) {
+            distance = getDistanceFromLatLonInKm(
+              userLoc.latitude, userLoc.longitude,
+              coords.lat, coords.lng
+            );
+          }
+
+          return {
+            Name: v['Column2'] || v['आपका पूरा नाम क्या है? '] || 'Unknown',
+            District: district || vidhanSabha || 'Unknown',
+            distance,
+          };
+        });
+
+      // Sort by distance (nearest first)
+      allVolunteers.sort((a, b) => {
+        if (a.distance === null) return 1;
+        if (b.distance === null) return -1;
+        return a.distance - b.distance;
+      });
+
+      // Take top 5 nearest
+      setNearbyVolunteers(allVolunteers.slice(0, 5));
+    } catch (error) {
+      console.error('Error fetching nearby volunteers:', error);
+      // Fallback - show first 5
+      const fallback = volunteersData.slice(0, 5)
+        .filter((v: any) => v)
+        .map((v: any) => ({
+          Name: v['Column2'] || 'Unknown',
+          District: v['Column4'] || v['Column12'] || 'Unknown',
+          distance: null,
+        }));
+      setNearbyVolunteers(fallback);
+    }
   };
 
   const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -642,19 +745,27 @@ export default function HomeScreen() {
                   <Text style={styles.viewAllText}>View All</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 24 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 24, paddingVertical: 4 }}>
                 {nearbyVolunteers.map((volunteer, idx) => (
                   <TouchableOpacity
                     key={idx}
                     style={styles.volunteerCard}
                     onPress={() => router.push('/nearby-volunteers' as any)}
+                    activeOpacity={0.8}
                   >
                     <View style={styles.volunteerAvatar}>
-                      <Text style={styles.volunteerInitials}>{volunteer.Name.charAt(0)}</Text>
+                      <Image
+                        source={require('../../assets/images/icon.png')}
+                        style={styles.volunteerLogo}
+                      />
                     </View>
-                    <View>
-                      <Text style={styles.volunteerName}>{volunteer.Name}</Text>
-                      <Text style={styles.volunteerDistrict}>{volunteer.District}</Text>
+                    <View style={styles.volunteerInfo}>
+                      <Text style={styles.volunteerName} numberOfLines={1} ellipsizeMode="tail">
+                        {volunteer.Name || 'Unknown'}
+                      </Text>
+                      <Text style={styles.volunteerDistrict} numberOfLines={1} ellipsizeMode="tail">
+                        {volunteer.District || 'Unknown'}
+                      </Text>
                       {volunteer.distance && (
                         <Text style={styles.volunteerDistance}>{volunteer.distance.toFixed(1)} km away</Text>
                       )}
@@ -1025,45 +1136,64 @@ const styles = StyleSheet.create({
   },
   volunteerCard: {
     backgroundColor: '#fff',
-    padding: 16,
+    padding: 14,
     borderRadius: 16,
-    width: 200,
-    flexDirection: 'row',
+    width: 160,
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   volunteerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: SP_RED + '20',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: SP_RED + '15',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: SP_RED + '30',
   },
   volunteerInitials: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '800',
     color: SP_RED,
   },
+  volunteerLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    resizeMode: 'contain',
+  },
+  volunteerInfo: {
+    width: '100%',
+    alignItems: 'center',
+  },
   volunteerName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1e293b',
+    textAlign: 'center',
+    maxWidth: '100%',
   },
   volunteerDistrict: {
     fontSize: 12,
     color: '#64748b',
+    textAlign: 'center',
+    marginTop: 2,
+    maxWidth: '100%',
   },
   volunteerDistance: {
-    fontSize: 12,
+    fontSize: 11,
     color: SP_GREEN,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: 4,
   },
 
   newsContent: {

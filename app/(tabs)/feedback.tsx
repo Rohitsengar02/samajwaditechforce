@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, Pressable, Platform, Alert, KeyboardAvoidingView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { getApiUrl } from '../../utils/api';
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
@@ -10,216 +11,303 @@ export default function Feedback() {
     const router = useRouter();
     const [formData, setFormData] = useState({
         name: '',
-        email: '',
-        phone: '',
-        category: '',
-        subject: '',
-        message: '',
-        satisfactionLevel: 0,
+        mohalla: '',
+        mobile: '',
+        leaderName: '',
+        assembly: '',
+        meetingFrequency: '',
+        listeningSkills: '',
+        workPerformance: '',
+        teamSupport: '',
+        behaviour: '',
+        publicImage: '',
+        socialMedia: '',
+        supportLevel: '',
+        feedback: '',
+        rating: 0,
     });
 
     const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
-    const handleSubmit = () => {
-        console.log('Feedback Data:', formData);
-        setSubmitted(true);
-        setTimeout(() => {
-            router.back();
-        }, 2000);
+    const handleSubmit = async () => {
+        try {
+            console.log('Feedback Data:', formData);
+
+            // Basic validation
+            if (!formData.name) {
+                Alert.alert('त्रुटि', 'कृपया अपना नाम भरें');
+                return;
+            }
+
+            setSubmitting(true);
+
+            // Get API URL
+            const apiUrl = getApiUrl();
+
+            const response = await fetch(`${apiUrl}/feedback`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setSubmitted(true);
+                setTimeout(() => {
+                    router.back();
+                }, 2500);
+            } else {
+                Alert.alert('Error', 'कुछ गलत हुआ: ' + (data.error || 'अज्ञात त्रुटि'));
+            }
+        } catch (error) {
+            console.error('Submission Error:', error);
+            Alert.alert('Error', 'फीडबैक सबमिट करने में त्रुटि। कृपया पुनः प्रयास करें।');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
-    const categories = [
-        'पार्टी गतिविधियाँ',
-        'ऐप की समस्याएं',
-        'सुझाव',
-        'शिकायत',
-        'प्रशंसा',
-        'अन्य',
-    ];
+    const renderRadioGroup = (key: keyof typeof formData, options: string[], label: string) => (
+        <View style={styles.inputGroup}>
+            <Text style={styles.questionLabel}>{label}</Text>
+            <View style={styles.radioContainer}>
+                {options.map((option) => (
+                    <Pressable
+                        key={option}
+                        style={[
+                            styles.radioOption,
+                            formData[key] === option && styles.radioOptionSelected
+                        ]}
+                        onPress={() => setFormData({ ...formData, [key]: option })}
+                    >
+                        <MaterialCommunityIcons
+                            name={formData[key] === option ? "radiobox-marked" : "radiobox-blank"}
+                            size={20}
+                            color={formData[key] === option ? SP_GREEN : '#64748b'}
+                        />
+                        <Text style={[
+                            styles.radioText,
+                            formData[key] === option && styles.radioTextSelected
+                        ]}>{option}</Text>
+                    </Pressable>
+                ))}
+            </View>
+        </View>
+    );
 
     if (submitted) {
         return (
             <View style={styles.successContainer}>
                 <MaterialCommunityIcons name="check-decagram" size={80} color={SP_GREEN} />
                 <Text style={styles.successTitle}>फीडबैक प्राप्त हुआ!</Text>
-                <Text style={styles.successText}>धन्यवाद! हम जल्द ही आपसे संपर्क करेंगे।</Text>
+                <Text style={styles.successText}>धन्यवाद! आपकी राय हमारे लिए महत्वपूर्ण है।</Text>
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Pressable onPress={() => router.back()} style={styles.backButton}>
-                        <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
-                    </Pressable>
-                    <Text style={styles.headerTitle}>फीडबैक</Text>
-                    <View style={{ width: 24 }} />
-                </View>
+        <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.container}
+        >
+            <View style={styles.header}>
+                <Pressable onPress={() => router.back()} style={styles.backButton}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+                </Pressable>
+                <Text style={styles.headerTitle}>फीडबैक</Text>
+                <View style={{ width: 24 }} />
+            </View>
 
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
                 {/* Hero Section */}
                 <View style={styles.hero}>
                     <View style={styles.iconCircle}>
-                        <MaterialCommunityIcons name="message-text" size={40} color="#fff" />
+                        <MaterialCommunityIcons name="clipboard-text-outline" size={32} color="#fff" />
                     </View>
-                    <Text style={styles.heroTitle}>हमें बताएं आप क्या सोचते हैं</Text>
+                    <Text style={styles.heroTitle}>जनता की राय</Text>
                     <Text style={styles.heroSubtitle}>
-                        आपका फीडबैक हमें बेहतर बनाने में मदद करता है
+                        अपने क्षेत्र के प्रतिनिधि के बारे में राय साझा करें
                     </Text>
                 </View>
 
                 {/* Form */}
                 <View style={styles.form}>
-                    {/* Name */}
+                    {/* Section 1: Personal Info */}
+                    <Text style={styles.sectionHeader}>1️⃣ आपकी जानकारी</Text>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>
-                            <MaterialCommunityIcons name="account" size={16} color={SP_RED} /> नाम *
-                        </Text>
+                        <Text style={styles.label}>नाम (इच्छानुसार)</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="आपका पूरा नाम"
+                            placeholder="अपना नाम लिखें"
                             value={formData.name}
                             onChangeText={(text) => setFormData({ ...formData, name: text })}
                         />
                     </View>
-
-                    {/* Email */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>
-                            <MaterialCommunityIcons name="email" size={16} color={SP_RED} /> ईमेल
-                        </Text>
+                        <Text style={styles.label}>मोहल्ला / गांव</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="your.email@example.com"
-                            value={formData.email}
-                            onChangeText={(text) => setFormData({ ...formData, email: text })}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
+                            placeholder="मोहल्ला / गांव का नाम"
+                            value={formData.mohalla}
+                            onChangeText={(text) => setFormData({ ...formData, mohalla: text })}
                         />
                     </View>
-
-                    {/* Phone */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>
-                            <MaterialCommunityIcons name="phone" size={16} color={SP_RED} /> मोबाइल नंबर *
-                        </Text>
+                        <Text style={styles.label}>मोबाइल (इच्छानुसार)</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="10 अंकों का मोबाइल नंबर"
-                            value={formData.phone}
-                            onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                            placeholder="मोबाइल नंबर"
+                            value={formData.mobile}
+                            onChangeText={(text) => setFormData({ ...formData, mobile: text })}
                             keyboardType="phone-pad"
-                            maxLength={10}
                         />
                     </View>
 
-                    {/* Category */}
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>
-                            <MaterialCommunityIcons name="folder" size={16} color={SP_RED} /> श्रेणी चुनें *
-                        </Text>
-                        <View style={styles.categoriesGrid}>
-                            {categories.map((cat) => (
-                                <Pressable
-                                    key={cat}
-                                    style={[
-                                        styles.categoryChip,
-                                        formData.category === cat && styles.categoryChipSelected
-                                    ]}
-                                    onPress={() => setFormData({ ...formData, category: cat })}
-                                >
-                                    <Text style={[
-                                        styles.categoryText,
-                                        formData.category === cat && styles.categoryTextSelected
-                                    ]}>{cat}</Text>
-                                </Pressable>
-                            ))}
-                        </View>
-                    </View>
+                    <View style={styles.divider} />
 
-                    {/* Satisfaction Level */}
+                    {/* Section 2: Candidate Info */}
+                    <Text style={styles.sectionHeader}>2️⃣ प्रतिनिधि / क्षेत्र</Text>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>
-                            <MaterialCommunityIcons name="heart" size={16} color={SP_RED} /> संतुष्टि स्तर
-                        </Text>
-                        <View style={styles.satisfactionContainer}>
-                            {[
-                                { value: 1, icon: 'emoticon-sad', color: '#ef4444', label: 'असंतुष्ट' },
-                                { value: 2, icon: 'emoticon-neutral', color: '#f59e0b', label: 'ठीक' },
-                                { value: 3, icon: 'emoticon-happy', color: '#10b981', label: 'संतुष्ट' },
-                                { value: 4, icon: 'emoticon-excited', color: SP_GREEN, label: 'बहुत खुश' },
-                            ].map((item) => (
-                                <Pressable
-                                    key={item.value}
-                                    style={[
-                                        styles.satisfactionOption,
-                                        formData.satisfactionLevel === item.value && {
-                                            backgroundColor: `${item.color}15`,
-                                            borderColor: item.color,
-                                        }
-                                    ]}
-                                    onPress={() => setFormData({ ...formData, satisfactionLevel: item.value })}
-                                >
-                                    <MaterialCommunityIcons
-                                        name={item.icon as any}
-                                        size={32}
-                                        color={formData.satisfactionLevel === item.value ? item.color : '#cbd5e1'}
-                                    />
-                                    <Text style={[
-                                        styles.satisfactionLabel,
-                                        formData.satisfactionLevel === item.value && { color: item.color, fontWeight: '600' }
-                                    ]}>{item.label}</Text>
-                                </Pressable>
-                            ))}
-                        </View>
-                    </View>
-
-                    {/* Subject */}
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>
-                            <MaterialCommunityIcons name="subtitles" size={16} color={SP_RED} /> विषय *
-                        </Text>
+                        <Text style={styles.label}>उम्मीदवार / नेता का नाम</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="संक्षेप में बताएं"
-                            value={formData.subject}
-                            onChangeText={(text) => setFormData({ ...formData, subject: text })}
+                            placeholder="नाम लिखें"
+                            value={formData.leaderName}
+                            onChangeText={(text) => setFormData({ ...formData, leaderName: text })}
+                        />
+                    </View>
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>विधानसभा / वार्ड</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="विधानसभा / वार्ड का नाम"
+                            value={formData.assembly}
+                            onChangeText={(text) => setFormData({ ...formData, assembly: text })}
                         />
                     </View>
 
-                    {/* Message */}
+                    <View style={styles.divider} />
+
+                    {/* Section 3: Public Connection */}
+                    <Text style={styles.sectionHeader}>3️⃣ जनता से जुड़ाव</Text>
+                    {renderRadioGroup(
+                        'meetingFrequency',
+                        ['नियमित', 'कभी-कभी', 'बहुत कम', 'कभी नहीं'],
+                        'उम्मीदवार आपसे या लोगों से कितनी बार मिलते हैं?'
+                    )}
+                    {renderRadioGroup(
+                        'listeningSkills',
+                        ['बहुत अच्छी तरह', 'ठीक-ठाक', 'कमज़ोर'],
+                        'क्या वो आपकी समस्याएँ ध्यान से सुनते हैं?'
+                    )}
+
+                    <View style={styles.divider} />
+
+                    {/* Section 4: Performance */}
+                    <Text style={styles.sectionHeader}>4️⃣ कार्यक्षमता</Text>
+                    {renderRadioGroup(
+                        'workPerformance',
+                        ['बहुत अच्छा', 'अच्छा', 'औसत', 'कमजोर'],
+                        'क्षेत्र की समस्याओं पर कितना काम कर रहे हैं?'
+                    )}
+                    {renderRadioGroup(
+                        'teamSupport',
+                        ['हमेशा', 'कभी-कभी', 'नहीं'],
+                        'क्या उनकी टीम आपकी मदद करती है?'
+                    )}
+
+                    <View style={styles.divider} />
+
+                    {/* Section 5: Behaviour & Image */}
+                    <Text style={styles.sectionHeader}>5️⃣ व्यवहार एवं छवि</Text>
+                    {renderRadioGroup(
+                        'behaviour',
+                        ['सम्मानजनक', 'सामान्य', 'खराब'],
+                        'आम जनता से व्यवहार कैसा है?'
+                    )}
+                    {renderRadioGroup(
+                        'publicImage',
+                        ['बहुत अच्छी', 'अच्छी', 'सामान्य', 'नकारात्मक'],
+                        'सार्वजनिक छवि कैसी है?'
+                    )}
+
+                    <View style={styles.divider} />
+
+                    {/* Section 6: Digital & Social Media */}
+                    <Text style={styles.sectionHeader}>6️⃣ सोशल मीडिया</Text>
+                    {renderRadioGroup(
+                        'socialMedia',
+                        ['हाँ, बहुत', 'थोड़ा', 'नहीं'],
+                        'क्या वो सोशल मीडिया पर सक्रिय हैं?'
+                    )}
+
+                    <View style={styles.divider} />
+
+                    {/* Section 7: Support Level */}
+                    <Text style={styles.sectionHeader}>7️⃣ समर्थन स्तर</Text>
+                    {renderRadioGroup(
+                        'supportLevel',
+                        ['निश्चित रूप से', 'शायद', 'नहीं'],
+                        'क्या आप अगले चुनाव में समर्थन देंगे?'
+                    )}
+
+                    <View style={styles.divider} />
+
+                    {/* Section 8: Feedback */}
+                    <Text style={styles.sectionHeader}>8️⃣ सुझाव / राय</Text>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>
-                            <MaterialCommunityIcons name="message-text" size={16} color={SP_RED} /> विस्तार से बताएं *
-                        </Text>
                         <TextInput
                             style={[styles.input, styles.textArea]}
-                            placeholder="अपना फीडबैक विस्तार से लिखें..."
-                            value={formData.message}
-                            onChangeText={(text) => setFormData({ ...formData, message: text })}
+                            placeholder="अपने सुझाव यहाँ लिखें..."
+                            value={formData.feedback}
+                            onChangeText={(text) => setFormData({ ...formData, feedback: text })}
                             multiline
-                            numberOfLines={6}
+                            numberOfLines={4}
                         />
                     </View>
 
-                    {/* Info Card */}
-                    <View style={styles.infoCard}>
-                        <MaterialCommunityIcons name="information" size={20} color="#3b82f6" />
-                        <Text style={styles.infoText}>
-                            आपकी जानकारी सुरक्षित रहेगी और केवल समाजवादी पार्टी द्वारा उपयोग की जाएगी।
-                        </Text>
+                    <View style={styles.divider} />
+
+                    {/* Section 9: Overall Rating */}
+                    <Text style={styles.sectionHeader}>9️⃣ रेटिंग</Text>
+                    <View style={styles.ratingContainer}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                            <Pressable
+                                key={star}
+                                onPress={() => setFormData({ ...formData, rating: star })}
+                                style={styles.starButton}
+                            >
+                                <MaterialCommunityIcons
+                                    name={star <= formData.rating ? "star" : "star-outline"}
+                                    size={36}
+                                    color={star <= formData.rating ? "#F59E0B" : "#cbd5e1"}
+                                />
+                            </Pressable>
+                        ))}
                     </View>
 
                     {/* Submit Button */}
-                    <Pressable style={styles.submitButton} onPress={handleSubmit}>
-                        <MaterialCommunityIcons name="send" size={20} color="#fff" />
-                        <Text style={styles.submitButtonText}>फीडबैक सबमिट करें</Text>
+                    <Pressable
+                        style={[styles.submitButton, submitting && { opacity: 0.7 }]}
+                        onPress={handleSubmit}
+                        disabled={submitting}
+                    >
+                        {submitting ? (
+                            <Text style={styles.submitButtonText}>कृपया प्रतीक्षा करें...</Text>
+                        ) : (
+                            <>
+                                <MaterialCommunityIcons name="send" size={20} color="#fff" />
+                                <Text style={styles.submitButtonText}>सबमिट करें</Text>
+                            </>
+                        )}
                     </Pressable>
                 </View>
             </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -230,12 +318,14 @@ const styles = StyleSheet.create({
     },
     header: {
         backgroundColor: SP_GREEN,
-        paddingTop: Platform.OS === 'ios' ? 50 : 20,
+        paddingTop: Platform.OS === 'ios' ? 60 : 40,
         paddingBottom: 20,
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
     },
     backButton: {
         padding: 8,
@@ -247,48 +337,68 @@ const styles = StyleSheet.create({
     },
     hero: {
         backgroundColor: '#fff',
-        padding: 32,
+        padding: 24,
+        marginTop: 16,
+        marginHorizontal: 16,
+        borderRadius: 16,
         alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e2e8f0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
     iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         backgroundColor: SP_GREEN,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
     },
     heroTitle: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: 'bold',
         color: '#1e293b',
-        marginBottom: 8,
+        marginBottom: 4,
         textAlign: 'center',
     },
     heroSubtitle: {
-        fontSize: 14,
+        fontSize: 13,
         color: '#64748b',
         textAlign: 'center',
     },
     form: {
-        padding: 20,
+        padding: 16,
+    },
+    sectionHeader: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1e293b',
+        marginBottom: 16,
+        marginTop: 8,
     },
     inputGroup: {
-        marginBottom: 20,
+        marginBottom: 16,
     },
     label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#475569',
+        marginBottom: 8,
+    },
+    questionLabel: {
         fontSize: 15,
         fontWeight: '600',
         color: '#1e293b',
-        marginBottom: 8,
+        marginBottom: 10,
+        lineHeight: 22,
     },
     input: {
         backgroundColor: '#fff',
         borderRadius: 12,
-        padding: 16,
+        padding: 14,
         fontSize: 15,
         color: '#1e293b',
         borderWidth: 1,
@@ -296,68 +406,53 @@ const styles = StyleSheet.create({
         ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) as any,
     },
     textArea: {
-        minHeight: 150,
+        minHeight: 100,
         textAlignVertical: 'top',
     },
-    categoriesGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
+    radioContainer: {
+        gap: 8,
     },
-    categoryChip: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
+    radioOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: '#fff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        gap: 10,
     },
-    categoryChipSelected: {
+    radioOptionSelected: {
         backgroundColor: '#dcfce7',
         borderColor: SP_GREEN,
     },
-    categoryText: {
-        fontSize: 13,
-        color: '#64748b',
+    radioText: {
+        fontSize: 14,
+        color: '#475569',
         fontWeight: '500',
     },
-    categoryTextSelected: {
+    radioTextSelected: {
         color: SP_GREEN,
         fontWeight: '700',
     },
-    satisfactionContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 8,
+    divider: {
+        height: 1,
+        backgroundColor: '#e2e8f0',
+        marginVertical: 24,
     },
-    satisfactionOption: {
-        flex: 1,
+    ratingContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 12,
         backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 12,
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#e2e8f0',
-    },
-    satisfactionLabel: {
-        fontSize: 11,
-        color: '#64748b',
-        marginTop: 4,
-        textAlign: 'center',
-    },
-    infoCard: {
-        flexDirection: 'row',
-        backgroundColor: '#dbeafe',
         padding: 16,
         borderRadius: 12,
-        marginBottom: 20,
-        gap: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
     },
-    infoText: {
-        flex: 1,
-        fontSize: 13,
-        color: '#1e40af',
-        lineHeight: 20,
+    starButton: {
+        padding: 4,
     },
     submitButton: {
         backgroundColor: SP_GREEN,
@@ -366,7 +461,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         padding: 18,
         borderRadius: 12,
+        marginTop: 32,
+        marginBottom: 20,
         gap: 8,
+        shadowColor: SP_GREEN,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
     submitButtonText: {
         color: '#fff',

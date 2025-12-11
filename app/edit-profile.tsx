@@ -184,7 +184,16 @@ export default function EditProfileScreen() {
                 style={styles.header}
             >
                 <View style={styles.headerContent}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (router.canGoBack()) {
+                                router.back();
+                            } else {
+                                router.replace('/(tabs)/profile');
+                            }
+                        }}
+                        style={styles.backButton}
+                    >
                         <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Edit Profile</Text>

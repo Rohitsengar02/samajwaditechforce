@@ -90,6 +90,7 @@ const StatCard = ({ icon, value, label, color, delay }: any) => {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, RefreshControl } from 'react-native';
 import { getApiUrl } from '../../utils/api';
+import { signOutUser } from '../../utils/firebase';
 import { useLanguage } from '../../context/LanguageContext';
 import { Modal, TextInput, FlatList } from 'react-native';
 import { TranslatedText } from '../../components/TranslatedText';
@@ -149,6 +150,12 @@ export default function ProfileScreen() {
           }
         });
 
+        if (response.status === 401) {
+          console.log('Session expired or token invalid. Logging out.');
+          await performLogout();
+          return;
+        }
+
         if (response.ok) {
           const freshData = await response.json();
           setUser(freshData);
@@ -168,6 +175,12 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
+    // For Web, direct logout without Alert (simpler UX for web)
+    if (Platform.OS === 'web') {
+      performLogout();
+      return;
+    }
+
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
@@ -176,14 +189,23 @@ export default function ProfileScreen() {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.removeItem('userInfo');
-            await AsyncStorage.removeItem('userToken');
-            router.push('/onboarding' as any);
-          }
+          onPress: performLogout
         },
       ]
     );
+  };
+
+  const performLogout = async () => {
+    try {
+      await signOutUser();
+      await AsyncStorage.removeItem('userInfo');
+      await AsyncStorage.removeItem('userToken');
+      router.replace('/signin');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Fallback navigation even on error
+      router.replace('/signin');
+    }
   };
 
   const stats = [
@@ -216,18 +238,9 @@ export default function ProfileScreen() {
                 style={styles.settingsButton}
                 onPress={() => {
                   // Check if user has missing fields or is not verified
-                  const hasMissingFields = !user?.district || !user?.vidhanSabha || !user?.qualification;
-                  const isNotVerified = user?.verificationStatus !== 'Verified';
-
-                  if (hasMissingFields || isNotVerified) {
-                    router.push('/verified-member' as any);
-                  } else {
-                    Alert.alert(
-                      'Profile Locked',
-                      'Your profile is verified and cannot be edited. Contact support if you need to make changes.',
-                      [{ text: 'OK' }]
-                    );
-                  }
+                  // User request: Do not show complete profile popups here.
+                  // Just navigate to edit profile or relevant settings.
+                  router.push('/edit-profile');
                 }}
               >
                 <MaterialCommunityIcons name="cog" size={24} color="#fff" />
@@ -278,6 +291,8 @@ export default function ProfileScreen() {
             </View>
 
             {/* Show Verify Button if required fields are missing */}
+            {/* Verify Buttons/Warnings Removed as per user request */}
+            {/*
             {user?.verificationStatus !== 'Verified' && (
               !user?.district || !user?.vidhanSabha || !user?.qualification
             ) && (
@@ -294,7 +309,6 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               )}
 
-            {/* Show incomplete fields warning */}
             {user?.verificationStatus === 'Pending' && (
               !user?.district || !user?.vidhanSabha || !user?.qualification
             ) && (
@@ -305,6 +319,7 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
               )}
+            */}
 
             {user?.verificationStatus === 'Verified' && (
               <View style={styles.verifiedDetailsContainer}>
