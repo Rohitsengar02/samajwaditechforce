@@ -86,16 +86,25 @@ const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 
 
 export default function InteractiveLoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Google OAuth Hook
-  const config: any = {
-    clientId: GOOGLE_WEB_CLIENT_ID,
+  // Check if Google OAuth is properly configured
+  const hasGoogleConfig = !!(GOOGLE_WEB_CLIENT_ID || GOOGLE_ANDROID_CLIENT_ID || GOOGLE_IOS_CLIENT_ID);
+
+  // Google OAuth Hook with error handling
+  // Only configure if we have at least one client ID
+  const config: any = hasGoogleConfig ? {
+    clientId: GOOGLE_WEB_CLIENT_ID || 'dummy-client-id', // Fallback to prevent crashes
+  } : {
+    clientId: 'dummy-client-id', // Safe fallback
   };
 
   // Only add platform-specific IDs if they are defined
   if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
   if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
 
+  // Always call the hook (hooks cannot be conditional)
+  // But we'll check hasGoogleConfig before actually using it
   const [request, response, promptAsync] = Google.useAuthRequest(config);
 
   // Animation Values
@@ -178,7 +187,7 @@ export default function InteractiveLoginScreen({ navigation }: any) {
     setLoading(true);
 
     // Check if Google Client IDs are configured
-    if (!GOOGLE_WEB_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_IOS_CLIENT_ID) {
+    if (!hasGoogleConfig) {
       // Alert user about mock mode
       Alert.alert(
         "Configuration Missing",
@@ -208,11 +217,15 @@ export default function InteractiveLoginScreen({ navigation }: any) {
 
     // Real Google Sign-In
     try {
-      await promptAsync();
+      const result = await promptAsync();
+      // If result is cancelled or fails, reset loading
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        setLoading(false);
+      }
     } catch (error) {
       setLoading(false);
       console.error('Google login error:', error);
-      Alert.alert('Error', 'Failed to start Google sign-in.');
+      Alert.alert('Error', 'Failed to start Google sign-in. Please try again or use email sign-in.');
     }
   };
 
@@ -296,6 +309,14 @@ export default function InteractiveLoginScreen({ navigation }: any) {
 
           {/* Interactive Form Area */}
           <View style={styles.formContainer}>
+
+            {/* Error Message Banner */}
+            {authError && (
+              <View style={styles.errorBanner}>
+                <MaterialCommunityIcons name="alert-circle" size={20} color="#EF4444" />
+                <Text style={styles.errorText}>{authError}</Text>
+              </View>
+            )}
 
             {/* Google Login Button - Primary */}
             <TouchableOpacity
@@ -644,5 +665,22 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 24,
     paddingHorizontal: 20,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#EF4444',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#DC2626',
+    fontWeight: '500',
   },
 });
