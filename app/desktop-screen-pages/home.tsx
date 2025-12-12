@@ -21,7 +21,7 @@ export default function DesktopHome() {
     const [posters, setPosters] = useState<any[]>([]);
     const [tasks, setTasks] = useState<any[]>([]);
     const [pages, setPages] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
 
     // Home content from API
     const [homeContent, setHomeContent] = useState<any>(null);
@@ -161,14 +161,6 @@ export default function DesktopHome() {
     };
 
     const programsData = getProgramsData();
-
-    if (loading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={SP_RED} />
-            </View>
-        );
-    }
 
     return (
         <View style={styles.container}>

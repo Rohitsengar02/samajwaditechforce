@@ -34,8 +34,8 @@ export default function TabLayout() {
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.1,
           shadowRadius: 12,
-          height: Platform.OS === 'ios' ? 85 : 60 + insets.bottom,
-          paddingBottom: Platform.OS === 'ios' ? 25 : insets.bottom + 5,
+          height: Platform.OS === 'ios' ? 85 : Platform.OS === 'web' ? 80 : 60 + insets.bottom,
+          paddingBottom: Platform.OS === 'ios' ? 25 : Platform.OS === 'web' ? 20 : insets.bottom + 5,
           paddingTop: 10,
         },
         tabBarLabelStyle: {

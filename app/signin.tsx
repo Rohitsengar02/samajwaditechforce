@@ -56,10 +56,12 @@ function MobileSignInScreen() {
 
   // Google OAuth Hook
   // Different redirect URIs for web vs native
-  const redirectUri = AuthSession.makeRedirectUri({
-    path: 'auth',
-    preferLocalhost: false,
-  });
+  const redirectUri = Platform.OS === 'web'
+    ? (typeof window !== 'undefined' ? `${window.location.origin}/auth` : AuthSession.makeRedirectUri({ path: 'auth' }))
+    : AuthSession.makeRedirectUri({
+      path: 'auth',
+      preferLocalhost: false,
+    });
 
   // For native dev, use Expo proxy (update to match new owner)
   const proxyRedirectUri = Platform.OS === 'web' ? redirectUri : "https://auth.expo.io/@gaga4422/samajwadi-party";
@@ -163,23 +165,35 @@ function MobileSignInScreen() {
     }
 
     // Force show the Redirect URI
-    const uriToShow = __DEV__ ? proxyRedirectUri : redirectUri;
+    const uriToShow = Platform.OS === 'web'
+      ? (typeof window !== 'undefined' ? `${window.location.origin}/auth` : AuthSession.makeRedirectUri({ path: 'auth' }))
+      : (__DEV__ ? proxyRedirectUri : redirectUri);
+
     console.log('🔹 LOGIN Redirect URI:', uriToShow);
 
-    Alert.alert(
-      "Redirect URI Info",
-      `Please add this EXACT URI to Google Console > Authorized redirect URIs:\n\n${uriToShow}`,
-      [{
-        text: "I have added it",
-        onPress: () => {
-          // Only start auth after user confirms they saw the URI
-          promptAsync();
-        }
-      }, {
-        text: "Cancel",
-        style: 'cancel'
-      }]
-    );
+    // On Web, alert might fail or look bad, and we need direct user interaction for popup
+    if (Platform.OS === 'web') {
+      promptAsync();
+      return;
+    }
+
+    if (__DEV__) {
+      Alert.alert(
+        "Redirect URI Info",
+        `Please ensure this URI is added to Google Cloud Console > Authorized redirect URIs:\n\n${uriToShow}`,
+        [{
+          text: "Continue",
+          onPress: () => {
+            promptAsync();
+          }
+        }, {
+          text: "Cancel",
+          style: 'cancel'
+        }]
+      );
+    } else {
+      promptAsync();
+    }
   };
 
   const handleLogin = async () => {
@@ -253,6 +267,7 @@ function MobileSignInScreen() {
 
             <Animated.View style={[styles.cardGlass, !isDark && styles.cardGlassLight, { opacity: fadeAnim }]}>
               {/* Google Login Button (Mobile) */}
+              {/* Google Login Button - HIDDEN for now
               <TouchableOpacity
                 style={styles.googleButton}
                 onPress={handleGoogleLogin}
@@ -267,6 +282,7 @@ function MobileSignInScreen() {
                 <Text style={styles.dividerText}>or email</Text>
                 <View style={styles.dividerLine} />
               </View>
+              */} {null}
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Email Address</Text>
@@ -330,7 +346,7 @@ function DesktopSignInScreen() {
   // Google OAuth Hook
   // For Web, explicitly set redirect URI
   const redirectUri = Platform.OS === 'web'
-    ? AuthSession.makeRedirectUri({ path: 'auth' })
+    ? (typeof window !== 'undefined' ? `${window.location.origin}/auth` : AuthSession.makeRedirectUri({ path: 'auth' }))
     : undefined;
 
   const config: any = {
@@ -411,22 +427,33 @@ function DesktopSignInScreen() {
       return;
     }
 
-    // Since Desktop/Wide might run in web browser directly or native, handle appropriately
-    // For Web, promptAsync usually handles it.
-    // But let's log it too.
-    const uriToShow = __DEV__ && Platform.OS !== 'web' ? "https://auth.expo.io/@peterparker12345/samajwadi-party" : (AuthSession.makeRedirectUri({ path: 'auth' }));
+    // Determine the URI being used
+    const uriToShow = Platform.OS === 'web'
+      ? (window.location.origin + '/auth')
+      : (__DEV__ ? "https://auth.expo.io/@gaga4422/samajwadi-party" : AuthSession.makeRedirectUri({ path: 'auth' }));
 
-    if (Platform.OS !== 'web') {
+    console.log('🔹 LOGIN Redirect URI:', uriToShow);
+
+    // On Web, alert might fail or look bad, and we need direct user interaction for popup
+    if (Platform.OS === 'web') {
+      promptAsync();
+      return;
+    }
+
+    // Alert the URI so the user can verify it against Google Cloud Console
+    if (__DEV__) {
       Alert.alert(
         "Redirect URI Info",
-        `Please add this EXACT URI to Google Console:\n\n${uriToShow}`,
+        `Please ensure this URI is added to Google Cloud Console > Authorized redirect URIs:\n\n${uriToShow}`,
         [{
-          text: "OK",
+          text: "Continue",
           onPress: () => promptAsync()
+        }, {
+          text: "Cancel",
+          style: 'cancel'
         }]
       );
     } else {
-      // On Web, just go
       await promptAsync();
     }
   };
@@ -579,7 +606,7 @@ function DesktopSignInScreen() {
                 Use your registered email and password.
               </Text>
 
-              {/* Google Button Desktop */}
+              {/* Google Button Desktop - HIDDEN for now
               <TouchableOpacity
                 style={styles.desktopGoogleButton}
                 onPress={handleGoogleLogin}
@@ -593,6 +620,7 @@ function DesktopSignInScreen() {
                 <Text style={{ marginHorizontal: 10, color: '#9ca3af', fontSize: 13, fontWeight: '500' }}>OR EMAIL</Text>
                 <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb' }} />
               </View>
+              */} {null}
 
               <View style={styles.desktopSignFieldGroup}>
                 <Text style={styles.desktopSignFieldLabel}>Email address</Text>

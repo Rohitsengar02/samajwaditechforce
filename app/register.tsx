@@ -207,9 +207,9 @@ function DesktopRegisterScreen() {
   const [otpLoading, setOtpLoading] = useState(false);
 
   // Google OAuth Hook
-  // For Web, we need to explicitly set the redirect URI
+  // For Web, we need to explicitly set the redirect URI using window.location to capture the exact origin
   const redirectUri = Platform.OS === 'web'
-    ? AuthSession.makeRedirectUri({ path: 'auth' })
+    ? (typeof window !== 'undefined' ? `${window.location.origin}/auth` : AuthSession.makeRedirectUri({ path: 'auth' }))
     : undefined;
 
   const config: any = {
@@ -488,7 +488,7 @@ function DesktopRegisterScreen() {
 
             <View style={styles.formContent}>
 
-              {/* Google Signup Button */}
+              {/* Google Signup Button - HIDDEN for now
               <TouchableOpacity
                 style={styles.desktopGoogleButton}
                 onPress={handleGoogleSignup}
@@ -502,6 +502,7 @@ function DesktopRegisterScreen() {
                 <Text style={{ marginHorizontal: 10, color: '#9ca3af', fontSize: 12 }}>OR CONTINUE WITH EMAIL</Text>
                 <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb' }} />
               </View>
+              */} {null}
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Full Name</Text>

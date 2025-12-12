@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator, Text, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getApiUrl } from '../utils/api';
@@ -86,6 +86,7 @@ const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 
 
 export default function InteractiveLoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Check if Google OAuth is properly configured
@@ -229,6 +230,23 @@ export default function InteractiveLoginScreen({ navigation }: any) {
     }
   };
 
+  const handleEmailContinue = () => {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      setAuthError('Please enter a valid email address');
+      return;
+    }
+    setAuthError(null);
+    // Navigate to Profile Setup with email pre-filled
+    // We pass it in googleData structure for compatibility
+    navigation.navigate('ProfileSetup', {
+      googleData: {
+        email: email,
+        name: '',
+        photo: ''
+      }
+    });
+  };
+
   // Interpolations
   const rotate = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -318,25 +336,41 @@ export default function InteractiveLoginScreen({ navigation }: any) {
               </View>
             )}
 
-            {/* Google Login Button - Primary */}
-            <TouchableOpacity
-              style={styles.googleButton}
-              onPress={handleGoogleLogin}
-              activeOpacity={0.8}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <ActivityIndicator size="small" color={SP_RED} />
-                  <Text style={styles.googleButtonText}>Connecting...</Text>
-                </>
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="gmail" size={28} color="#EA4335" />
-                  <Text style={styles.googleButtonText}>Continue with Gmail</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {/* Google Login Button - Primary - HIDDEN for now */}
+            {null}
+
+            {/* Email Registration Form */}
+            <View style={{ marginBottom: 24 }}>
+              <View style={[styles.inputCard, email.length > 0 && styles.inputCardFocused, { marginBottom: 16 }]}>
+                <MaterialCommunityIcons
+                  name="email-outline"
+                  size={24}
+                  color={email.length > 0 ? SP_RED : '#94a3b8'}
+                  style={{ marginRight: 12 }}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your email address"
+                  placeholderTextColor="#94a3b8"
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (authError) setAuthError(null);
+                  }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.googleButton, { backgroundColor: SP_RED, borderColor: SP_RED, marginBottom: 0 }]}
+                onPress={handleEmailContinue}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.googleButtonText, { color: '#fff' }]}>Continue with Email</Text>
+                <MaterialCommunityIcons name="arrow-right" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.termsText}>
               By continuing, you agree to our Terms of Service and Privacy Policy

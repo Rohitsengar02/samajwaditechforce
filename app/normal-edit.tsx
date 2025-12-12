@@ -181,16 +181,71 @@ export default function NormalEditScreen() {
     };
 
     const handleSave = async () => {
-        if (!viewShotRef.current) return;
         setSaving(true);
         try {
-            const uri = await viewShotRef.current.capture();
             if (Platform.OS === 'web') {
-                const link = document.createElement('a');
-                link.href = uri;
-                link.download = `poster-${Date.now()}.png`;
-                link.click();
+                // Use html2canvas for web
+                const html2canvas = (await import('html2canvas')).default;
+                const { jsPDF } = await import('jspdf');
+
+                // Get the actual DOM element by ID
+                const posterElement = document.getElementById('poster-wrapper');
+                if (!posterElement) {
+                    throw new Error('Poster element not found');
+                }
+
+                // Convert DOM element to canvas with ULTRA high quality
+                const canvas = await html2canvas(posterElement, {
+                    backgroundColor: '#ffffff',
+                    scale: 4, // ULTRA high quality - 4x resolution
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true,
+                    imageTimeout: 0,
+                    removeContainer: false,
+                    scrollY: -window.scrollY,
+                    scrollX: -window.scrollX,
+                });
+
+                // Convert canvas to high-quality JPEG (smaller file, good quality)
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+                // Calculate PDF dimensions based on content
+                const imgAspectRatio = canvas.width / canvas.height;
+
+                // Use A4 as max size but maintain aspect ratio
+                const maxWidth = 210; // A4 width in mm
+                const maxHeight = 297; // A4 height in mm
+
+                let pdfWidth = maxWidth;
+                let pdfHeight = maxWidth / imgAspectRatio;
+
+                // If height exceeds A4, scale down
+                if (pdfHeight > maxHeight) {
+                    pdfHeight = maxHeight;
+                    pdfWidth = maxHeight * imgAspectRatio;
+                }
+
+                // Create PDF with exact dimensions (no margins)
+                const pdf = new jsPDF({
+                    orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
+                    unit: 'mm',
+                    format: [pdfWidth, pdfHeight],
+                    compress: true
+                });
+
+                // Add image to fill entire PDF page (no centering, full bleed)
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+
+                // Download PDF
+                pdf.save(`samajwadi-poster-${Date.now()}.pdf`);
+
+                Alert.alert('Success', 'High-quality poster saved as PDF!');
             } else {
+                // Native: Use ViewShot capture
+                if (!viewShotRef.current) return;
+                const uri = await viewShotRef.current.capture();
+
                 const { status } = await MediaLibrary.requestPermissionsAsync(true);
                 if (status === 'granted') {
                     await MediaLibrary.saveToLibraryAsync(uri);
@@ -255,10 +310,17 @@ export default function NormalEditScreen() {
                 <View style={{ width: 24 }} />
             </LinearGradient>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={false}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Poster Preview Area - No label */}
-                <View style={styles.previewContainer}>
-                    <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={[styles.posterContainer, { width: isEditMode ? EDIT_POSTER_WIDTH : PREVIEW_POSTER_WIDTH }]}>
+                <View style={styles.previewContainer} nativeID="poster-wrapper">
+                    <ViewShot
+                        ref={viewShotRef}
+                        options={{ format: 'png', quality: 1 }}
+                        style={[styles.posterContainer, { width: isEditMode ? EDIT_POSTER_WIDTH : PREVIEW_POSTER_WIDTH }]}
+                    >
                         <Image
                             source={{ uri: imageUrl as string }}
                             style={[styles.posterImage, { width: '100%', height: undefined, aspectRatio: imageAspectRatio }]}
@@ -521,6 +583,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'space-between', // Distribute space evenly
+        paddingBottom: Platform.OS === 'web' ? 100 : 20, // Extra padding for web mobile view
     },
     previewContainer: {
         padding: 8,
@@ -613,6 +676,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 4,
+        marginBottom: Platform.OS === 'web' ? 40 : 0, // Extra margin for web mobile browsers
     },
     stepIndicator: {
         flexDirection: 'row',
@@ -796,7 +860,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        paddingBottom: 60,
+        paddingBottom: Platform.OS === 'web' ? 100 : 60, // Extra padding for web mobile browsers
         height: '35%', // Approx 35% of screen
         elevation: 5,
         shadowColor: '#000',
@@ -806,10 +870,11 @@ const styles = StyleSheet.create({
     },
     carouselContent: {
         alignItems: 'center',
-        paddingBottom: 20, // Extra padding to ensure frames are visible above navbar
+        paddingBottom: Platform.OS === 'web' ? 10 : 20, // Extra padding for web mobile browsers
     },
     carouselItem: {
         justifyContent: 'center',
+
         alignItems: 'center',
     },
     framePreviewContainer: {

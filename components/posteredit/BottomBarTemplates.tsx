@@ -7,11 +7,11 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 export const TEMPLATES = [
-    { id: 'default', name: 'Default' },
-    { id: 'bold_strip', name: 'Bold Blue' },
-    { id: 'minimal_white', name: 'Clean White' },
-    { id: 'red_accent', name: 'Red Accent' },
-    { id: 'yellow_theme', name: 'Yellow Theme' },
+    { id: 'default', name: '' },
+    { id: 'bold_strip', name: '' },
+    { id: 'minimal_white', name: '' },
+    { id: 'red_accent', name: '' },
+    { id: 'yellow_theme', name: '' },
 ];
 
 const DefaultBar = ({ details, width }: { details: any, width: number }) => (
