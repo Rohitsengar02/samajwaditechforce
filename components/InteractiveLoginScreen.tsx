@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getApiUrl } from '../utils/api';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 
 // Enable web browser redirect for OAuth
 WebBrowser.maybeCompleteAuthSession();
@@ -86,7 +87,6 @@ const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 
 
 export default function InteractiveLoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Check if Google OAuth is properly configured
@@ -103,6 +103,15 @@ export default function InteractiveLoginScreen({ navigation }: any) {
   // Only add platform-specific IDs if they are defined
   if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
   if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
+
+  // FIX: Explicitly set redirect URI for Web to match "Authorized redirect URIs" in Google Console
+  if (Platform.OS === 'web') {
+    const redirectUri = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth`
+      : AuthSession.makeRedirectUri({ path: 'auth' });
+    config.redirectUri = redirectUri;
+    console.log('🔹 Mobile Web (Interactive) Redirect URI:', redirectUri);
+  }
 
   // Always call the hook (hooks cannot be conditional)
   // But we'll check hasGoogleConfig before actually using it
@@ -230,22 +239,7 @@ export default function InteractiveLoginScreen({ navigation }: any) {
     }
   };
 
-  const handleEmailContinue = () => {
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setAuthError('Please enter a valid email address');
-      return;
-    }
-    setAuthError(null);
-    // Navigate to Profile Setup with email pre-filled
-    // We pass it in googleData structure for compatibility
-    navigation.navigate('ProfileSetup', {
-      googleData: {
-        email: email,
-        name: '',
-        photo: ''
-      }
-    });
-  };
+
 
   // Interpolations
   const rotate = rotateAnim.interpolate({
@@ -336,41 +330,25 @@ export default function InteractiveLoginScreen({ navigation }: any) {
               </View>
             )}
 
-            {/* Google Login Button - Primary - HIDDEN for now */}
-            {null}
-
-            {/* Email Registration Form */}
-            <View style={{ marginBottom: 24 }}>
-              <View style={[styles.inputCard, email.length > 0 && styles.inputCardFocused, { marginBottom: 16 }]}>
-                <MaterialCommunityIcons
-                  name="email-outline"
-                  size={24}
-                  color={email.length > 0 ? SP_RED : '#94a3b8'}
-                  style={{ marginRight: 12 }}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your email address"
-                  placeholderTextColor="#94a3b8"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (authError) setAuthError(null);
-                  }}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.googleButton, { backgroundColor: SP_RED, borderColor: SP_RED, marginBottom: 0 }]}
-                onPress={handleEmailContinue}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.googleButtonText, { color: '#fff' }]}>Continue with Email</Text>
-                <MaterialCommunityIcons name="arrow-right" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
+            {/* Google Login Button - Primary */}
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={handleGoogleLogin}
+              activeOpacity={0.8}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <ActivityIndicator size="small" color={SP_RED} />
+                  <Text style={styles.googleButtonText}>Connecting...</Text>
+                </>
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="gmail" size={28} color="#EA4335" />
+                  <Text style={styles.googleButtonText}>Continue with Gmail</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
             <Text style={styles.termsText}>
               By continuing, you agree to our Terms of Service and Privacy Policy

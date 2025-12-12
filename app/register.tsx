@@ -488,7 +488,6 @@ function DesktopRegisterScreen() {
 
             <View style={styles.formContent}>
 
-              {/* Google Signup Button - HIDDEN for now
               <TouchableOpacity
                 style={styles.desktopGoogleButton}
                 onPress={handleGoogleSignup}
@@ -502,7 +501,6 @@ function DesktopRegisterScreen() {
                 <Text style={{ marginHorizontal: 10, color: '#9ca3af', fontSize: 12 }}>OR CONTINUE WITH EMAIL</Text>
                 <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb' }} />
               </View>
-              */} {null}
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Full Name</Text>

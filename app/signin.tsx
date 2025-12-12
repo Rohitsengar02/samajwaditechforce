@@ -267,7 +267,6 @@ function MobileSignInScreen() {
 
             <Animated.View style={[styles.cardGlass, !isDark && styles.cardGlassLight, { opacity: fadeAnim }]}>
               {/* Google Login Button (Mobile) */}
-              {/* Google Login Button - HIDDEN for now
               <TouchableOpacity
                 style={styles.googleButton}
                 onPress={handleGoogleLogin}
@@ -282,7 +281,6 @@ function MobileSignInScreen() {
                 <Text style={styles.dividerText}>or email</Text>
                 <View style={styles.dividerLine} />
               </View>
-              */} {null}
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Email Address</Text>
@@ -606,7 +604,6 @@ function DesktopSignInScreen() {
                 Use your registered email and password.
               </Text>
 
-              {/* Google Button Desktop - HIDDEN for now
               <TouchableOpacity
                 style={styles.desktopGoogleButton}
                 onPress={handleGoogleLogin}
@@ -620,7 +617,6 @@ function DesktopSignInScreen() {
                 <Text style={{ marginHorizontal: 10, color: '#9ca3af', fontSize: 13, fontWeight: '500' }}>OR EMAIL</Text>
                 <View style={{ flex: 1, height: 1, backgroundColor: '#e5e7eb' }} />
               </View>
-              */} {null}
 
               <View style={styles.desktopSignFieldGroup}>
                 <Text style={styles.desktopSignFieldLabel}>Email address</Text>
