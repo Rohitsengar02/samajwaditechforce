@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 60, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', zIndex: 1000, position: 'relative' },
     headerLogo: { fontSize: 24, fontWeight: '900', color: SP_RED },
     logoContainer: { padding: 4 },
-    logoImage: { width: 50, height: 50 },
+    logoImage: { width: 90, height: 90 },
     logoImageMobile: { width: 40, height: 40 },
     navMenu: { flexDirection: 'row', alignItems: 'center', gap: 32 },
     navItem: { fontSize: 15, fontWeight: '600', color: '#1e293b' },

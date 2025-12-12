@@ -236,7 +236,7 @@ export default function PostersScreen() {
                             <Image
                                 source={{ uri: poster.imageUrl }}
                                 style={styles.posterImage}
-                                resizeMode="cover"
+                                resizeMode="contain"
                             />
 
                             {/* Edit Overlay Hint */}
@@ -377,7 +377,8 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        padding: 16,
+        padding: 8,
+        paddingBottom: 120,
     },
     postersGrid: {
         flexDirection: 'row',
@@ -385,11 +386,12 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     posterCard: {
-        width: (width - 48) / 2,
-        height: ((width - 48) / 2) * 1.4, // Aspect ratio 1:1.4
+        width: '47.3%',
+        aspectRatio: 1 / 1.4,
         backgroundColor: '#fff',
-        borderRadius: 12,
-        marginBottom: 16,
+        borderRadius: 8,
+        padding: 4,
+        marginBottom: 12,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,

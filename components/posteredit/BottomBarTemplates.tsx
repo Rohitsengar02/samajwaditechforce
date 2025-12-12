@@ -120,9 +120,10 @@ const BoldStripBar = ({ details, width }: { details: any, width: number }) => (
                     <Text style={[styles.contactText, { color: '#fff' }]}>{details.mobile || 'Mobile'}</Text>
                 </View>
                 <View style={styles.contactItem}>
-                    <MaterialCommunityIcons name="web" size={14} color="#fbbf24" />
-                    <Text style={[styles.contactText, { color: '#fff' }]}>www.website.com</Text>
+                    <MaterialCommunityIcons name="twitter" size={10} color={SP_RED} />
+                    <Text style={[styles.contactText, { color: '#fff' }]} numberOfLines={1}>{details.social || '@user'}</Text>
                 </View>
+
             </View>
         </View>
         <View style={{ backgroundColor: '#fff', padding: 4, alignItems: 'center' }}>
@@ -156,7 +157,7 @@ const MinimalWhiteBar = ({ details, width }: { details: any, width: number }) =>
         <View style={{ height: 1, backgroundColor: '#eee', marginVertical: 6 }} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={{ fontSize: 10, color: '#666' }}>{details.mobile || '+91 98765 43210'}</Text>
-            <Text style={{ fontSize: 10, color: '#666' }}>{details.social || 'email@example.com'}</Text>
+
             <Text style={{ fontSize: 10, color: '#666' }}>{details.address || 'Address'}</Text>
         </View>
     </View>
@@ -167,7 +168,7 @@ const RedAccentBar = ({ details, width }: { details: any, width: number }) => (
         <View style={{ height: 4, backgroundColor: SP_RED }} />
         <View style={{ backgroundColor: '#fff', padding: 10, flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
-                <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: SP_RED, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 4 }}>
+                <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: SP_RED, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 10, alignSelf: 'flex-start', marginBottom: 4 }}>
                     <Text style={{ color: SP_RED, fontWeight: 'bold', fontSize: 14 }}>{details.name || 'Your Name'}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -178,7 +179,7 @@ const RedAccentBar = ({ details, width }: { details: any, width: number }) => (
                     </View>
                 </View>
             </View>
-            <View style={[styles.barPhotoContainer, { width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: '#fff', marginTop: -30, elevation: 4 }]}>
+            <View style={[styles.barPhotoContainer, { width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: '#fff', marginTop: -4, elevation: 4 }]}>
                 {details.photo ? (
                     <Image source={{ uri: details.photo }} style={styles.barPhoto} />
                 ) : (
@@ -256,10 +257,12 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: SP_RED,
         overflow: 'hidden',
+
         marginRight: 12,
         backgroundColor: '#fff',
     },
     barPhoto: {
+
         width: '100%',
         height: '100%',
     },
@@ -287,7 +290,7 @@ const styles = StyleSheet.create({
     },
     contactText: {
         fontSize: 9, // Smaller font
-        color: '#334155',
+        color: '#000000ff',
         marginLeft: 3,
         fontWeight: '600',
         maxWidth: 100, // Limit text width
