@@ -237,10 +237,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={styles.settingsButton}
                 onPress={() => {
-                  // Check if user has missing fields or is not verified
-                  // User request: Do not show complete profile popups here.
-                  // Just navigate to edit profile or relevant settings.
-                  router.push('/edit-profile');
+                  router.push('/verified-member');
                 }}
               >
                 <MaterialCommunityIcons name="cog" size={24} color="#fff" />

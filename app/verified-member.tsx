@@ -8,7 +8,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../utils/api';
 
 const SP_RED = '#E30512';
-const SP_GREEN = '#009933';
+
+const inputTheme = {
+    colors: {
+        primary: SP_RED,
+        onSurface: '#1e293b', // Input Text Color
+        onSurfaceVariant: '#64748b', // Label Color
+        text: '#1e293b',
+        placeholder: '#94a3b8',
+        background: '#ffffff'
+    }
+};
 
 export default function VerifiedMemberScreen() {
     const router = useRouter();
@@ -37,7 +47,7 @@ export default function VerifiedMemberScreen() {
                 const parsedUser = JSON.parse(userInfo);
                 setUser(parsedUser);
                 setEmail(parsedUser.email || '');
-                // Pre-fill if already submitted (optional, but good UX)
+                // Pre-fill
                 if (parsedUser.district) setDistrict(parsedUser.district);
                 if (parsedUser.vidhanSabha) setVidhanSabha(parsedUser.vidhanSabha);
                 if (parsedUser.isPartyMember) setIsPartyMember(parsedUser.isPartyMember);
@@ -76,6 +86,7 @@ export default function VerifiedMemberScreen() {
 
             // API URL Logic
             const url = getApiUrl();
+            console.log('Submitting verification to:', `${url}/auth/verification-request`);
 
             const response = await fetch(`${url}/auth/verification-request`, {
                 method: 'PUT',
@@ -98,7 +109,7 @@ export default function VerifiedMemberScreen() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || 'Failed to submit verification request');
+                throw new Error(data.message + (data.error ? `: ${data.error}` : '') || 'Failed to submit verification request');
             }
 
             // Update local storage
@@ -108,7 +119,11 @@ export default function VerifiedMemberScreen() {
             Alert.alert('Success', 'Verification request submitted successfully!');
             router.back();
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Something went wrong');
+            console.error('Verify error:', error);
+            const msg = error.message.includes('JSON')
+                ? 'Server Error. Check Backend Logs.'
+                : (error.message || 'Network request failed.');
+            Alert.alert('Submission Failed', msg);
         } finally {
             setLoading(false);
         }
@@ -142,6 +157,8 @@ export default function VerifiedMemberScreen() {
                                 mode="outlined"
                                 disabled
                                 style={styles.input}
+                                theme={inputTheme}
+                                textColor="#334155"
                             />
 
                             <TextInput
@@ -151,6 +168,8 @@ export default function VerifiedMemberScreen() {
                                 mode="outlined"
                                 style={styles.input}
                                 placeholder="Ex: Lucknow, Kanpur"
+                                theme={inputTheme}
+                                textColor="#1e293b"
                             />
 
                             <TextInput
@@ -160,6 +179,8 @@ export default function VerifiedMemberScreen() {
                                 mode="outlined"
                                 style={styles.input}
                                 placeholder="Ex: Lucknow Central"
+                                theme={inputTheme}
+                                textColor="#1e293b"
                             />
 
                             <TextInput
@@ -169,6 +190,8 @@ export default function VerifiedMemberScreen() {
                                 mode="outlined"
                                 style={styles.input}
                                 placeholder="Ex: 12th, Graduate, IIT"
+                                theme={inputTheme}
+                                textColor="#1e293b"
                             />
                         </Card.Content>
                     </Card>
@@ -185,11 +208,11 @@ export default function VerifiedMemberScreen() {
                                 <View style={styles.radioRow}>
                                     <View style={styles.radioItem}>
                                         <RadioButton value="Yes" color={SP_RED} />
-                                        <Text>Yes (हाँ)</Text>
+                                        <Text style={{ color: '#334155', fontWeight: '500' }}>Yes (हाँ)</Text>
                                     </View>
                                     <View style={styles.radioItem}>
                                         <RadioButton value="No" color={SP_RED} />
-                                        <Text>No (नहीं)</Text>
+                                        <Text style={{ color: '#334155', fontWeight: '500' }}>No (नहीं)</Text>
                                     </View>
                                 </View>
                             </RadioButton.Group>
@@ -203,6 +226,8 @@ export default function VerifiedMemberScreen() {
                                         mode="outlined"
                                         style={styles.input}
                                         placeholder="Ex: Karyakarta, Booth Adhyaksh"
+                                        theme={inputTheme}
+                                        textColor="#1e293b"
                                     />
 
                                     <TextInput
@@ -213,6 +238,8 @@ export default function VerifiedMemberScreen() {
                                         style={styles.input}
                                         placeholder="Ex: 2020, Jan 2019, 5 years"
                                         keyboardType="default"
+                                        theme={inputTheme}
+                                        textColor="#1e293b"
                                     />
                                 </>
                             )}
@@ -235,7 +262,7 @@ export default function VerifiedMemberScreen() {
                                             onPress={() => toggleSocialMedia(platform)}
                                             color={SP_RED}
                                         />
-                                        <Text>{platform}</Text>
+                                        <Text style={{ color: '#334155', fontWeight: '500' }}>{platform}</Text>
                                     </View>
                                 ))}
                             </View>
@@ -245,11 +272,11 @@ export default function VerifiedMemberScreen() {
                                 <View style={styles.radioRow}>
                                     <View style={styles.radioItem}>
                                         <RadioButton value="Yes" color={SP_RED} />
-                                        <Text>Yes (हाँ)</Text>
+                                        <Text style={{ color: '#334155', fontWeight: '500' }}>Yes (हाँ)</Text>
                                     </View>
                                     <View style={styles.radioItem}>
                                         <RadioButton value="No" color={SP_RED} />
-                                        <Text>No (नहीं)</Text>
+                                        <Text style={{ color: '#334155', fontWeight: '500' }}>No (नहीं)</Text>
                                     </View>
                                 </View>
                             </RadioButton.Group>
@@ -351,6 +378,7 @@ const styles = StyleSheet.create({
     radioItem: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 4
     },
     checkboxContainer: {
         flexDirection: 'row',
@@ -362,6 +390,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         width: '50%',
         marginBottom: 8,
+        gap: 4
     },
     submitButton: {
         borderRadius: 16,
