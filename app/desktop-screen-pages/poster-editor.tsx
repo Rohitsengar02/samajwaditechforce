@@ -26,16 +26,18 @@ import { getApiUrl } from '../../utils/api';
 import { TEMPLATES, RenderBottomBar } from '../../components/posteredit/BottomBarTemplates';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadHtml2Canvas } from '../../utils/loadHtml2Canvas';
 
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
+const SP_GREEN = '#009933';
 const BANNER_HEIGHT = 80;
 const API_URL = getApiUrl();
 
 import DesktopHeader from '../../components/DesktopHeader';
 
-type ToolType = 'text' | 'image' | 'layout' | 'banner' | 'filter' | 'sticker';
+type ToolType = 'text' | 'image' | 'layout' | 'banner' | 'filter' | 'sticker' | 'customize';
 
 interface EditorElement {
     id: string;
@@ -49,6 +51,9 @@ interface EditorElement {
     color?: string;
     fontSize?: number;
     fontFamily?: string;
+    letterSpacing?: number;
+    lineHeight?: number;
+    backgroundColor?: string;
 }
 
 const FONTS = ['System', 'Roboto', 'serif', 'monospace'];
@@ -94,6 +99,47 @@ export default function DesktopPosterEditor() {
     });
     const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
 
+    // Frame Customization State
+    const [frameCustomization, setFrameCustomization] = useState({
+        // Background
+        backgroundType: 'solid' as 'solid' | 'gradient',
+        backgroundColor: '#ffffff',
+        backgroundGradient: ['#E30512', '#b91c1c'],
+        backgroundOpacity: 1,
+
+        // Image
+        imageSize: 85,
+        imageBorderColor: SP_RED,
+        imageBorderWidth: 2,
+
+        // Name
+        nameFontSize: 16,
+        nameColor: '#0f172a',
+        nameBackgroundColor: 'transparent',
+
+        // Designation
+        designationFontSize: 12,
+        designationColor: '#64748b',
+        designationBackgroundColor: 'transparent',
+
+        // Mobile
+        mobileFontSize: 9,
+        mobileColor: '#000000',
+        mobileBackgroundColor: 'transparent',
+
+        // Address
+        addressFontSize: 8,
+        addressColor: '#334155',
+        addressBackgroundColor: 'transparent',
+
+        // Social
+        socialFontSize: 9,
+        socialColor: '#000000',
+        socialBackgroundColor: 'transparent',
+    });
+
+    const [selectedCustomElement, setSelectedCustomElement] = useState<string | null>(null);
+
     // Filter State
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [selectedFilter, setSelectedFilter] = useState('none');
@@ -110,12 +156,12 @@ export default function DesktopPosterEditor() {
 
     // Tools Configuration
     const tools = [
-        { id: 'layout', name: 'Layout', icon: 'aspect-ratio' },
         { id: 'banner', name: 'Posters', icon: 'image-multiple' },
         { id: 'text', name: 'Add Text', icon: 'format-text' },
         { id: 'image', name: 'Add Image', icon: 'image-plus' },
         { id: 'filter', name: 'Filters', icon: 'filter-variant' },
-        { id: 'sticker', name: 'Stickers', icon: 'sticker-emoji' },
+        { id: 'sticker', name: 'Frames', icon: 'sticker-emoji' },
+        { id: 'customize', name: 'Customize', icon: 'palette' },
     ];
 
     useEffect(() => {
@@ -137,18 +183,63 @@ export default function DesktopPosterEditor() {
     // Fetch available posters
     useEffect(() => {
         fetchPosters();
+        loadUserData();
     }, []);
+
+    const loadUserData = async () => {
+        try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+
+                // Format address if it's an object
+                let addressStr = 'Your Address';
+                if (userInfo.address) {
+                    if (typeof userInfo.address === 'string') {
+                        addressStr = userInfo.address;
+                    } else if (typeof userInfo.address === 'object') {
+                        // Convert address object to string
+                        const { street, city, state, postalCode, country } = userInfo.address;
+                        const parts = [street, city, state, postalCode, country].filter(Boolean);
+                        addressStr = parts.join(', ') || 'Your Address';
+                    }
+                }
+
+                setBottomBarDetails({
+                    name: userInfo.name || 'Your Name',
+                    designation: userInfo.designation || userInfo.role || 'Designation',
+                    mobile: userInfo.phone || '+91 XXXXX XXXXX',
+                    social: userInfo.twitter || userInfo.social || '@username',
+                    address: addressStr,
+                    photo: userInfo.profileImage || null,
+                });
+            }
+        } catch (error) {
+            console.error('Error loading user data:', error);
+        }
+    };
 
     const fetchPosters = async () => {
         setIsLoadingPosters(true);
         try {
-            const response = await fetch(`${API_URL}/api/posters`);
+            // Fetch all posters without pagination limit
+            const response = await fetch(`${API_URL}/posters?limit=1000`);
             const data = await response.json();
-            if (data.success) {
+
+            // Handle different response formats
+            if (data.posters && Array.isArray(data.posters)) {
+                setAvailablePosters(data.posters);
+            } else if (Array.isArray(data)) {
+                setAvailablePosters(data);
+            } else if (data.success && data.data) {
                 setAvailablePosters(data.data);
+            } else {
+                console.warn('Unexpected API response format:', data);
+                setAvailablePosters([]);
             }
         } catch (error) {
             console.error('Error fetching posters:', error);
+            setAvailablePosters([]);
         } finally {
             setIsLoadingPosters(false);
         }
@@ -414,10 +505,16 @@ export default function DesktopPosterEditor() {
         const panResponder = useRef(
             PanResponder.create({
                 onStartShouldSetPanResponder: () => true,
+                onStartShouldSetPanResponderCapture: () => true,
                 onMoveShouldSetPanResponder: () => true,
+                onMoveShouldSetPanResponderCapture: () => true,
+                onPanResponderTerminationRequest: () => false,
                 onPanResponderGrant: () => {
                     setIsDragging(true);
                     setSelectedElementId(element.id);
+                    if (element.type === 'text') {
+                        setSelectedTool('text');
+                    }
                     setDragStartPos({ x: element.x, y: element.y });
                     setCurrentGesture({ dx: 0, dy: 0 });
                 },
@@ -466,11 +563,10 @@ export default function DesktopPosterEditor() {
                     top: isDragging ? dragStartPos.y + currentGesture.dy : element.y,
                 }}
             >
-                <TouchableOpacity
-                    activeOpacity={1}
-                    onPress={() => setSelectedElementId(element.id)}
-                >
+                {element.type === 'text' ? (
+                    // Text elements - direct drag without TouchableOpacity
                     <Animated.View
+                        {...panResponder.panHandlers}
                         style={[
                             styles.element,
                             {
@@ -481,24 +577,31 @@ export default function DesktopPosterEditor() {
                                 borderColor: isSelected ? SP_RED : 'transparent',
                                 borderStyle: isSelected ? 'dashed' : 'solid',
                                 borderWidth: isSelected ? 2 : 0,
+                                cursor: (isDragging ? 'grabbing' : 'grab') as any,
                             }
                         ]}
                     >
                         <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
-                            {element.type === 'text' ? (
-                                <Text style={[
+                            <Text
+                                selectable={false}
+                                style={[
                                     { fontWeight: '700' },
                                     {
                                         color: element.color,
                                         fontSize: element.fontSize,
-                                        fontFamily: element.fontFamily
+                                        fontFamily: element.fontFamily,
+                                        letterSpacing: element.letterSpacing || 0,
+                                        lineHeight: element.lineHeight || (element.fontSize || 24) * 1.2,
+                                        backgroundColor: element.backgroundColor || 'transparent',
+                                        paddingHorizontal: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 0,
+                                        paddingVertical: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                        borderRadius: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                        userSelect: 'none',
                                     }
-                                ]}>
-                                    {element.content}
-                                </Text>
-                            ) : (
-                                <Image source={{ uri: element.content }} style={styles.elementImage} />
-                            )}
+                                ]}
+                            >
+                                {element.content}
+                            </Text>
                         </View>
 
                         {isSelected && (
@@ -526,14 +629,6 @@ export default function DesktopPosterEditor() {
                                     <MaterialCommunityIcons name="rotate-right" size={16} color="#fff" />
                                 </TouchableOpacity>
 
-                                {/* Bottom Left - Move/Drag Handle */}
-                                <View
-                                    {...panResponder.panHandlers}
-                                    style={[styles.controlBtn, styles.controlBtnBL]}
-                                >
-                                    <MaterialCommunityIcons name="cursor-move" size={16} color="#fff" />
-                                </View>
-
                                 {/* Bottom Right - Resize by dragging */}
                                 <View
                                     {...resizeResponder.panHandlers}
@@ -544,7 +639,75 @@ export default function DesktopPosterEditor() {
                             </>
                         )}
                     </Animated.View>
-                </TouchableOpacity>
+                ) : (
+                    // Image elements - keep TouchableOpacity for selection
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPress={() => setSelectedElementId(element.id)}
+                    >
+                        <Animated.View
+                            style={[
+                                styles.element,
+                                {
+                                    transform: [
+                                        { rotate: rotateStr },
+                                        { scale: scale }
+                                    ],
+                                    borderColor: isSelected ? SP_RED : 'transparent',
+                                    borderStyle: isSelected ? 'dashed' : 'solid',
+                                    borderWidth: isSelected ? 2 : 0,
+                                }
+                            ]}
+                        >
+                            <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
+                                <Image source={{ uri: element.content }} style={styles.elementImage} />
+                            </View>
+
+                            {isSelected && (
+                                <>
+                                    {/* Top Left - Delete */}
+                                    <TouchableOpacity
+                                        style={[styles.controlBtn, styles.controlBtnTL]}
+                                        onPress={(e) => {
+                                            e.stopPropagation();
+                                            deleteSelectedElement();
+                                        }}
+                                    >
+                                        <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                                    </TouchableOpacity>
+
+                                    {/* Top Right - Rotate 90deg */}
+                                    <TouchableOpacity
+                                        style={[styles.controlBtn, styles.controlBtnTR]}
+                                        onPress={(e) => {
+                                            e.stopPropagation();
+                                            const newRotation = (element.rotation + 90) % 360;
+                                            updateElement(element.id, { rotation: newRotation });
+                                        }}
+                                    >
+                                        <MaterialCommunityIcons name="rotate-right" size={16} color="#fff" />
+                                    </TouchableOpacity>
+
+                                    {/* Bottom Left - Move/Drag Handle (for images) */}
+                                    <View
+                                        {...panResponder.panHandlers}
+                                        style={[styles.controlBtn, styles.controlBtnBL]}
+                                    >
+                                        <MaterialCommunityIcons name="cursor-move" size={16} color="#fff" />
+                                    </View>
+
+                                    {/* Bottom Right - Resize by dragging */}
+                                    <View
+                                        {...resizeResponder.panHandlers}
+                                        style={[styles.controlBtn, styles.controlBtnBR]}
+                                    >
+                                        <MaterialCommunityIcons name="arrow-expand-all" size={16} color="#fff" />
+                                    </View>
+                                </>
+                            )}
+                        </Animated.View>
+                    </TouchableOpacity>
+                )}
             </View>
         );
     };
@@ -598,7 +761,12 @@ export default function DesktopPosterEditor() {
                 </View>
 
                 {/* Main Canvas */}
-                <View style={styles.canvasArea}>
+                <ScrollView
+                    contentContainerStyle={styles.canvasScrollContent}
+                    style={styles.canvasArea}
+                    showsVerticalScrollIndicator={true}
+                    showsHorizontalScrollIndicator={true}
+                >
                     {/* Zoom Controls */}
                     <View style={styles.zoomControls}>
                         <TouchableOpacity onPress={() => handleZoom(false)} style={styles.zoomButton}>
@@ -610,7 +778,7 @@ export default function DesktopPosterEditor() {
                         </TouchableOpacity>
                     </View>
 
-                    <View style={{ transform: [{ scale: zoomScale }] }}>
+                    <View style={{ transform: [{ scale: zoomScale }], marginVertical: 40, paddingTop: 2 }}>
                         <View
                             ref={canvasRef}
                             style={[
@@ -647,13 +815,14 @@ export default function DesktopPosterEditor() {
                                 bottom: 0,
                                 left: 0,
                                 right: 0,
-                                height: BANNER_HEIGHT,
-                                width: '100%'
+                                width: '100%',
+                                overflow: 'hidden',
                             }}>
                                 <RenderBottomBar
                                     template={selectedBottomBarTemplate}
                                     details={bottomBarDetails}
                                     width={canvasSize.w}
+                                    customization={frameCustomization}
                                 />
                                 <TouchableOpacity
                                     style={{
@@ -672,12 +841,26 @@ export default function DesktopPosterEditor() {
                             </View>
                         </View>
                     </View>
-                </View>
+                </ScrollView>
 
                 {/* Right Properties Panel */}
                 <View style={styles.rightPanel}>
                     <Text style={styles.panelTitle}>
-                        {selectedElement ? 'Properties' : selectedTool ? tools.find(t => t.id === selectedTool)?.name : 'Options'}
+                        {selectedElement
+                            ? 'Properties'
+                            : selectedTool === 'text'
+                                ? 'Add Text'
+                                : selectedTool === 'image'
+                                    ? 'Add Image'
+                                    : selectedTool === 'filter'
+                                        ? 'Filters'
+                                        : selectedTool === 'sticker'
+                                            ? 'Bottom Bar Frames'
+                                            : selectedTool === 'customize'
+                                                ? 'Customize Frame'
+                                                : selectedTool === 'banner'
+                                                    ? 'Available Posters'
+                                                    : 'Options'}
                     </Text>
 
                     {selectedElement ? (
@@ -685,7 +868,7 @@ export default function DesktopPosterEditor() {
                         <ScrollView showsVerticalScrollIndicator={false}>
                             {selectedElement.type === 'text' && (
                                 <>
-                                    <Text style={styles.propLabel}>Text</Text>
+                                    <Text style={styles.propLabel}>Text Content</Text>
                                     <TextInput
                                         style={styles.propInput}
                                         value={selectedElement.content}
@@ -693,13 +876,41 @@ export default function DesktopPosterEditor() {
                                         multiline
                                     />
 
-                                    <Text style={styles.propLabel}>Size: {selectedElement.fontSize}</Text>
+                                    <Text style={styles.propLabel}>Font Size: {selectedElement.fontSize || 24}</Text>
                                     <View style={styles.row}>
-                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { fontSize: (selectedElement.fontSize || 24) - 2 })} style={styles.propBtn}><Text>-</Text></TouchableOpacity>
-                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { fontSize: (selectedElement.fontSize || 24) + 2 })} style={styles.propBtn}><Text>+</Text></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { fontSize: Math.max(12, (selectedElement.fontSize || 24) - 2) })} style={styles.propBtn}><Text>-</Text></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { fontSize: Math.min(120, (selectedElement.fontSize || 24) + 2) })} style={styles.propBtn}><Text>+</Text></TouchableOpacity>
                                     </View>
 
-                                    <Text style={styles.propLabel}>Color</Text>
+                                    <Text style={styles.propLabel}>Font Family</Text>
+                                    <View style={styles.colorGrid}>
+                                        {FONTS.map(font => (
+                                            <TouchableOpacity
+                                                key={font}
+                                                style={[
+                                                    styles.fontButton,
+                                                    selectedElement.fontFamily === font && styles.selectedFontButton
+                                                ]}
+                                                onPress={() => updateElement(selectedElement.id, { fontFamily: font })}
+                                            >
+                                                <Text style={[styles.fontButtonText, selectedElement.fontFamily === font && styles.selectedFontButtonText]}>{font}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+                                    <Text style={styles.propLabel}>Letter Spacing: {selectedElement.letterSpacing || 0}</Text>
+                                    <View style={styles.row}>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { letterSpacing: Math.max(-5, (selectedElement.letterSpacing || 0) - 0.5) })} style={styles.propBtn}><Text>-</Text></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { letterSpacing: Math.min(20, (selectedElement.letterSpacing || 0) + 0.5) })} style={styles.propBtn}><Text>+</Text></TouchableOpacity>
+                                    </View>
+
+                                    <Text style={styles.propLabel}>Line Height: {selectedElement.lineHeight || (selectedElement.fontSize || 24) * 1.2}</Text>
+                                    <View style={styles.row}>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { lineHeight: Math.max(12, (selectedElement.lineHeight || (selectedElement.fontSize || 24) * 1.2) - 2) })} style={styles.propBtn}><Text>-</Text></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { lineHeight: Math.min(200, (selectedElement.lineHeight || (selectedElement.fontSize || 24) * 1.2) + 2) })} style={styles.propBtn}><Text>+</Text></TouchableOpacity>
+                                    </View>
+
+                                    <Text style={styles.propLabel}>Text Color</Text>
                                     <View style={styles.colorGrid}>
                                         {COLORS.map(c => (
                                             <TouchableOpacity
@@ -707,6 +918,24 @@ export default function DesktopPosterEditor() {
                                                 style={[styles.colorDot, { backgroundColor: c }, selectedElement.color === c && { borderWidth: 3, borderColor: SP_RED }]}
                                                 onPress={() => updateElement(selectedElement.id, { color: c })}
                                             />
+                                        ))}
+                                    </View>
+
+                                    <Text style={styles.propLabel}>Background Color</Text>
+                                    <View style={styles.colorGrid}>
+                                        {['transparent', '#FFFFFF', '#000000', '#E30512', '#009933', '#FFD700', '#3b82f6'].map(c => (
+                                            <TouchableOpacity
+                                                key={c}
+                                                style={[
+                                                    styles.colorDot,
+                                                    { backgroundColor: c === 'transparent' ? '#fff' : c },
+                                                    c === 'transparent' && { borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed' },
+                                                    selectedElement.backgroundColor === c && { borderWidth: 3, borderColor: SP_RED }
+                                                ]}
+                                                onPress={() => updateElement(selectedElement.id, { backgroundColor: c })}
+                                            >
+                                                {c === 'transparent' && <Text style={{ fontSize: 10 }}>T</Text>}
+                                            </TouchableOpacity>
                                         ))}
                                     </View>
                                 </>
@@ -733,12 +962,12 @@ export default function DesktopPosterEditor() {
                                 <Text style={{ color: '#fff', marginLeft: 8 }}>Delete Element</Text>
                             </TouchableOpacity>
                         </ScrollView>
-                    ) : selectedTool ? (
-                        // Show tool options when a tool is selected
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            {selectedTool === 'text' && (
+                    ) : (
+                        // Show tool-specific options based on selected tool
+                        <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }}>
+                            {selectedTool === 'text' ? (
+                                // Show only text tool options, no posters
                                 <>
-                                    <Text style={styles.sectionTitle}>Add Text</Text>
                                     <Text style={styles.helpText}>Click button below to add text to your poster</Text>
                                     <TouchableOpacity
                                         style={styles.toolActionButton}
@@ -748,11 +977,9 @@ export default function DesktopPosterEditor() {
                                         <Text style={styles.toolActionText}>Add Text Element</Text>
                                     </TouchableOpacity>
                                 </>
-                            )}
-
-                            {selectedTool === 'image' && (
+                            ) : selectedTool === 'image' ? (
+                                // Show only image tool options, no posters
                                 <>
-                                    <Text style={styles.sectionTitle}>Add Image</Text>
                                     <Text style={styles.helpText}>Choose an image from your device</Text>
                                     <TouchableOpacity
                                         style={styles.toolActionButton}
@@ -762,13 +989,11 @@ export default function DesktopPosterEditor() {
                                         <Text style={styles.toolActionText}>Choose Image</Text>
                                     </TouchableOpacity>
                                 </>
-                            )}
-
-                            {selectedTool === 'filter' && (
+                            ) : selectedTool === 'filter' ? (
+                                // Show only filters, no posters
                                 <>
-                                    <Text style={styles.sectionTitle}>Filters</Text>
                                     <Text style={styles.helpText}>Apply filters to your poster</Text>
-                                    <View style={{ gap: 12, marginTop: 16 }}>
+                                    <View style={{ gap: 12, marginTop: 8 }}>
                                         {FILTERS.map(filter => (
                                             <TouchableOpacity
                                                 key={filter.id}
@@ -790,106 +1015,329 @@ export default function DesktopPosterEditor() {
                                         ))}
                                     </View>
                                 </>
-                            )}
-
-                            {selectedTool === 'banner' && (
+                            ) : selectedTool === 'sticker' ? (
+                                // Show all frames directly, no posters
                                 <>
-                                    <Text style={styles.sectionTitle}>Available Posters</Text>
-                                    <Text style={styles.helpText}>Select a poster template to start editing</Text>
+                                    <Text style={styles.helpText}>Select a frame to add to your poster</Text>
+                                    <View style={{ gap: 16, marginTop: 12 }}>
+                                        {TEMPLATES.map(template => (
+                                            <TouchableOpacity
+                                                key={template.id}
+                                                style={[
+                                                    styles.frameCard,
+                                                    selectedBottomBarTemplate === template.id && styles.selectedFrameCard
+                                                ]}
+                                                onPress={() => {
+                                                    setSelectedBottomBarTemplate(template.id);
+                                                }}
+                                            >
+                                                <View style={styles.framePreview}>
+                                                    <RenderBottomBar
+                                                        template={template.id}
+                                                        details={bottomBarDetails}
+                                                        width={240}
+                                                    />
+                                                </View>
+                                                <Text style={[
+                                                    styles.frameOptionText,
+                                                    selectedBottomBarTemplate === template.id && styles.selectedFrameOptionText
+                                                ]}>{template.name}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </>
+                            ) : selectedTool === 'customize' ? (
+                                // Show frame customization options
+                                <>
+                                    <Text style={styles.helpText}>Customize your frame</Text>
 
+                                    {/* Element Selection Buttons */}
+                                    <View style={{ gap: 8, marginTop: 12 }}>
+                                        {['Background', 'Image', 'Name', 'Designation', 'Mobile', 'Address', 'Social'].map(element => (
+                                            <TouchableOpacity
+                                                key={element}
+                                                style={[
+                                                    styles.customElementButton,
+                                                    selectedCustomElement === element && styles.selectedCustomElementButton
+                                                ]}
+                                                onPress={() => setSelectedCustomElement(selectedCustomElement === element ? null : element)}
+                                            >
+                                                <MaterialCommunityIcons
+                                                    name={element === 'Background' ? 'palette' : element === 'Image' ? 'image' : 'text'}
+                                                    size={20}
+                                                    color={selectedCustomElement === element ? '#fff' : '#1e293b'}
+                                                />
+                                                <Text style={[
+                                                    styles.customElementButtonText,
+                                                    selectedCustomElement === element && styles.selectedCustomElementButtonText
+                                                ]}>{element}</Text>
+                                                <MaterialCommunityIcons
+                                                    name={selectedCustomElement === element ? 'chevron-up' : 'chevron-down'}
+                                                    size={20}
+                                                    color={selectedCustomElement === element ? '#fff' : '#64748b'}
+                                                />
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+                                    {/* Element-Specific Customization */}
+                                    {selectedCustomElement && (
+                                        <View style={styles.customizationPanel}>
+                                            {selectedCustomElement === 'Background' && (
+                                                <>
+                                                    <View style={styles.customSection}>
+                                                        <Text style={styles.customizeLabel}>Background Type</Text>
+                                                        <View style={styles.row}>
+                                                            <TouchableOpacity
+                                                                style={[styles.typeButton, frameCustomization.backgroundType === 'solid' && styles.activeTypeButton]}
+                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundType: 'solid' }))}
+                                                            >
+                                                                <Text style={[styles.typeButtonText, frameCustomization.backgroundType === 'solid' && styles.activeTypeButtonText]}>Solid</Text>
+                                                            </TouchableOpacity>
+                                                            <TouchableOpacity
+                                                                style={[styles.typeButton, frameCustomization.backgroundType === 'gradient' && styles.activeTypeButton]}
+                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundType: 'gradient' }))}
+                                                            >
+                                                                <Text style={[styles.typeButtonText, frameCustomization.backgroundType === 'gradient' && styles.activeTypeButtonText]}>Gradient</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+
+                                                    {frameCustomization.backgroundType === 'solid' ? (
+                                                        <View style={styles.customSection}>
+                                                            <Text style={styles.customizeLabel}>Background Color</Text>
+                                                            <View style={styles.colorGrid}>
+                                                                {['#ffffff', '#f8fafc', '#E30512', '#009933', '#FFD700', '#000000', 'transparent'].map(c => (
+                                                                    <TouchableOpacity
+                                                                        key={c}
+                                                                        style={[
+                                                                            styles.colorDot,
+                                                                            { backgroundColor: c === 'transparent' ? '#fff' : c },
+                                                                            c === 'transparent' && { borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed' },
+                                                                            frameCustomization.backgroundColor === c && { borderWidth: 3, borderColor: SP_RED }
+                                                                        ]}
+                                                                        onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundColor: c }))}
+                                                                    >
+                                                                        {c === 'transparent' && <Text style={{ fontSize: 10 }}>T</Text>}
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </View>
+                                                        </View>
+                                                    ) : (
+                                                        <View style={styles.customSection}>
+                                                            <Text style={styles.customizeLabel}>Gradient Colors</Text>
+                                                            <View style={styles.gradientGrid}>
+                                                                {[
+                                                                    { name: 'Red', colors: ['#E30512', '#b91c1c'] as const },
+                                                                    { name: 'Green', colors: ['#009933', '#15803d'] as const },
+                                                                    { name: 'Red-Green', colors: ['#E30512', '#009933'] as const },
+                                                                    { name: 'Dark', colors: ['#1e293b', '#0f172a'] as const },
+                                                                    { name: 'Gold', colors: ['#FFD700', '#FFA500'] as const },
+                                                                    { name: 'Blue', colors: ['#3b82f6', '#1e40af'] as const },
+                                                                ].map(gradient => (
+                                                                    <TouchableOpacity
+                                                                        key={gradient.name}
+                                                                        style={[
+                                                                            styles.gradientOption,
+                                                                            JSON.stringify(frameCustomization.backgroundGradient) === JSON.stringify(gradient.colors) && styles.selectedGradientOption
+                                                                        ]}
+                                                                        onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundGradient: [...gradient.colors] }))}
+                                                                    >
+                                                                        <LinearGradient colors={gradient.colors} style={styles.gradientPreview} />
+                                                                        <Text style={styles.gradientName}>{gradient.name}</Text>
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </View>
+                                                        </View>
+                                                    )}
+
+                                                    <View style={styles.customSection}>
+                                                        <Text style={styles.customizeLabel}>Opacity: {Math.round(frameCustomization.backgroundOpacity * 100)}%</Text>
+                                                        <View style={styles.row}>
+                                                            <TouchableOpacity
+                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundOpacity: Math.max(0, prev.backgroundOpacity - 0.1) }))}
+                                                                style={styles.propBtn}
+                                                            >
+                                                                <Text>-</Text>
+                                                            </TouchableOpacity>
+                                                            <View style={{ flex: 1, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, marginHorizontal: 12 }}>
+                                                                <View style={{ width: `${frameCustomization.backgroundOpacity * 100}%`, height: '100%', backgroundColor: SP_RED, borderRadius: 2 }} />
+                                                            </View>
+                                                            <TouchableOpacity
+                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundOpacity: Math.min(1, prev.backgroundOpacity + 0.1) }))}
+                                                                style={styles.propBtn}
+                                                            >
+                                                                <Text>+</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+                                                </>
+                                            )}
+
+                                            {selectedCustomElement === 'Image' && (
+                                                <>
+                                                    <View style={styles.customSection}>
+                                                        <Text style={styles.customizeLabel}>Image Size</Text>
+                                                        <View style={styles.row}>
+                                                            <TouchableOpacity
+                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, imageSize: Math.max(50, prev.imageSize - 5) }))}
+                                                                style={styles.propBtn}
+                                                            >
+                                                                <Text>-</Text>
+                                                            </TouchableOpacity>
+                                                            <Text style={styles.customizeValue}>{frameCustomization.imageSize}px</Text>
+                                                            <TouchableOpacity
+                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, imageSize: Math.min(150, prev.imageSize + 5) }))}
+                                                                style={styles.propBtn}
+                                                            >
+                                                                <Text>+</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+
+                                                    <View style={styles.customSection}>
+                                                        <Text style={styles.customizeLabel}>Border Color</Text>
+                                                        <View style={styles.colorGrid}>
+                                                            {[SP_RED, SP_GREEN, '#FFD700', '#000000', '#ffffff', 'transparent'].map(c => (
+                                                                <TouchableOpacity
+                                                                    key={c}
+                                                                    style={[
+                                                                        styles.colorDot,
+                                                                        { backgroundColor: c === 'transparent' ? '#fff' : c },
+                                                                        c === 'transparent' && { borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed' },
+                                                                        frameCustomization.imageBorderColor === c && { borderWidth: 3, borderColor: SP_RED }
+                                                                    ]}
+                                                                    onPress={() => setFrameCustomization(prev => ({ ...prev, imageBorderColor: c }))}
+                                                                >
+                                                                    {c === 'transparent' && <Text style={{ fontSize: 10 }}>T</Text>}
+                                                                </TouchableOpacity>
+                                                            ))}
+                                                        </View>
+                                                    </View>
+                                                </>
+                                            )}
+
+                                            {['Name', 'Designation', 'Mobile', 'Address', 'Social'].map(elem => {
+                                                if (selectedCustomElement !== elem) return null;
+                                                const key = elem.toLowerCase() as 'name' | 'designation' | 'mobile' | 'address' | 'social';
+                                                return (
+                                                    <View key={elem}>
+                                                        <View style={styles.customSection}>
+                                                            <Text style={styles.customizeLabel}>Font Size</Text>
+                                                            <View style={styles.row}>
+                                                                <TouchableOpacity
+                                                                    onPress={() => setFrameCustomization(prev => ({ ...prev, [`${key}FontSize`]: Math.max(6, prev[`${key}FontSize`] - 1) }))}
+                                                                    style={styles.propBtn}
+                                                                >
+                                                                    <Text>-</Text>
+                                                                </TouchableOpacity>
+                                                                <Text style={styles.customizeValue}>{frameCustomization[`${key}FontSize`]}</Text>
+                                                                <TouchableOpacity
+                                                                    onPress={() => setFrameCustomization(prev => ({ ...prev, [`${key}FontSize`]: Math.min(32, prev[`${key}FontSize`] + 1) }))}
+                                                                    style={styles.propBtn}
+                                                                >
+                                                                    <Text>+</Text>
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        </View>
+
+                                                        <View style={styles.customSection}>
+                                                            <Text style={styles.customizeLabel}>Text Color</Text>
+                                                            <View style={styles.colorGrid}>
+                                                                {['#0f172a', '#64748b', SP_RED, SP_GREEN, '#FFD700', '#ffffff', 'transparent'].map(c => (
+                                                                    <TouchableOpacity
+                                                                        key={c}
+                                                                        style={[
+                                                                            styles.colorDot,
+                                                                            { backgroundColor: c === 'transparent' ? '#fff' : c },
+                                                                            c === 'transparent' && { borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed' },
+                                                                            frameCustomization[`${key}Color`] === c && { borderWidth: 3, borderColor: SP_RED }
+                                                                        ]}
+                                                                        onPress={() => setFrameCustomization(prev => ({ ...prev, [`${key}Color`]: c }))}
+                                                                    >
+                                                                        {c === 'transparent' && <Text style={{ fontSize: 10 }}>T</Text>}
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </View>
+                                                        </View>
+
+                                                        <View style={styles.customSection}>
+                                                            <Text style={styles.customizeLabel}>Background Color</Text>
+                                                            <View style={styles.colorGrid}>
+                                                                {['transparent', '#ffffff', '#f8fafc', SP_RED, SP_GREEN, '#FFD700', '#000000'].map(c => (
+                                                                    <TouchableOpacity
+                                                                        key={c}
+                                                                        style={[
+                                                                            styles.colorDot,
+                                                                            { backgroundColor: c === 'transparent' ? '#fff' : c },
+                                                                            c === 'transparent' && { borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed' },
+                                                                            frameCustomization[`${key}BackgroundColor`] === c && { borderWidth: 3, borderColor: SP_RED }
+                                                                        ]}
+                                                                        onPress={() => setFrameCustomization(prev => ({ ...prev, [`${key}BackgroundColor`]: c }))}
+                                                                    >
+                                                                        {c === 'transparent' && <Text style={{ fontSize: 10 }}>T</Text>}
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                );
+                                            })}
+                                        </View>
+                                    )}
+                                </>
+                            ) : selectedTool === 'banner' ? (
+                                // Show posters only for banner tool
+                                <>
+                                    <Text style={styles.helpText}>Select a poster template to start editing</Text>
                                     {isLoadingPosters ? (
                                         <View style={{ padding: 40, alignItems: 'center' }}>
                                             <ActivityIndicator size="large" color={SP_RED} />
                                             <Text style={{ marginTop: 12, color: '#64748b' }}>Loading posters...</Text>
                                         </View>
                                     ) : (
-                                        <ScrollView
-                                            style={{ maxHeight: 500 }}
-                                            showsVerticalScrollIndicator={false}
-                                        >
-                                            <View style={{ gap: 12 }}>
-                                                {availablePosters.map((poster) => (
-                                                    <TouchableOpacity
-                                                        key={poster._id}
-                                                        style={[
-                                                            styles.posterItem,
-                                                            currentImage === poster.imageUrl && styles.selectedPosterItem
-                                                        ]}
-                                                        onPress={() => handlePosterSelect(poster.imageUrl)}
-                                                    >
-                                                        <Image
-                                                            source={{ uri: poster.imageUrl }}
-                                                            style={styles.posterThumbnail}
-                                                            resizeMode="cover"
+                                        <View style={{ gap: 12, marginTop: 12 }}>
+                                            {availablePosters.map((poster) => (
+                                                <TouchableOpacity
+                                                    key={poster._id}
+                                                    style={[
+                                                        styles.posterItem,
+                                                        currentImage === poster.imageUrl && styles.selectedPosterItem
+                                                    ]}
+                                                    onPress={() => handlePosterSelect(poster.imageUrl)}
+                                                >
+                                                    <Image
+                                                        source={{ uri: poster.imageUrl }}
+                                                        style={styles.posterThumbnail}
+                                                        resizeMode="cover"
+                                                    />
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.posterTitle} numberOfLines={2}>
+                                                            {poster.title}
+                                                        </Text>
+                                                        <Text style={styles.posterCategory}>
+                                                            {poster.category}
+                                                        </Text>
+                                                    </View>
+                                                    {currentImage === poster.imageUrl && (
+                                                        <MaterialCommunityIcons
+                                                            name="check-circle"
+                                                            size={24}
+                                                            color={SP_RED}
                                                         />
-                                                        <View style={{ flex: 1 }}>
-                                                            <Text style={styles.posterTitle} numberOfLines={2}>
-                                                                {poster.title}
-                                                            </Text>
-                                                            <Text style={styles.posterCategory}>
-                                                                {poster.category}
-                                                            </Text>
-                                                        </View>
-                                                        {currentImage === poster.imageUrl && (
-                                                            <MaterialCommunityIcons
-                                                                name="check-circle"
-                                                                size={24}
-                                                                color={SP_RED}
-                                                            />
-                                                        )}
-                                                    </TouchableOpacity>
-                                                ))}
-                                                {availablePosters.length === 0 && (
-                                                    <Text style={styles.emptyState}>No posters available</Text>
-                                                )}
-                                            </View>
-                                        </ScrollView>
+                                                    )}
+                                                </TouchableOpacity>
+                                            ))}
+                                            {availablePosters.length === 0 && (
+                                                <Text style={styles.emptyState}>No posters available</Text>
+                                            )}
+                                        </View>
                                     )}
                                 </>
-                            )}
-
-                            {selectedTool === 'sticker' && (
-                                <>
-                                    <Text style={styles.sectionTitle}>Bottom Bar Frames</Text>
-                                    <Text style={styles.helpText}>Add customizable bottom bar to your poster</Text>
-                                    <TouchableOpacity
-                                        style={styles.toolActionButton}
-                                        onPress={() => setShowBottomBarModal(true)}
-                                    >
-                                        <MaterialCommunityIcons name="sticker-emoji" size={24} color="#fff" />
-                                        <Text style={styles.toolActionText}>Choose Frame</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={[styles.toolActionButton, { backgroundColor: '#6366f1', marginTop: 12 }]}
-                                        onPress={() => setShowBottomBarEditForm(true)}
-                                    >
-                                        <MaterialCommunityIcons name="pencil" size={24} color="#fff" />
-                                        <Text style={styles.toolActionText}>Edit Details</Text>
-                                    </TouchableOpacity>
-                                </>
-                            )}
-
-                            {selectedTool === 'layout' && (
-                                <>
-                                    <Text style={styles.sectionTitle}>Canvas Size</Text>
-                                    <Text style={styles.helpText}>Adjust poster dimensions</Text>
-                                    <View style={{ gap: 12, marginTop: 16 }}>
-                                        <TouchableOpacity style={styles.layoutOption}>
-                                            <Text style={styles.layoutOptionText}>Portrait (3:4)</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.layoutOption}>
-                                            <Text style={styles.layoutOptionText}>Square (1:1)</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.layoutOption}>
-                                            <Text style={styles.layoutOptionText}>Landscape (4:3)</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </>
+                            ) : (
+                                <Text style={styles.emptyState}>Select a tool to see options</Text>
                             )}
                         </ScrollView>
-                    ) : (
-                        <Text style={styles.emptyState}>Select a tool or element to see options</Text>
                     )}
                 </View>
             </View>
@@ -1252,10 +1700,12 @@ const styles = StyleSheet.create({
     canvasArea: {
         flex: 1,
         backgroundColor: '#e2e8f0',
+    },
+    canvasScrollContent: {
+        flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        overflow: 'hidden',
-        position: 'relative',
+        paddingVertical: 40,
     },
     zoomControls: {
         position: 'absolute',
@@ -1593,6 +2043,64 @@ const styles = StyleSheet.create({
         color: SP_RED,
         fontWeight: '600',
     },
+    frameOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: '#f8fafc',
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+        gap: 12,
+    },
+    selectedFrameOption: {
+        borderColor: SP_RED,
+        backgroundColor: '#fff',
+    },
+    framePreview: {
+        width: 240,
+        height: 80,
+        borderRadius: 8,
+        overflow: 'visible',
+        marginVertical: 8,
+    },
+    frameOptionText: {
+        fontSize: 14,
+        color: '#1e293b',
+        fontWeight: '600',
+        textAlign: 'center',
+        marginTop: 8,
+    },
+    selectedFrameOptionText: {
+        color: SP_RED,
+        fontWeight: '700',
+    },
+    frameCard: {
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: '#f8fafc',
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+    },
+    selectedFrameCard: {
+        borderColor: SP_RED,
+        backgroundColor: '#fff',
+    },
+    customizeLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1e293b',
+        marginBottom: 8,
+    },
+    customizeValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#1e293b',
+        marginHorizontal: 16,
+        minWidth: 40,
+        textAlign: 'center',
+    },
     layoutOption: {
         padding: 16,
         borderRadius: 8,
@@ -1636,5 +2144,115 @@ const styles = StyleSheet.create({
     posterCategory: {
         fontSize: 12,
         color: '#64748b',
+    },
+    // Customization Styles
+    customElementButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 14,
+        borderRadius: 10,
+        backgroundColor: '#f8fafc',
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+    },
+    selectedCustomElementButton: {
+        backgroundColor: SP_RED,
+        borderColor: SP_RED,
+    },
+    customElementButtonText: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#1e293b',
+        marginLeft: 10,
+    },
+    selectedCustomElementButtonText: {
+        color: '#fff',
+    },
+    customizationPanel: {
+        marginTop: 12,
+        padding: 16,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    customSection: {
+        marginBottom: 16,
+    },
+    typeButton: {
+        flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        backgroundColor: '#f8fafc',
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+        marginHorizontal: 4,
+        alignItems: 'center',
+    },
+    activeTypeButton: {
+        backgroundColor: SP_RED,
+        borderColor: SP_RED,
+    },
+    typeButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1e293b',
+    },
+    activeTypeButtonText: {
+        color: '#fff',
+    },
+    gradientOption: {
+        alignItems: 'center',
+        padding: 8,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+        backgroundColor: '#fff',
+        minWidth: 80,
+    },
+    selectedGradientOption: {
+        borderColor: SP_RED,
+    },
+    gradientPreview: {
+        width: 60,
+        height: 40,
+        borderRadius: 6,
+        marginBottom: 6,
+    },
+    gradientName: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#64748b',
+        textAlign: 'center',
+    },
+    gradientGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        justifyContent: 'space-between',
+    },
+    fontButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        backgroundColor: '#f8fafc',
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+        marginBottom: 8,
+    },
+    selectedFontButton: {
+        backgroundColor: SP_RED,
+        borderColor: SP_RED,
+    },
+    fontButtonText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#1e293b',
+    },
+    selectedFontButtonText: {
+        color: '#fff',
     },
 });

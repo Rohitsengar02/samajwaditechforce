@@ -253,18 +253,18 @@ export default function DesktopHeader() {
                 <Pressable onPress={() => navigateTo('/desktop-screen-pages/home')}><TranslatedText text="Home" style={styles.navItem} /></Pressable>
                 <Pressable onPress={() => navigateTo('/desktop-screen-pages/news')}><TranslatedText text="News" style={styles.navItem} /></Pressable>
                 <Pressable onPress={() => navigateTo('/events')}><TranslatedText text="Events" style={styles.navItem} /></Pressable>
-                <Pressable onPress={() => navigateTo('/desktop-screen-pages/reels')}><TranslatedText text="Reels" style={styles.navItem} /></Pressable>
-                <Pressable onPress={() => navigateTo('/desktop-screen-pages/about')}><TranslatedText text="About" style={styles.navItem} /></Pressable>
-                <Pressable onPress={() => navigateTo('/desktop-screen-pages/volunteers')}><TranslatedText text="Volunteers" style={styles.navItem} /></Pressable>
+                <Pressable onPress={() => navigateTo('/desktop-screen-pages/posters')}><TranslatedText text="Posters" style={styles.navItem} /></Pressable>
+                <Pressable onPress={() => navigateTo('/desktop-screen-pages/training')}><TranslatedText text="Training" style={styles.navItem} /></Pressable>
+
                 <Pressable onPress={() => navigateTo('/desktop-screen-pages/daily-work')}><TranslatedText text="Daily Work" style={styles.navItem} /></Pressable>
 
-                {/* Quick Access Dropdown */}
+                {/* More Dropdown */}
                 <View style={styles.dropdownWrapper}>
                     <Pressable
                         style={styles.dropdownTrigger}
                         onPress={() => setShowMegaMenu(!showMegaMenu)}
                     >
-                        <TranslatedText text="Quick Access" style={styles.navItem} />
+                        <TranslatedText text="More" style={styles.navItem} />
                         <MaterialCommunityIcons
                             name={showMegaMenu ? "chevron-up" : "chevron-down"}
                             size={20}
@@ -275,9 +275,39 @@ export default function DesktopHeader() {
                     {showMegaMenu && (
                         <View style={styles.megaMenu}>
                             <View style={styles.megaMenuGrid}>
-                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/pages')}>
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/reels')}>
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#f59e0b15' }]}>
+                                        <MaterialCommunityIcons name="video-outline" size={24} color="#f59e0b" />
+                                    </View>
+                                    <View style={styles.megaMenuText}>
+                                        <Text style={styles.megaMenuTitle}>Reels</Text>
+                                        <Text style={styles.megaMenuSubtitle}>Watch short videos</Text>
+                                    </View>
+                                </Pressable>
+
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/volunteers')}>
                                     <View style={[styles.megaMenuIcon, { backgroundColor: '#8b5cf615' }]}>
-                                        <MaterialCommunityIcons name="layers-triple" size={24} color="#8b5cf6" />
+                                        <MaterialCommunityIcons name="account-group-outline" size={24} color="#8b5cf6" />
+                                    </View>
+                                    <View style={styles.megaMenuText}>
+                                        <Text style={styles.megaMenuTitle}>Volunteers</Text>
+                                        <Text style={styles.megaMenuSubtitle}>Join our team</Text>
+                                    </View>
+                                </Pressable>
+
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/about')}>
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#3b82f615' }]}>
+                                        <MaterialCommunityIcons name="information-outline" size={24} color="#3b82f6" />
+                                    </View>
+                                    <View style={styles.megaMenuText}>
+                                        <Text style={styles.megaMenuTitle}>About</Text>
+                                        <Text style={styles.megaMenuSubtitle}>Learn about us</Text>
+                                    </View>
+                                </Pressable>
+
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/pages')}>
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#10b98115' }]}>
+                                        <MaterialCommunityIcons name="layers-triple" size={24} color="#10b981" />
                                     </View>
                                     <View style={styles.megaMenuText}>
                                         <TranslatedText text="All Pages" style={styles.megaMenuTitle} />
@@ -285,54 +315,29 @@ export default function DesktopHeader() {
                                     </View>
                                 </Pressable>
 
-                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/posters')}>
-                                    <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_GREEN}15` }]}>
-                                        <MaterialCommunityIcons name="image-multiple" size={24} color={SP_GREEN} />
-                                    </View>
-                                    <View style={styles.megaMenuText}>
-                                        <Text style={styles.megaMenuTitle}>Posters</Text>
-                                        <Text style={styles.megaMenuSubtitle}>Download & customize</Text>
-                                    </View>
-                                </Pressable>
-                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/resources')}>
-                                    <View style={[styles.megaMenuIcon, { backgroundColor: `${SP_RED}15` }]}>
-                                        <MaterialCommunityIcons name="folder-download" size={24} color={SP_RED} />
-                                    </View>
-                                    <View style={styles.megaMenuText}>
-                                        <Text style={styles.megaMenuTitle}>Resources</Text>
-                                        <Text style={styles.megaMenuSubtitle}>Documents & Assets</Text>
-                                    </View>
-                                </Pressable>
-                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/training')}>
-                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#3B82F615' }]}>
-                                        <MaterialCommunityIcons name="school" size={24} color="#3B82F6" />
-                                    </View>
-                                    <View style={styles.megaMenuText}>
-                                        <Text style={styles.megaMenuTitle}>Training</Text>
-                                        <Text style={styles.megaMenuSubtitle}>Learn & Grow</Text>
-                                    </View>
-                                </Pressable>
                                 <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/survey')}>
-                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#3B82F615' }]}>
-                                        <MaterialCommunityIcons name="clipboard-text" size={24} color="#3B82F6" />
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#0ea5e915' }]}>
+                                        <MaterialCommunityIcons name="clipboard-text" size={24} color="#0ea5e9" />
                                     </View>
                                     <View style={styles.megaMenuText}>
                                         <Text style={styles.megaMenuTitle}>Survey</Text>
                                         <Text style={styles.megaMenuSubtitle}>Share Your Opinion</Text>
                                     </View>
                                 </Pressable>
+
                                 <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/feedback')}>
-                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#F59E0B15' }]}>
-                                        <MaterialCommunityIcons name="message-text" size={24} color="#F59E0B" />
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#f59e0b15' }]}>
+                                        <MaterialCommunityIcons name="message-text" size={24} color="#f59e0b" />
                                     </View>
                                     <View style={styles.megaMenuText}>
                                         <Text style={styles.megaMenuTitle}>Feedback</Text>
                                         <Text style={styles.megaMenuSubtitle}>Tell Us Your Thoughts</Text>
                                     </View>
                                 </Pressable>
+
                                 <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/child-protection')}>
-                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#DC262615' }]}>
-                                        <MaterialCommunityIcons name="shield-account" size={24} color="#DC2626" />
+                                    <View style={[styles.megaMenuIcon, { backgroundColor: '#dc262615' }]}>
+                                        <MaterialCommunityIcons name="shield-account" size={24} color="#dc2626" />
                                     </View>
                                     <View style={styles.megaMenuText}>
                                         <Text style={styles.megaMenuTitle}>Child Protection</Text>

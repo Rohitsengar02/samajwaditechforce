@@ -7,67 +7,152 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 export const TEMPLATES = [
-    { id: 'default', name: '' },
-    { id: 'bold_strip', name: '' },
-    { id: 'minimal_white', name: '' },
-    { id: 'red_accent', name: '' },
-    { id: 'yellow_theme', name: '' },
+    { id: 'default', name: 'Default Frame' },
+    { id: 'bold_strip', name: 'Bold Strip' },
+    { id: 'minimal_white', name: 'Minimal White' },
+    { id: 'red_accent', name: 'Red Accent' },
+    { id: 'yellow_theme', name: 'Yellow Theme' },
 ];
 
-const DefaultBar = ({ details, width }: { details: any, width: number }) => (
-    <LinearGradient
-        colors={['#fff', '#f8fafc']}
-        style={[styles.bottomBar, { width }]}
-    >
-        <View style={styles.bottomBarContent}>
-            <View style={styles.barPhotoContainer}>
-                {details.photo ? (
-                    <Image source={{ uri: details.photo }} style={styles.barPhoto} />
-                ) : (
-                    <Image
-                        source={require('../../assets/images/icon.png')}
-                        style={styles.barPhoto}
-                    />
-                )}
-            </View>
-            <View style={styles.barTextContainer}>
-                <Text style={styles.barName} numberOfLines={1}>
-                    {details.name || 'Your Name'}
-                </Text>
-                <Text style={styles.barDesignation} numberOfLines={1}>
-                    {details.designation || 'Designation'}
-                </Text>
-            </View>
-            <View style={styles.barContactContainer}>
-                <View style={styles.contactItem}>
-                    <MaterialCommunityIcons name="phone" size={10} color={SP_RED} />
-                    <Text style={styles.contactText} numberOfLines={1}>{details.mobile || '+91 XXXXX'}</Text>
-                </View>
-                <View style={styles.contactItem}>
-                    <MaterialCommunityIcons name="twitter" size={10} color={SP_RED} />
-                    <Text style={styles.contactText} numberOfLines={1}>{details.social || '@user'}</Text>
-                </View>
-            </View>
-        </View>
-        {/* Address on separate line */}
-        <View style={{ paddingHorizontal: 12, paddingBottom: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialCommunityIcons name="map-marker" size={10} color={SP_RED} />
-                <Text style={{ fontSize: 8, color: '#334155', marginLeft: 4 }} numberOfLines={1}>
-                    {details.address || 'Your Address'}
-                </Text>
-            </View>
-        </View>
-        <LinearGradient
-            colors={[SP_GREEN, '#15803d']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.partyStrip}
-        />
-    </LinearGradient>
-);
+const DefaultBar = ({ details, width, customization }: {
+    details: any;
+    width: number;
+    customization?: {
+        // Background
+        backgroundType?: 'solid' | 'gradient';
+        backgroundColor?: string;
+        backgroundGradient?: string[];
+        backgroundOpacity?: number;
 
-const ModernCurveBar = ({ details, width }: { details: any, width: number }) => (
+        // Image
+        imageSize?: number;
+        imageBorderColor?: string;
+        imageBorderWidth?: number;
+
+        // Name
+        nameFontSize?: number;
+        nameColor?: string;
+        nameBackgroundColor?: string;
+
+        // Designation
+        designationFontSize?: number;
+        designationColor?: string;
+        designationBackgroundColor?: string;
+
+        // Mobile
+        mobileFontSize?: number;
+        mobileColor?: string;
+        mobileBackgroundColor?: string;
+
+        // Address
+        addressFontSize?: number;
+        addressColor?: string;
+        addressBackgroundColor?: string;
+
+        // Social
+        socialFontSize?: number;
+        socialColor?: string;
+        socialBackgroundColor?: string;
+    };
+}) => {
+    const isSolid = customization?.backgroundType === 'solid';
+    const bgColors = isSolid
+        ? [customization?.backgroundColor || '#fff', customization?.backgroundColor || '#fff']
+        : (customization?.backgroundGradient || ['#fff', '#f8fafc']);
+
+    return (
+        <LinearGradient
+            colors={bgColors as any}
+            style={[styles.bottomBar, { width, opacity: customization?.backgroundOpacity || 1 }]}
+        >
+            <View style={styles.bottomBarContent}>
+                <View style={[
+                    styles.barPhotoContainer,
+                    {
+                        width: customization?.imageSize || 85,
+                        height: customization?.imageSize || 85,
+                        borderRadius: (customization?.imageSize || 85) / 2,
+                        borderColor: customization?.imageBorderColor || SP_RED,
+                        borderWidth: customization?.imageBorderWidth || 2,
+                    }
+                ]}>
+                    {details.photo ? (
+                        <Image source={{ uri: details.photo }} style={styles.barPhoto} />
+                    ) : (
+                        <Image
+                            source={require('../../assets/images/icon.png')}
+                            style={styles.barPhoto}
+                        />
+                    )}
+                </View>
+                <View style={styles.barTextContainer}>
+                    <Text style={[styles.barName, {
+                        fontSize: customization?.nameFontSize || 16,
+                        color: customization?.nameColor || '#0f172a',
+                        backgroundColor: customization?.nameBackgroundColor || 'transparent',
+                        borderRadius: customization?.nameBackgroundColor && customization?.nameBackgroundColor !== 'transparent' ? 6 : 0,
+                        paddingLeft: customization?.nameBackgroundColor && customization?.nameBackgroundColor !== 'transparent' ? 10 : 0,
+                        paddingRight: customization?.nameBackgroundColor && customization?.nameBackgroundColor !== 'transparent' ? 10 : 0,
+                        paddingVertical: customization?.nameBackgroundColor && customization?.nameBackgroundColor !== 'transparent' ? 2 : 0,
+                    }]} numberOfLines={1}>
+                        {details.name || 'Your Name'}
+                    </Text>
+                    <Text style={[styles.barDesignation, {
+                        fontSize: customization?.designationFontSize || 12,
+                        color: customization?.designationColor || '#64748b',
+                        backgroundColor: customization?.designationBackgroundColor || 'transparent',
+                        borderRadius: customization?.designationBackgroundColor && customization?.designationBackgroundColor !== 'transparent' ? 6 : 0,
+                        paddingLeft: customization?.designationBackgroundColor && customization?.designationBackgroundColor !== 'transparent' ? 10 : 0,
+                        paddingRight: customization?.designationBackgroundColor && customization?.designationBackgroundColor !== 'transparent' ? 10 : 0,
+                        paddingVertical: customization?.designationBackgroundColor && customization?.designationBackgroundColor !== 'transparent' ? 2 : 0,
+                    }]} numberOfLines={1}>
+                        {details.designation || 'Designation'}
+                    </Text>
+                </View>
+                <View style={styles.barContactContainer}>
+                    <View style={styles.contactItem}>
+                        <MaterialCommunityIcons name="phone" size={10} color={SP_RED} />
+                        <Text style={[styles.contactText, {
+                            fontSize: customization?.mobileFontSize || 9,
+                            color: customization?.mobileColor || '#000000',
+                            backgroundColor: customization?.mobileBackgroundColor || 'transparent',
+                        }]} numberOfLines={1}>{details.mobile || '+91 XXXXX'}</Text>
+                    </View>
+                    <View style={styles.contactItem}>
+                        <MaterialCommunityIcons name="twitter" size={10} color={SP_RED} />
+                        <Text style={[styles.contactText, {
+                            fontSize: customization?.socialFontSize || 9,
+                            color: customization?.socialColor || '#000000',
+                            backgroundColor: customization?.socialBackgroundColor || 'transparent',
+                        }]} numberOfLines={1}>{details.social || '@user'}</Text>
+                    </View>
+                </View>
+            </View>
+            {/* Address on separate line */}
+            <View style={{ paddingHorizontal: 12, paddingBottom: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="map-marker" size={10} color={SP_RED} />
+                    <Text style={{
+                        fontSize: customization?.addressFontSize || 8,
+                        color: customization?.addressColor || '#334155',
+                        backgroundColor: customization?.addressBackgroundColor || 'transparent',
+                        marginLeft: 4
+                    }} numberOfLines={1}>
+                        {details.address || 'Your Address'}
+                    </Text>
+                </View>
+            </View>
+            <LinearGradient
+                colors={[SP_GREEN, '#15803d']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.partyStrip}
+            />
+        </LinearGradient>
+    );
+};
+
+const ModernCurveBar = ({ details, width, customization }: { details: any; width: number; customization?: any }) => (
     <View style={[styles.bottomBar, { width, backgroundColor: 'transparent' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
             <View style={{ backgroundColor: '#fff', borderTopRightRadius: 30, padding: 8, paddingRight: 20 }}>
@@ -100,7 +185,7 @@ const ModernCurveBar = ({ details, width }: { details: any, width: number }) => 
     </View>
 );
 
-const BoldStripBar = ({ details, width }: { details: any, width: number }) => (
+const BoldStripBar = ({ details, width, customization }: { details: any; width: number; customization?: any }) => (
     <View style={[styles.bottomBar, { width }]}>
         <View style={{ backgroundColor: '#1e3a8a', padding: 10, flexDirection: 'row', alignItems: 'center' }}>
             <View style={[styles.barPhotoContainer, { borderColor: '#fbbf24', width: 100, height: 100, borderRadius: 50 }]}>
@@ -132,7 +217,7 @@ const BoldStripBar = ({ details, width }: { details: any, width: number }) => (
     </View>
 );
 
-const MinimalWhiteBar = ({ details, width }: { details: any, width: number }) => (
+const MinimalWhiteBar = ({ details, width, customization }: { details: any; width: number; customization?: any }) => (
     <View style={[styles.bottomBar, { width, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', padding: 10 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -163,7 +248,7 @@ const MinimalWhiteBar = ({ details, width }: { details: any, width: number }) =>
     </View>
 );
 
-const RedAccentBar = ({ details, width }: { details: any, width: number }) => (
+const RedAccentBar = ({ details, width, customization }: { details: any; width: number; customization?: any }) => (
     <View style={[styles.bottomBar, { width }]}>
         <View style={{ height: 4, backgroundColor: SP_RED }} />
         <View style={{ backgroundColor: '#fff', padding: 10, flexDirection: 'row', alignItems: 'center' }}>
@@ -194,7 +279,7 @@ const RedAccentBar = ({ details, width }: { details: any, width: number }) => (
     </View>
 );
 
-const YellowThemeBar = ({ details, width }: { details: any, width: number }) => (
+const YellowThemeBar = ({ details, width, customization }: { details: any; width: number; customization?: any }) => (
     <View style={[styles.bottomBar, { width }]}>
         <View style={{ backgroundColor: '#FFD700', padding: 10, borderTopLeftRadius: 20, borderTopRightRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -221,20 +306,93 @@ const YellowThemeBar = ({ details, width }: { details: any, width: number }) => 
     </View>
 );
 
-export const RenderBottomBar = ({ template, details, width }: { template: string, details: any, width: number }) => {
+export const RenderBottomBar = ({
+    template,
+    details,
+    width,
+    customization
+}: {
+    template: string;
+    details: any;
+    width: number;
+    customization?: {
+        // Background
+        backgroundType?: 'solid' | 'gradient';
+        backgroundColor?: string;
+        backgroundGradient?: string[];
+        backgroundOpacity?: number;
+
+        // Image
+        imageSize?: number;
+        imageBorderColor?: string;
+        imageBorderWidth?: number;
+
+        // Name
+        nameFontSize?: number;
+        nameColor?: string;
+        nameBackgroundColor?: string;
+
+        // Designation
+        designationFontSize?: number;
+        designationColor?: string;
+        designationBackgroundColor?: string;
+
+        // Mobile
+        mobileFontSize?: number;
+        mobileColor?: string;
+        mobileBackgroundColor?: string;
+
+        // Address
+        addressFontSize?: number;
+        addressColor?: string;
+        addressBackgroundColor?: string;
+
+        // Social
+        socialFontSize?: number;
+        socialColor?: string;
+        socialBackgroundColor?: string;
+    };
+}) => {
+    const defaultCustomization = {
+        backgroundType: 'solid' as 'solid' | 'gradient',
+        backgroundColor: '#ffffff',
+        backgroundGradient: ['#E30512', '#b91c1c'],
+        backgroundOpacity: 1,
+        imageSize: 85,
+        imageBorderColor: SP_RED,
+        imageBorderWidth: 2,
+        nameFontSize: 16,
+        nameColor: '#0f172a',
+        nameBackgroundColor: 'transparent',
+        designationFontSize: 12,
+        designationColor: '#64748b',
+        designationBackgroundColor: 'transparent',
+        mobileFontSize: 9,
+        mobileColor: '#000000',
+        mobileBackgroundColor: 'transparent',
+        addressFontSize: 8,
+        addressColor: '#334155',
+        addressBackgroundColor: 'transparent',
+        socialFontSize: 9,
+        socialColor: '#000000',
+        socialBackgroundColor: 'transparent',
+    };
+
+    const custom = { ...defaultCustomization, ...customization };
+
     switch (template) {
         case 'modern_curve':
-            return <ModernCurveBar details={details} width={width} />;
+            return <ModernCurveBar details={details} width={width} customization={custom} />;
         case 'bold_strip':
-            return <BoldStripBar details={details} width={width} />;
+            return <BoldStripBar details={details} width={width} customization={custom} />;
         case 'minimal_white':
-            return <MinimalWhiteBar details={details} width={width} />;
+            return <MinimalWhiteBar details={details} width={width} customization={custom} />;
         case 'red_accent':
-            return <RedAccentBar details={details} width={width} />;
+            return <RedAccentBar details={details} width={width} customization={custom} />;
         case 'yellow_theme':
-            return <YellowThemeBar details={details} width={width} />;
+            return <YellowThemeBar details={details} width={width} customization={custom} />;
         default:
-            return <DefaultBar details={details} width={width} />;
+            return <DefaultBar details={details} width={width} customization={custom} />;
     }
 };
 

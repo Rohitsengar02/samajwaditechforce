@@ -63,29 +63,7 @@ const ProfileOption = ({ icon, title, subtitle, onPress, showArrow = true, delay
   );
 };
 
-// Stats Card
-const StatCard = ({ icon, value, label, color, delay }: any) => {
-  const scaleAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 8,
-      delay,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  return (
-    <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}>
-      <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
-        <MaterialCommunityIcons name={icon} size={28} color={color} />
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </Animated.View>
-  );
-};
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, RefreshControl } from 'react-native';
@@ -208,12 +186,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const stats = [
-    { icon: 'newspaper', value: '24', label: 'News Read', color: SP_RED },
-    { icon: 'image-multiple', value: '12', label: 'Downloads', color: SP_GREEN },
-    { icon: 'school', value: '3', label: 'Completed', color: '#3B82F6' },
-    { icon: 'calendar-check', value: '8', label: 'Events', color: '#F59E0B' },
-  ];
+
 
   return (
     <View style={styles.container}>
@@ -337,16 +310,58 @@ export default function ProfileScreen() {
           </LinearGradient>
 
           <View style={[styles.content, isDesktop && styles.desktopContent]}>
-            {/* Stats Grid */}
-            <View style={styles.statsSection}>
-              <Text style={styles.sectionTitle}>
-                <TranslatedText>Your Activity</TranslatedText>
-              </Text>
-              <View style={styles.statsGrid}>
-                {stats.map((stat, idx) => (
-                  <StatCard key={idx} {...stat} delay={idx * 100} />
-                ))}
-              </View>
+            {/* Leaderboard Points Section */}
+            <View style={styles.pointsSection}>
+              <LinearGradient
+                colors={['#FFD700', '#FFA500', '#FF8C00']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.pointsCard}
+              >
+                {/* Decorative Elements */}
+                <View style={styles.decorativeBg}>
+                  <MaterialCommunityIcons name="trophy" size={180} color="rgba(255,255,255,0.1)" />
+                </View>
+
+                <View style={styles.pointsContent}>
+                  <View style={styles.pointsHeader}>
+                    <View style={styles.trophyContainer}>
+                      <MaterialCommunityIcons name="trophy-award" size={32} color="#fff" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pointsLabel}>Leaderboard Points</Text>
+                      <Text style={styles.pointsSubLabel}>Your contribution score</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.pointsValueContainer}>
+                    <Text style={styles.pointsValue}>{user?.points || 0}</Text>
+                    <Text style={styles.pointsSuffix}>pts</Text>
+                  </View>
+
+                  <View style={styles.pointsFooter}>
+                    <View style={styles.pointsBadge}>
+                      <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+                      <Text style={styles.pointsBadgeText}>
+                        {user?.points >= 1000 ? 'Gold Member' : user?.points >= 500 ? 'Silver Member' : user?.points >= 100 ? 'Bronze Member' : 'Rising Star'}
+                      </Text>
+                    </View>
+                    <View style={styles.pointsProgress}>
+                      <View style={styles.progressBar}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${Math.min(((user?.points || 0) % 1000) / 10, 100)}%` }
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.progressText}>
+                        {user?.points >= 1000 ? 'Max Level!' : `${1000 - ((user?.points || 0) % 1000)} points to next level`}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </LinearGradient>
             </View>
 
             {/* Account Section */}
@@ -665,7 +680,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-  statsSection: {
+  pointsSection: {
     marginBottom: 32,
   },
   sectionTitle: {
@@ -674,41 +689,116 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     marginBottom: 16,
   },
-  statsGrid: {
+  pointsCard: {
+    borderRadius: 24,
+    padding: 24,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  decorativeBg: {
+    position: 'absolute',
+    bottom: -40,
+    right: -40,
+    opacity: 1,
+  },
+  pointsContent: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  pointsHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statCard: {
-    width: (width - 60) / 2,
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    gap: 16,
+    marginBottom: 24,
   },
-  statIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+  trophyContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
-  statValue: {
-    fontSize: 28,
+  pointsLabel: {
+    fontSize: 20,
     fontWeight: '900',
-    color: '#1e293b',
-    marginBottom: 4,
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  statLabel: {
-    fontSize: 13,
-    color: '#64748b',
+  pointsSubLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
     fontWeight: '600',
+    marginTop: 2,
+  },
+  pointsValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    marginVertical: 20,
+  },
+  pointsValue: {
+    fontSize: 72,
+    fontWeight: '900',
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 8,
+  },
+  pointsSuffix: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.9)',
+    marginLeft: 8,
+  },
+  pointsFooter: {
+    gap: 16,
+  },
+  pointsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  pointsBadgeText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FF8C00',
+  },
+  pointsProgress: {
+    gap: 8,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.95)',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   section: {
     marginBottom: 32,

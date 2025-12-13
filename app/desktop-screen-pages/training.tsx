@@ -1,71 +1,198 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Image } from 'react-native';
-import { Text } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { Text, Searchbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { getApiUrl } from '../../utils/api';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
 
+// Phase gradients with unique colors
+const PHASE_GRADIENTS = [
+    { colors: ['#E30512', '#b91c1c'] as const, icon: 'numeric-1-circle' },
+    { colors: ['#009933', '#15803d'] as const, icon: 'numeric-2-circle' },
+    { colors: ['#FFD700', '#F59E0B'] as const, icon: 'numeric-3-circle' },
+    { colors: ['#3b82f6', '#1e40af'] as const, icon: 'numeric-4-circle' },
+];
+
 export default function DesktopTraining() {
     const router = useRouter();
+    const [modules, setModules] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
-    const courses = [
-        { id: 1, title: 'Political Leadership 101', duration: '6 weeks', students: 245, level: 'Beginner', image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=400', progress: 0 },
-        { id: 2, title: 'Community Organizing', duration: '4 weeks', students: 189, level: 'Intermediate', image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400', progress: 35 },
-        { id: 3, title: 'Social Media Campaign Management', duration: '3 weeks', students: 312, level: 'Advanced', image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400', progress: 100 },
-        { id: 4, title: 'Public Speaking Skills', duration: '5 weeks', students: 276, level: 'Beginner', image: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=400', progress: 0 },
-        { id: 5, title: 'Electoral Strategy & Planning', duration: '8 weeks', students: 156, level: 'Advanced', image: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=400', progress: 60 },
-        { id: 6, title: 'Grassroots Mobilization', duration: '4 weeks', students: 203, level: 'Intermediate', image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400', progress: 0 },
-    ];
+    useEffect(() => {
+        fetchTrainingModules();
+    }, []);
+
+    const fetchTrainingModules = async () => {
+        try {
+            const url = getApiUrl();
+            const res = await fetch(`${url}/training`);
+            const data = await res.json();
+            if (data.modules && Array.isArray(data.modules)) {
+                setModules(data.modules);
+            } else if (Array.isArray(data)) {
+                setModules(data);
+            }
+        } catch (error) {
+            console.error('Error fetching training modules:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Group modules by phase
+    const groupedModules = modules.reduce((acc: any, module) => {
+        const phase = module.phase || 'Other';
+        if (!acc[phase]) {
+            acc[phase] = [];
+        }
+        acc[phase].push(module);
+        return acc;
+    }, {});
+
+    // Always show 4 default phases, even if no modules
+    const DEFAULT_PHASES = ['Phase 1', 'Phase 2', 'Phase 3', 'Phase 4'];
+
+    // Ensure all default phases exist
+    DEFAULT_PHASES.forEach(phase => {
+        if (!groupedModules[phase]) {
+            groupedModules[phase] = [];
+        }
+    });
+
+    // Get phases sorted (default phases first, then others)
+    const phases = Object.keys(groupedModules).sort((a, b) => {
+        const phaseNumberA = a.match(/\d+/)?.[0];
+        const phaseNumberB = b.match(/\d+/)?.[0];
+
+        if (phaseNumberA && phaseNumberB) {
+            return parseInt(phaseNumberA) - parseInt(phaseNumberB);
+        }
+        if (phaseNumberA) return -1;
+        if (phaseNumberB) return 1;
+        return a.localeCompare(b);
+    });
+
+    const handlePhasePress = (phase: string, index: number) => {
+        const moduleCount = groupedModules[phase]?.length || 0;
+        router.push({
+            pathname: '/desktop-screen-pages/training-phase',
+            params: {
+                phase: phase,
+                moduleCount: moduleCount,
+                gradientIndex: index % PHASE_GRADIENTS.length
+            }
+        } as any);
+    };
 
     return (
         <View style={styles.container}>
             <DesktopHeader />
-            <ScrollView>
-                <View style={styles.hero}>
-                    <View style={styles.badge}><MaterialCommunityIcons name="school" size={18} color={SP_RED} /><Text style={styles.badgeText}>Training Center</Text></View>
-                    <Text style={styles.heroTitle}>Learn & Lead</Text>
-                    <Text style={styles.heroSubtitle}>Build skills to become effective leaders and changemakers</Text>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
+                <View style={styles.pageHeader}>
+                    <View style={styles.headerContent}>
+                        <View style={styles.badge}>
+                            <MaterialCommunityIcons name="school" size={18} color={SP_RED} />
+                            <Text style={styles.badgeText}>Training Center</Text>
+                        </View>
+                        <Text style={styles.headerTitle}>Learn & Lead</Text>
+                        <Text style={styles.headerSubtitle}>Build skills to become effective leaders and changemakers</Text>
+                    </View>
                 </View>
 
-                <View style={styles.coursesSection}>
-                    <Text style={styles.sectionTitle}>Available Courses</Text>
-                    <View style={styles.coursesGrid}>
-                        {courses.map((course) => (
-                            <Pressable key={course.id} style={styles.courseCard}>
-                                <Image source={{ uri: course.image }} style={styles.courseImage} resizeMode="cover" />
-                                <View style={styles.levelBadge}><Text style={styles.levelText}>{course.level}</Text></View>
-                                <View style={styles.courseContent}>
-                                    <Text style={styles.courseTitle}>{course.title}</Text>
-                                    <View style={styles.courseStats}>
-                                        <View style={styles.courseStat}>
-                                            <MaterialCommunityIcons name="clock-outline" size={16} color="#64748b" />
-                                            <Text style={styles.courseStatText}>{course.duration}</Text>
-                                        </View>
-                                        <View style={styles.courseStat}>
-                                            <MaterialCommunityIcons name="account-group" size={16} color="#64748b" />
-                                            <Text style={styles.courseStatText}>{course.students} students</Text>
-                                        </View>
-                                    </View>
-                                    {course.progress > 0 ? (
-                                        <View style={styles.progressSection}>
-                                            <View style={styles.progressBar}>
-                                                <View style={[styles.progressFill, { width: `${course.progress}%` }]} />
-                                            </View>
-                                            <Text style={styles.progressText}>{course.progress}% Complete</Text>
-                                        </View>
-                                    ) : (
-                                        <Pressable style={styles.enrollBtn}>
-                                            <Text style={styles.enrollBtnText}>Enroll Now</Text>
+                <View style={styles.content}>
+                    {loading ? (
+                        <View style={{ paddingVertical: 80, alignItems: 'center' }}>
+                            <ActivityIndicator size="large" color={SP_RED} />
+                            <Text style={{ marginTop: 16, fontSize: 16, color: '#64748b' }}>Loading training modules...</Text>
+                        </View>
+                    ) : phases.length === 0 ? (
+                        <View style={{ paddingVertical: 80, alignItems: 'center' }}>
+                            <MaterialCommunityIcons name="school-outline" size={64} color="#cbd5e1" />
+                            <Text style={{ marginTop: 16, fontSize: 18, fontWeight: '600', color: '#64748b' }}>
+                                No training phases available
+                            </Text>
+                        </View>
+                    ) : (
+                        <>
+                            <Text style={styles.sectionTitle}>Training Phases</Text>
+                            <Text style={styles.sectionSubtitle}>
+                                Select a phase to view available modules and start your learning journey
+                            </Text>
+
+                            <View style={styles.phasesGrid}>
+                                {phases.map((phase, index) => {
+                                    const gradient = PHASE_GRADIENTS[index % PHASE_GRADIENTS.length];
+                                    const phaseNumber = phase.match(/\d+/)?.[0] || (index + 1);
+                                    const moduleCount = groupedModules[phase]?.length || 0;
+
+                                    return (
+                                        <Pressable
+                                            key={phase}
+                                            onPress={() => handlePhasePress(phase, index)}
+                                        >
+                                            <LinearGradient
+                                                colors={gradient.colors}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                                style={styles.phaseCard}
+                                            >
+                                                <View style={styles.phaseCardHeader}>
+                                                    <View style={styles.phaseIconContainer}>
+                                                        <MaterialCommunityIcons
+                                                            name={gradient.icon as any}
+                                                            size={48}
+                                                            color="rgba(255,255,255,0.9)"
+                                                        />
+                                                    </View>
+                                                    <View style={styles.phaseArrow}>
+                                                        <MaterialCommunityIcons
+                                                            name="arrow-right"
+                                                            size={24}
+                                                            color="rgba(255,255,255,0.8)"
+                                                        />
+                                                    </View>
+                                                </View>
+
+                                                <View style={styles.phaseCardContent}>
+                                                    <Text style={styles.phaseCardTitle}>{phase}</Text>
+                                                    <Text style={styles.phaseCardSubtitle}>
+                                                        {moduleCount} {moduleCount === 1 ? 'Module' : 'Modules'}
+                                                    </Text>
+                                                </View>
+
+                                                <View style={styles.phaseCardFooter}>
+                                                    <View style={styles.moduleIndicators}>
+                                                        {Array.from({ length: Math.min(moduleCount, 5) }).map((_, i) => (
+                                                            <View key={i} style={styles.moduleIndicator} />
+                                                        ))}
+                                                        {moduleCount > 5 && (
+                                                            <Text style={styles.moreModules}>+{moduleCount - 5}</Text>
+                                                        )}
+                                                    </View>
+                                                </View>
+
+                                                {/* Decorative Pattern */}
+                                                <View style={styles.decorativePattern}>
+                                                    <MaterialCommunityIcons
+                                                        name="school"
+                                                        size={120}
+                                                        color="rgba(255,255,255,0.1)"
+                                                    />
+                                                </View>
+                                            </LinearGradient>
                                         </Pressable>
-                                    )}
-                                </View>
-                            </Pressable>
-                        ))}
-                    </View>
+                                    );
+                                })}
+                            </View>
+                        </>
+                    )}
                 </View>
             </ScrollView>
         </View>
@@ -73,37 +200,150 @@ export default function DesktopTraining() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8f9fa' },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 60, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', zIndex: 100 },
-    headerLogo: { fontSize: 24, fontWeight: '900', color: SP_RED },
-    navMenu: { flexDirection: 'row', alignItems: 'center', gap: 32 },
-    navItem: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    langSwitch: { fontSize: 14, fontWeight: '600', color: '#64748b', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#f1f5f9' },
-    loginBtn: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
-    signupBtn: { backgroundColor: SP_RED, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
-    signupBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    hero: { backgroundColor: '#fef2f2', paddingHorizontal: 60, paddingVertical: 80 },
-    badge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 20 },
-    badgeText: { fontSize: 14, color: SP_RED, fontWeight: '600' },
-    heroTitle: { fontSize: 48, fontWeight: '900', color: '#1e293b', marginBottom: 16 },
-    heroSubtitle: { fontSize: 18, color: '#64748b' },
-    coursesSection: { padding: 60 },
-    sectionTitle: { fontSize: 32, fontWeight: '800', color: '#1e293b', marginBottom: 32 },
-    coursesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 24 },
-    courseCard: { width: '31%', backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
-    courseImage: { width: '100%', height: 180 },
-    levelBadge: { position: 'absolute', top: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
-    levelText: { fontSize: 12, fontWeight: '600', color: '#fff' },
-    courseContent: { padding: 20 },
-    courseTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 16, lineHeight: 24 },
-    courseStats: { gap: 12, marginBottom: 20 },
-    courseStat: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    courseStatText: { fontSize: 14, color: '#64748b' },
-    progressSection: { gap: 8 },
-    progressBar: { height: 6, backgroundColor: '#e5e7eb', borderRadius: 3, overflow: 'hidden' },
-    progressFill: { height: '100%', backgroundColor: SP_GREEN, borderRadius: 3 },
-    progressText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
-    enrollBtn: { backgroundColor: SP_RED, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-    enrollBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+    container: {
+        flex: 1,
+        backgroundColor: '#f8fafc'
+    },
+    pageHeader: {
+        backgroundColor: '#fef2f2',
+        paddingVertical: 60,
+        borderBottomWidth: 1,
+        borderBottomColor: '#fecaca',
+    },
+    headerContent: {
+        maxWidth: 1200,
+        width: '100%',
+        alignSelf: 'center',
+        paddingHorizontal: 20,
+    },
+    badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    badgeText: {
+        fontSize: 14,
+        color: SP_RED,
+        fontWeight: '600'
+    },
+    headerTitle: {
+        fontSize: 48,
+        fontWeight: '900',
+        color: '#1e293b',
+        marginBottom: 12
+    },
+    headerSubtitle: {
+        fontSize: 18,
+        color: '#64748b',
+        maxWidth: 600,
+    },
+    content: {
+        maxWidth: 1200,
+        width: '100%',
+        alignSelf: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 40,
+    },
+    sectionTitle: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: '#1e293b',
+        marginBottom: 8,
+    },
+    sectionSubtitle: {
+        fontSize: 16,
+        color: '#64748b',
+        marginBottom: 40,
+    },
+    phasesGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 24,
+    },
+    phaseCard: {
+        width: 380,
+        height: 280,
+        borderRadius: 20,
+        padding: 32,
+        position: 'relative',
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    phaseCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 'auto',
+    },
+    phaseIconContainer: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    phaseArrow: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    phaseCardContent: {
+        marginTop: 24,
+    },
+    phaseCardTitle: {
+        fontSize: 28,
+        fontWeight: '900',
+        color: '#fff',
+        marginBottom: 8,
+    },
+    phaseCardSubtitle: {
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.9)',
+        fontWeight: '600',
+    },
+    phaseCardFooter: {
+        marginTop: 24,
+    },
+    moduleIndicators: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    moduleIndicator: {
+        width: 32,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: 'rgba(255,255,255,0.6)',
+    },
+    moreModules: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: 'rgba(255,255,255,0.9)',
+        marginLeft: 4,
+    },
+    decorativePattern: {
+        position: 'absolute',
+        bottom: -30,
+        right: -30,
+        opacity: 1,
+    },
 });

@@ -18,7 +18,7 @@ export default function DesktopPosters() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
 
-    const categories = ['All', 'Campaign', 'Festival', 'Quotes', 'Events'];
+
 
     useEffect(() => {
         fetchPosters();
@@ -41,36 +41,13 @@ export default function DesktopPosters() {
         }
     };
 
-    const [selectedPoster, setSelectedPoster] = useState<any | null>(null);
-    const [modalVisible, setModalVisible] = useState(false);
-
     const handlePosterPress = (poster: any) => {
-        setSelectedPoster(poster);
-        setModalVisible(true);
-    };
-
-    const handleNormalEdit = () => {
-        if (!selectedPoster) return;
-        setModalVisible(false);
-        router.push({
-            pathname: '/desktop-screen-pages/normal-edit',
-            params: {
-                id: selectedPoster._id,
-                imageUrl: selectedPoster.imageUrl,
-                title: selectedPoster.title
-            }
-        } as any);
-    };
-
-    const handleDetailedEdit = () => {
-        if (!selectedPoster) return;
-        setModalVisible(false);
         router.push({
             pathname: '/desktop-screen-pages/poster-editor',
             params: {
-                id: selectedPoster._id,
-                imageUrl: selectedPoster.imageUrl,
-                title: selectedPoster.title
+                id: poster._id,
+                imageUrl: poster.imageUrl,
+                title: poster.title
             }
         } as any);
     };
@@ -99,19 +76,7 @@ export default function DesktopPosters() {
                             value={searchQuery}
                             style={styles.searchBar}
                         />
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categories}>
-                            {categories.map(cat => (
-                                <Chip
-                                    key={cat}
-                                    selected={selectedCategory === cat}
-                                    onPress={() => setSelectedCategory(cat)}
-                                    style={styles.chip}
-                                    selectedColor={SP_RED}
-                                >
-                                    {cat}
-                                </Chip>
-                            ))}
-                        </ScrollView>
+
                     </View>
 
                     {loading ? (
@@ -132,38 +97,7 @@ export default function DesktopPosters() {
                 </View>
             </ScrollView>
 
-            {/* Selection Modal */}
-            {modalVisible && (
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Choose Edit Mode</Text>
-                            <Pressable onPress={() => setModalVisible(false)}>
-                                <MaterialCommunityIcons name="close" size={24} color="#64748b" />
-                            </Pressable>
-                        </View>
-                        <Text style={styles.modalSubtitle}>How would you like to edit this poster?</Text>
 
-                        <View style={styles.modalOptions}>
-                            <Pressable style={styles.modalOptionCard} onPress={handleNormalEdit}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#e0f2fe' }]}>
-                                    <MaterialCommunityIcons name="pencil" size={32} color="#0284c7" />
-                                </View>
-                                <Text style={styles.optionTitle}>Normal Edit</Text>
-
-                            </Pressable>
-
-                            <Pressable style={styles.modalOptionCard} onPress={handleDetailedEdit}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#f0fdf4' }]}>
-                                    <MaterialCommunityIcons name="palette" size={32} color="#16a34a" />
-                                </View>
-                                <Text style={styles.optionTitle}>Detailed Edit</Text>
-
-                            </Pressable>
-                        </View>
-                    </View>
-                </View>
-            )}
         </View>
     );
 }
