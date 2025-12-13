@@ -103,7 +103,7 @@ const ModernCurveBar = ({ details, width }: { details: any, width: number }) => 
 const BoldStripBar = ({ details, width }: { details: any, width: number }) => (
     <View style={[styles.bottomBar, { width }]}>
         <View style={{ backgroundColor: '#1e3a8a', padding: 10, flexDirection: 'row', alignItems: 'center' }}>
-            <View style={[styles.barPhotoContainer, { borderColor: '#fbbf24', width: 60, height: 60, borderRadius: 30 }]}>
+            <View style={[styles.barPhotoContainer, { borderColor: '#fbbf24', width: 100, height: 100, borderRadius: 50 }]}>
                 {details.photo ? (
                     <Image source={{ uri: details.photo }} style={styles.barPhoto} />
                 ) : (
@@ -136,7 +136,7 @@ const MinimalWhiteBar = ({ details, width }: { details: any, width: number }) =>
     <View style={[styles.bottomBar, { width, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', padding: 10 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={[styles.barPhotoContainer, { width: 40, height: 40, borderRadius: 20, marginRight: 8 }]}>
+                <View style={[styles.barPhotoContainer, { width: 85, height: 85, borderRadius: 42.5, marginRight: 12 }]}>
                     {details.photo ? (
                         <Image source={{ uri: details.photo }} style={styles.barPhoto} />
                     ) : (
@@ -179,7 +179,7 @@ const RedAccentBar = ({ details, width }: { details: any, width: number }) => (
                     </View>
                 </View>
             </View>
-            <View style={[styles.barPhotoContainer, { width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: '#fff', marginTop: -4, elevation: 4 }]}>
+            <View style={[styles.barPhotoContainer, { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#fff', marginTop: -4, elevation: 4 }]}>
                 {details.photo ? (
                     <Image source={{ uri: details.photo }} style={styles.barPhoto} />
                 ) : (
@@ -251,9 +251,9 @@ const styles = StyleSheet.create({
         paddingTop: 12,
     },
     barPhotoContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 85,
+        height: 85,
+        borderRadius: 42.5,
         borderWidth: 2,
         borderColor: SP_RED,
         overflow: 'hidden',

@@ -251,9 +251,10 @@ export default function EditProfileScreen() {
                             <TextInput
                                 style={styles.input}
                                 value={phone}
-                                onChangeText={setPhone}
+                                onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, ''))}
                                 placeholder="Enter phone number"
                                 keyboardType="phone-pad"
+                                maxLength={10}
                             />
                         </View>
 

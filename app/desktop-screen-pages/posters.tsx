@@ -83,52 +83,54 @@ export default function DesktopPosters() {
     return (
         <View style={styles.container}>
             <DesktopHeader />
-            <View style={styles.pageHeader}>
-                <View style={styles.headerContent}>
-                    <Text style={styles.headerTitle}>Campaign Posters</Text>
-                    <Text style={styles.headerSubtitle}>Download and share high-quality posters</Text>
-                </View>
-            </View>
-
-            <View style={styles.content}>
-                <View style={styles.controls}>
-                    <Searchbar
-                        placeholder="Search posters..."
-                        onChangeText={setSearchQuery}
-                        value={searchQuery}
-                        style={styles.searchBar}
-                    />
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categories}>
-                        {categories.map(cat => (
-                            <Chip
-                                key={cat}
-                                selected={selectedCategory === cat}
-                                onPress={() => setSelectedCategory(cat)}
-                                style={styles.chip}
-                                selectedColor={SP_RED}
-                            >
-                                {cat}
-                            </Chip>
-                        ))}
-                    </ScrollView>
-                </View>
-
-                {loading ? (
-                    <ActivityIndicator size="large" color={SP_RED} style={{ marginTop: 50 }} />
-                ) : (
-                    <View style={styles.grid}>
-                        {filteredPosters.map((poster, index) => (
-                            <Pressable key={poster._id || index} style={styles.card} onPress={() => handlePosterPress(poster)}>
-                                <Image source={{ uri: poster.imageUrl }} style={styles.image} />
-                                <View style={styles.cardFooter}>
-                                    <Text style={styles.cardTitle} numberOfLines={1}>{poster.title}</Text>
-                                    <Button mode="contained" buttonColor={SP_RED} compact onPress={() => handlePosterPress(poster)}>Edit</Button>
-                                </View>
-                            </Pressable>
-                        ))}
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
+                <View style={styles.pageHeader}>
+                    <View style={styles.headerContent}>
+                        <Text style={styles.headerTitle}>Campaign Posters</Text>
+                        <Text style={styles.headerSubtitle}>Download and share high-quality posters</Text>
                     </View>
-                )}
-            </View>
+                </View>
+
+                <View style={styles.content}>
+                    <View style={styles.controls}>
+                        <Searchbar
+                            placeholder="Search posters..."
+                            onChangeText={setSearchQuery}
+                            value={searchQuery}
+                            style={styles.searchBar}
+                        />
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categories}>
+                            {categories.map(cat => (
+                                <Chip
+                                    key={cat}
+                                    selected={selectedCategory === cat}
+                                    onPress={() => setSelectedCategory(cat)}
+                                    style={styles.chip}
+                                    selectedColor={SP_RED}
+                                >
+                                    {cat}
+                                </Chip>
+                            ))}
+                        </ScrollView>
+                    </View>
+
+                    {loading ? (
+                        <ActivityIndicator size="large" color={SP_RED} style={{ marginTop: 50 }} />
+                    ) : (
+                        <View style={styles.grid}>
+                            {filteredPosters.map((poster, index) => (
+                                <Pressable key={poster._id || index} style={styles.card} onPress={() => handlePosterPress(poster)}>
+                                    <Image source={{ uri: poster.imageUrl }} style={styles.image} />
+                                    <View style={styles.cardFooter}>
+                                        <Text style={styles.cardTitle} numberOfLines={1}>{poster.title}</Text>
+                                        <Button mode="contained" buttonColor={SP_RED} compact onPress={() => handlePosterPress(poster)}>Edit</Button>
+                                    </View>
+                                </Pressable>
+                            ))}
+                        </View>
+                    )}
+                </View>
+            </ScrollView>
 
             {/* Selection Modal */}
             {modalVisible && (

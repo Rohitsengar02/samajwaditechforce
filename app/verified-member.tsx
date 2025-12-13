@@ -117,7 +117,7 @@ export default function VerifiedMemberScreen() {
             await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUser));
 
             Alert.alert('Success', 'Verification request submitted successfully!');
-            router.back();
+            router.push('/(tabs)/profile');
         } catch (error: any) {
             console.error('Verify error:', error);
             const msg = error.message.includes('JSON')

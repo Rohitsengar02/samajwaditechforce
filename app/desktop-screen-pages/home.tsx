@@ -25,6 +25,7 @@ export default function DesktopHome() {
 
     // Home content from API
     const [homeContent, setHomeContent] = useState<any>(null);
+    const [footerContent, setFooterContent] = useState<any>(null);
     const [activeSlide, setActiveSlide] = useState(0);
 
     useEffect(() => {
@@ -53,6 +54,13 @@ export default function DesktopHome() {
             const homeData = await homeRes.json();
             if (homeData.success && homeData.data) {
                 setHomeContent(homeData.data);
+            }
+
+            // Fetch footer content from dedicated API
+            const footerRes = await fetch(`${url}/footer`);
+            const footerData = await footerRes.json();
+            if (footerData.success && footerData.data) {
+                setFooterContent(footerData.data);
             }
 
             const newsRes = await fetch(`${url}/news`);
@@ -563,7 +571,7 @@ export default function DesktopHome() {
                     </View>
                 )}
 
-                <Footer />
+                <Footer data={footerContent} />
             </ScrollView >
         </View >
     );

@@ -550,7 +550,10 @@ export default function IDCardTab() {
 
                                 <TouchableOpacity
                                     style={styles.primaryButton}
-                                    onPress={() => router.push('/edit-profile')}
+                                    onPress={() => {
+                                        setShowVerificationModal(false);
+                                        router.push('/verified-member');
+                                    }}
                                 >
                                     <LinearGradient
                                         colors={[SP_RED, '#b91c1c']}

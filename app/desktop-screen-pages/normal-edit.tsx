@@ -253,83 +253,85 @@ export default function DesktopNormalEdit() {
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.content}>
-                {/* Left: Preview */}
-                <View style={styles.previewSection}>
-                    <View style={styles.previewCard}>
-                        <View ref={posterRef} style={styles.posterContainer}>
-                            <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={{ width: '100%' }}>
-                                <Image
-                                    source={{ uri: imageUrl as string }}
-                                    style={[styles.posterImage, { aspectRatio: imageAspectRatio }]}
-                                    resizeMode="cover"
-                                />
-                                <View style={{ width: '100%' }}>
-                                    <RenderBottomBar
-                                        template={selectedTemplate}
-                                        details={details}
-                                        width={500} // Fixed width for desktop preview
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
+                <View style={styles.content}>
+                    {/* Left: Preview */}
+                    <View style={styles.previewSection}>
+                        <View style={styles.previewCard}>
+                            <View ref={posterRef} style={styles.posterContainer}>
+                                <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }} style={{ width: '100%' }}>
+                                    <Image
+                                        source={{ uri: imageUrl as string }}
+                                        style={[styles.posterImage, { aspectRatio: imageAspectRatio }]}
+                                        resizeMode="cover"
                                     />
+                                    <View style={{ width: '100%' }}>
+                                        <RenderBottomBar
+                                            template={selectedTemplate}
+                                            details={details}
+                                            width={500} // Fixed width for desktop preview
+                                        />
+                                    </View>
+                                </ViewShot>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Right: Form */}
+                    <View style={styles.formSection}>
+                        <View style={styles.formCard}>
+                            <Text style={styles.sectionTitle}>Enter Details</Text>
+
+                            {STEPS.map((step) => (
+                                <View key={step.key} style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>{step.label}</Text>
+                                    {step.key === 'photo' ? (
+                                        <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
+                                            {details.photo ? (
+                                                <Image source={{ uri: details.photo }} style={styles.photoPreview} />
+                                            ) : (
+                                                <View style={styles.photoPlaceholder}>
+                                                    <MaterialCommunityIcons name="camera-plus" size={32} color="#94a3b8" />
+                                                    <Text style={styles.photoPlaceholderText}>Upload Photo</Text>
+                                                </View>
+                                            )}
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <View style={styles.inputWrapper}>
+                                            <MaterialCommunityIcons name={step.icon as any} size={20} color="#64748b" style={styles.inputIcon} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder={step.placeholder}
+                                                value={(details as any)[step.key]}
+                                                onChangeText={(text) => setDetails(prev => ({ ...prev, [step.key]: text }))}
+                                            />
+                                        </View>
+                                    )}
                                 </View>
-                            </ViewShot>
+                            ))}
+
+                            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Select Frame Style</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.framesScroll}>
+                                {TEMPLATES.map((template) => (
+                                    <TouchableOpacity
+                                        key={template.id}
+                                        style={[
+                                            styles.frameOption,
+                                            selectedTemplate === template.id && styles.selectedFrame
+                                        ]}
+                                        onPress={() => setSelectedTemplate(template.id)}
+                                    >
+                                        <Text style={[
+                                            styles.frameName,
+                                            selectedTemplate === template.id && styles.selectedFrameText
+                                        ]}>{template.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
                         </View>
                     </View>
                 </View>
-
-                {/* Right: Form */}
-                <ScrollView style={styles.formSection} showsVerticalScrollIndicator={false}>
-                    <View style={styles.formCard}>
-                        <Text style={styles.sectionTitle}>Enter Details</Text>
-
-                        {STEPS.map((step) => (
-                            <View key={step.key} style={styles.inputGroup}>
-                                <Text style={styles.inputLabel}>{step.label}</Text>
-                                {step.key === 'photo' ? (
-                                    <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
-                                        {details.photo ? (
-                                            <Image source={{ uri: details.photo }} style={styles.photoPreview} />
-                                        ) : (
-                                            <View style={styles.photoPlaceholder}>
-                                                <MaterialCommunityIcons name="camera-plus" size={32} color="#94a3b8" />
-                                                <Text style={styles.photoPlaceholderText}>Upload Photo</Text>
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                ) : (
-                                    <View style={styles.inputWrapper}>
-                                        <MaterialCommunityIcons name={step.icon as any} size={20} color="#64748b" style={styles.inputIcon} />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder={step.placeholder}
-                                            value={(details as any)[step.key]}
-                                            onChangeText={(text) => setDetails(prev => ({ ...prev, [step.key]: text }))}
-                                        />
-                                    </View>
-                                )}
-                            </View>
-                        ))}
-
-                        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Select Frame Style</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.framesScroll}>
-                            {TEMPLATES.map((template) => (
-                                <TouchableOpacity
-                                    key={template.id}
-                                    style={[
-                                        styles.frameOption,
-                                        selectedTemplate === template.id && styles.selectedFrame
-                                    ]}
-                                    onPress={() => setSelectedTemplate(template.id)}
-                                >
-                                    <Text style={[
-                                        styles.frameName,
-                                        selectedTemplate === template.id && styles.selectedFrameText
-                                    ]}>{template.name}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                </ScrollView>
-            </View>
+            </ScrollView>
         </View>
     );
 }
