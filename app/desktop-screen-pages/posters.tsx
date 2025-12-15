@@ -88,7 +88,7 @@ export default function DesktopPosters() {
                                     <Image source={{ uri: poster.imageUrl }} style={styles.image} />
                                     <View style={styles.cardFooter}>
                                         <Text style={styles.cardTitle} numberOfLines={1}>{poster.title}</Text>
-                                        <Button mode="contained" buttonColor={SP_RED} compact onPress={() => handlePosterPress(poster)}>Edit</Button>
+                                        <Button mode="contained" buttonColor={"#ffffff"} compact onPress={() => handlePosterPress(poster)}>Edit</Button>
                                     </View>
                                 </Pressable>
                             ))}

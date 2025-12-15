@@ -168,13 +168,13 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
                         textShadowColor: 'rgba(0,0,0,0.3)',
                         textShadowOffset: { width: 0, height: 2 },
                         textShadowRadius: 4,
-                    }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                    }]} >{details?.name || 'Your Name'}</Text>
 
                     <Text style={[styles.textRegular, {
                         fontSize: customization?.designationFontSize || 15,
                         color: customization?.designationColor || '#fff',
                         marginTop: 4,
-                    }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                    }]} >{details?.designation || 'Designation'}</Text>
 
                     <View style={{ marginTop: 8, gap: 4 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -193,7 +193,7 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
                                 size={(customization?.addressFontSize || 15) + 1}
                                 color='#e0f2fe'
                             />
-                            <Text style={{ fontSize: customization?.addressFontSize || 15, color: customization?.addressColor || '#e0f2fe' }} numberOfLines={1}>
+                            <Text style={{ fontSize: customization?.addressFontSize || 15, color: customization?.addressColor || '#e0f2fe', flex: 1, flexWrap: 'wrap' }}>
                                 {details?.address || 'Your Address'}
                             </Text>
                         </View>
@@ -203,14 +203,14 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
                                 size={(customization?.socialFontSize || 15) + 1}
                                 color='#e0f2fe'
                             />
-                            <Text style={{ fontSize: customization?.socialFontSize || 15, color: customization?.socialColor || '#e0f2fe' }} numberOfLines={1}>
-                                {details?.social || '@user'}
+                            <Text style={{ fontSize: customization?.socialFontSize || 15, color: customization?.socialColor || '#e0f2fe', flex: 1, flexWrap: 'wrap' }}>
+                                {details?.socialHandle || '@user'}
                             </Text>
                         </View>
                     </View>
                 </View>
             </View>
-        </LinearGradient>
+        </LinearGradient >
     );
 };
 
@@ -324,31 +324,31 @@ const RedAccentBar = ({ details, width, customization }: TemplateProps) => {
                             textShadowColor: 'rgba(0,0,0,0.3)',
                             textShadowOffset: { width: 1, height: 1 },
                             textShadowRadius: 2,
-                        }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                        }]} >{details?.name || 'Your Name'}</Text>
                         <View style={{ width: 40, height: 2, backgroundColor: '#fff', marginVertical: 3, borderRadius: 1 }} />
                         <Text style={[styles.textRegular, {
                             fontSize: customization?.designationFontSize || 11,
                             color: 'rgba(255,255,255,0.9)',
-                        }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                        }]} >{details?.designation || 'Designation'}</Text>
                     </View>
 
-                    {/* Social & Mobile (stacked on right) */}
-                    <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    {/* Social & Mobile (stacked on right) - 50% max width with wrapping */}
+                    <View style={{ width: '50%', alignItems: 'flex-end', gap: 2 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 10) + 2} color={customization?.mobileColor || '#fff'} />
-                            <Text style={{ fontSize: customization?.mobileFontSize || 10, color: customization?.mobileColor || '#fff', fontWeight: '600' }} numberOfLines={1}>{details?.mobile || '+91...'}</Text>
+                            <Text style={{ fontSize: customization?.mobileFontSize || 10, color: customization?.mobileColor || '#fff', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.mobile || '+91...'}</Text>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 10) + 2} color={customization?.socialColor || '#fff'} />
-                            <Text style={{ fontSize: customization?.socialFontSize || 10, color: customization?.socialColor || '#fff', fontWeight: '600' }} numberOfLines={1}>{details?.socialHandle || '@user'}</Text>
+                            <Text style={{ fontSize: customization?.socialFontSize || 10, color: customization?.socialColor || '#fff', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.socialHandle || '@user'}</Text>
                         </View>
                     </View>
                 </View>
 
-                {/* Bottom address bar */}
-                <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', paddingVertical: 4, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 10) + 2} color={customization?.addressColor || '#fff'} />
-                    <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#fff', fontWeight: '500' }} numberOfLines={1}>{details?.address || 'Your Address'}</Text>
+                {/* Bottom address bar - allows multi-line wrapping */}
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', paddingVertical: 4, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 10) + 2} color={customization?.addressColor || '#fff'} style={{ marginTop: 2 }} />
+                    <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap', textAlign: 'center' }}>{details?.address || 'Your Address'}</Text>
                 </View>
             </View>
 
