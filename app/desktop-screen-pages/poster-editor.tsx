@@ -37,7 +37,7 @@ const API_URL = getApiUrl();
 
 import DesktopHeader from '../../components/DesktopHeader';
 
-type ToolType = 'text' | 'image' | 'layout' | 'banner' | 'filter' | 'sticker' | 'customize';
+type ToolType = 'content' | 'text' | 'image' | 'layout' | 'banner' | 'filter' | 'sticker' | 'customize';
 
 interface EditorElement {
     id: string;
@@ -88,23 +88,29 @@ export default function DesktopPosterEditor() {
 
     // Bottom Bar Template State
     const [showBottomBarModal, setShowBottomBarModal] = useState(false);
-    const [selectedBottomBarTemplate, setSelectedBottomBarTemplate] = useState(TEMPLATES[0].id);
+    const [selectedBottomBarTemplate, setSelectedBottomBarTemplate] = useState(TEMPLATES[2].id);
     const [bottomBarDetails, setBottomBarDetails] = useState({
         name: 'Your Name',
         designation: 'Designation',
         mobile: '+91 XXXXX XXXXX',
         social: '@username',
+        socialPlatform: 'twitter' as 'twitter' | 'facebook' | 'instagram' | 'youtube' | 'linkedin' | 'whatsapp',
         address: 'Your Address',
         photo: null as string | null,
     });
     const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
+    const [isRemovingBg, setIsRemovingBg] = useState(false);
+    const [selectedSocialPlatform, setSelectedSocialPlatform] = useState<'twitter' | 'facebook' | 'instagram' | 'youtube' | 'linkedin' | 'whatsapp'>('twitter');
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+    const previewRef = useRef(null);
 
     // Frame Customization State
     const [frameCustomization, setFrameCustomization] = useState({
         // Background
         backgroundType: 'solid' as 'solid' | 'gradient',
-        backgroundColor: '#ffffff',
-        backgroundGradient: ['#E30512', '#b91c1c'],
+        backgroundColor: '#fff',
+        backgroundGradient: ['#fff', '#f8fafc'],
         backgroundOpacity: 1,
 
         // Image
@@ -113,29 +119,37 @@ export default function DesktopPosterEditor() {
         imageBorderWidth: 2,
 
         // Name
-        nameFontSize: 16,
+        nameFontSize: 22,
         nameColor: '#0f172a',
         nameBackgroundColor: 'transparent',
 
         // Designation
-        designationFontSize: 12,
+        designationFontSize: 22,
         designationColor: '#64748b',
         designationBackgroundColor: 'transparent',
 
         // Mobile
-        mobileFontSize: 9,
-        mobileColor: '#000000',
+        mobileFontSize: 22,
+        mobileColor: '#64748b',
         mobileBackgroundColor: 'transparent',
 
         // Address
-        addressFontSize: 8,
-        addressColor: '#334155',
+        addressFontSize: 15,
+        addressColor: '#94a3b8',
         addressBackgroundColor: 'transparent',
 
         // Social
-        socialFontSize: 9,
-        socialColor: '#000000',
+        socialFontSize: 22,
+        socialColor: '#64748b',
         socialBackgroundColor: 'transparent',
+    });
+
+    // Image Enhancer State
+    const [showEnhancerModal, setShowEnhancerModal] = useState(false);
+    const [enhancements, setEnhancements] = useState({
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
     });
 
     const [selectedCustomElement, setSelectedCustomElement] = useState<string | null>(null);
@@ -156,6 +170,7 @@ export default function DesktopPosterEditor() {
 
     // Tools Configuration
     const tools = [
+        { id: 'content', name: 'Change Content', icon: 'text-box-edit' },
         { id: 'banner', name: 'Posters', icon: 'image-multiple' },
         { id: 'text', name: 'Add Text', icon: 'format-text' },
         { id: 'image', name: 'Add Image', icon: 'image-plus' },
@@ -207,9 +222,10 @@ export default function DesktopPosterEditor() {
 
                 setBottomBarDetails({
                     name: userInfo.name || 'Your Name',
-                    designation: userInfo.designation || userInfo.role || 'Designation',
+                    designation: userInfo.partyRole || userInfo.designation || 'Party Role',
                     mobile: userInfo.phone || '+91 XXXXX XXXXX',
                     social: userInfo.twitter || userInfo.social || '@username',
+                    socialPlatform: 'twitter',
                     address: addressStr,
                     photo: userInfo.profileImage || null,
                 });
@@ -366,6 +382,41 @@ export default function DesktopPosterEditor() {
     };
 
 
+    const removeImageBackground = async (elementId: string) => {
+        console.log('removeImageBackground called with elementId:', elementId);
+        const element = elements.find(el => el.id === elementId);
+        console.log('Found element:', element);
+        if (!element || element.type !== 'image') {
+            console.log('Element not found or not an image');
+            return;
+        }
+
+        setIsRemovingBg(true);
+        console.log('Starting background removal...');
+        try {
+            // Remove background using the web utility
+            console.log('Calling imglyRemoveBackground with:', element.content);
+            const blob = await imglyRemoveBackground(element.content);
+            console.log('Got blob:', blob);
+            const url = URL.createObjectURL(blob);
+            console.log('Created URL:', url);
+
+            // Update the element with the new background-removed image
+            updateElement(elementId, { content: url });
+            console.log('Element updated');
+
+            Alert.alert('Success', 'Background removed successfully!');
+        } catch (error) {
+            console.error('Background removal failed:', error);
+            Alert.alert('Error', 'Failed to remove background. Please try again.');
+        } finally {
+            setIsRemovingBg(false);
+            console.log('Background removal process complete');
+        }
+    };
+
+
+
     const handleSave = async () => {
         try {
             setSelectedElementId(null);
@@ -390,7 +441,7 @@ export default function DesktopPosterEditor() {
 
                         const link = document.createElement('a');
                         link.href = uri;
-                        link.download = `poster-${Date.now()}.jpg`;
+                        link.download = `poster - ${Date.now()}.jpg`;
                         link.click();
                     } else {
                         // Fallback: Simple approach for basic images
@@ -401,7 +452,7 @@ export default function DesktopPosterEditor() {
                         if (imgElement) {
                             const link = document.createElement('a');
                             link.href = imgElement.src;
-                            link.download = `poster-${Date.now()}.jpg`;
+                            link.download = `poster - ${Date.now()}.jpg`;
                             link.click();
                         } else {
                             Alert.alert('Error', 'Could not capture poster. Please try again.');
@@ -419,7 +470,127 @@ export default function DesktopPosterEditor() {
     };
 
 
+
+
     const handleDownloadPDF = async () => {
+        try {
+            setSelectedElementId(null);
+
+            // Load jsPDF and html2canvas sequentially
+            if (typeof window !== 'undefined') {
+                if (!(window as any).jspdf) {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+                if (!(window as any).html2canvas) {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+            }
+
+            setTimeout(async () => {
+                try {
+                    // Get the element to capture (Prefer preview modal ref)
+                    const elementToCapture = (previewRef.current || canvasRef.current) as unknown as HTMLElement;
+
+                    if (!elementToCapture) {
+                        Alert.alert('Error', 'Canvas not found');
+                        return;
+                    }
+
+                    const html2canvas = (window as any).html2canvas;
+                    const { jsPDF } = (window as any).jspdf;
+
+                    // --- VISIBLE OVERLAY STRATEGY ---
+                    // Create a dedicated container for capture
+                    // We render it ON TOP of everything to guarantee the browser renders it fully
+                    const captureContainer = document.createElement('div');
+                    captureContainer.style.position = 'fixed';
+                    captureContainer.style.top = '0';
+                    captureContainer.style.left = '0';
+                    captureContainer.style.width = `${canvasSize.w}px`;
+                    captureContainer.style.height = `${canvasSize.h}px`;
+                    captureContainer.style.zIndex = '999999'; // Ensure it's on top
+                    captureContainer.style.backgroundColor = '#ffffff'; // Ensure white background
+                    captureContainer.style.overflow = 'hidden';
+
+                    // Clone the poster node strictly
+                    const clone = elementToCapture.cloneNode(true) as HTMLElement;
+
+                    // Reset clone styles to fit container perfectly
+                    clone.style.transform = 'none';
+                    clone.style.margin = '0';
+                    clone.style.width = '100%';
+                    clone.style.height = '100%';
+                    clone.style.position = 'absolute';
+                    clone.style.top = '0';
+                    clone.style.left = '0';
+
+                    captureContainer.appendChild(clone);
+                    document.body.appendChild(captureContainer);
+
+                    // Wait longer for DOM/Images to settle
+                    await new Promise(r => setTimeout(r, 500));
+
+                    // Capture the CONTAINER
+                    const canvas = await html2canvas(captureContainer, {
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff',
+                        scale: 3, // High Resolution
+                        width: canvasSize.w,
+                        height: canvasSize.h,
+                        logging: false,
+                        x: 0,
+                        y: 0
+                    });
+
+                    // Clean up immediately
+                    document.body.removeChild(captureContainer);
+
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidth = canvasSize.w;
+                    const imgHeight = canvasSize.h;
+
+                    const pdf = new jsPDF({
+                        orientation: imgWidth > imgHeight ? 'landscape' : 'portrait',
+                        unit: 'px',
+                        format: [imgWidth, imgHeight],
+                        hotfixes: ['px_scaling']
+                    });
+
+                    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                    pdf.save(`poster-${Date.now()}.pdf`);
+
+                    setShowPreviewModal(false);
+                    Alert.alert('Success', 'Poster PDF downloaded successfully!');
+
+                } catch (innerError) {
+                    // Ensure cleanup on error
+                    const existingContainer = document.querySelector('div[style*="z-index: 999999"]');
+                    if (existingContainer) document.body.removeChild(existingContainer);
+
+                    console.error('PDF generation error:', innerError);
+                    Alert.alert('Error', 'Failed to generate PDF.');
+                }
+            }, 100);
+        } catch (error) {
+            console.error('PDF error:', error);
+            Alert.alert('Error', 'Failed to initiate PDF download');
+        }
+    };
+
+    const handleDownloadPNG = async () => {
         try {
             setSelectedElementId(null);
             setTimeout(async () => {
@@ -430,62 +601,94 @@ export default function DesktopPosterEditor() {
                         return;
                     }
 
-                    let uri: string;
-
-                    // Use html2canvas if available
                     if (typeof window !== 'undefined' && (window as any).html2canvas) {
                         const html2canvas = (window as any).html2canvas;
                         const canvas = await html2canvas(canvasElement, {
-                            useCORS: true,
-                            allowTaint: true,
-                            backgroundColor: '#ffffff',
                             scale: 2,
+                            useCORS: true,
+                            logging: false,
+                            backgroundColor: null,
                         });
-                        uri = canvas.toDataURL('image/png', 1);
+
+                        canvas.toBlob((blob: any) => {
+                            if (blob) {
+                                const link = document.createElement('a');
+                                link.href = URL.createObjectURL(blob);
+                                link.download = `poster-${Date.now()}.png`;
+                                link.click();
+                                setShowPreviewModal(false);
+                                Alert.alert('Success', 'Poster downloaded successfully!');
+                            }
+                        }, 'image/png');
                     } else {
-                        Alert.alert('Error', 'PDF export requires html2canvas library. Please use JPG download instead.');
-                        return;
+                        Alert.alert('Error', 'Screenshot library not loaded');
                     }
-
-                    const html = `
-                        <html>
-                            <head>
-                                <style>
-                                    body {
-                                        margin: 0;
-                                        padding: 0;
-                                        display: flex;
-                                        justify-content: center;
-                                        align-items: center;
-                                    }
-                                    img {
-                                        max-width: 100%;
-                                        height: auto;
-                                    }
-                                </style>
-                            </head>
-                            <body>
-                                <img src="${uri}" />
-                            </body>
-                        </html>
-                    `;
-
-                    const { uri: pdfUri } = await Print.printToFileAsync({ html });
-
-                    const link = document.createElement('a');
-                    link.href = pdfUri;
-                    link.download = `poster-${Date.now()}.pdf`;
-                    link.click();
-                } catch (innerError) {
-                    console.error('PDF error:', innerError);
-                    Alert.alert('Error', 'Failed to create PDF. Try using JPG download instead.');
+                } catch (error) {
+                    console.error('Download error:', error);
+                    Alert.alert('Error', 'Failed to download poster');
                 }
             }, 100);
         } catch (error) {
-            console.error('PDF error:', error);
-            Alert.alert('Error', 'Failed to create PDF');
+            console.error('Download error:', error);
+            Alert.alert('Error', 'Failed to download poster');
         }
     };
+
+    const handleSharePoster = async () => {
+        try {
+            setSelectedElementId(null);
+            setTimeout(async () => {
+                try {
+                    const canvasElement = canvasRef.current as any;
+                    if (!canvasElement) {
+                        Alert.alert('Error', 'Canvas not found');
+                        return;
+                    }
+
+                    if (typeof window !== 'undefined' && (window as any).html2canvas) {
+                        const html2canvas = (window as any).html2canvas;
+                        const canvas = await html2canvas(canvasElement, {
+                            scale: 2,
+                            useCORS: true,
+                            logging: false,
+                            backgroundColor: null,
+                        });
+
+                        canvas.toBlob(async (blob: any) => {
+                            if (blob) {
+                                const file = new File([blob], `poster-${Date.now()}.png`, { type: 'image/png' });
+
+                                if (navigator.share && navigator.canShare({ files: [file] })) {
+                                    try {
+                                        await navigator.share({
+                                            files: [file],
+                                            title: 'Poster',
+                                            text: 'Check out my poster!',
+                                        });
+                                        setShowPreviewModal(false);
+                                    } catch (shareError) {
+                                        console.log('Share cancelled or failed:', shareError);
+                                    }
+                                } else {
+                                    Alert.alert('Info', 'Sharing not supported. Downloading instead...');
+                                    handleDownloadPNG();
+                                }
+                            }
+                        }, 'image/png');
+                    } else {
+                        Alert.alert('Error', 'Screenshot library not loaded');
+                    }
+                } catch (error) {
+                    console.error('Share error:', error);
+                    Alert.alert('Error', 'Failed to share poster');
+                }
+            }, 100);
+        } catch (error) {
+            console.error('Share error:', error);
+            Alert.alert('Error', 'Failed to share poster');
+        }
+    };
+
 
     // Draggable Item Component
     const DraggableItem = ({ element }: { element: EditorElement }) => {
@@ -564,88 +767,313 @@ export default function DesktopPosterEditor() {
                 }}
             >
                 {element.type === 'text' ? (
-                    // Text elements - direct drag without TouchableOpacity
-                    <Animated.View
-                        {...panResponder.panHandlers}
-                        style={[
-                            styles.element,
-                            {
-                                transform: [
-                                    { rotate: rotateStr },
-                                    { scale: scale }
-                                ],
-                                borderColor: isSelected ? SP_RED : 'transparent',
-                                borderStyle: isSelected ? 'dashed' : 'solid',
-                                borderWidth: isSelected ? 2 : 0,
-                                cursor: (isDragging ? 'grabbing' : 'grab') as any,
+                    // Text elements - direct drag without TouchableOpacity, auto-select on hover
+                    <div
+                        onMouseEnter={() => {
+                            // Auto-select on hover for easier dragging
+                            if (selectedElementId !== element.id) {
+                                setSelectedElementId(element.id);
                             }
-                        ]}
-                    >
-                        <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
-                            <Text
-                                selectable={false}
-                                style={[
-                                    { fontWeight: '700' },
-                                    {
-                                        color: element.color,
-                                        fontSize: element.fontSize,
-                                        fontFamily: element.fontFamily,
-                                        letterSpacing: element.letterSpacing || 0,
-                                        lineHeight: element.lineHeight || (element.fontSize || 24) * 1.2,
-                                        backgroundColor: element.backgroundColor || 'transparent',
-                                        paddingHorizontal: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 0,
-                                        paddingVertical: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
-                                        borderRadius: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
-                                        userSelect: 'none',
-                                    }
-                                ]}
-                            >
-                                {element.content}
-                            </Text>
-                        </View>
+                        }}
+                        onMouseDown={(e) => {
+                            // Track click position to differentiate between click and drag
+                            (e.currentTarget as any)._clickStart = { x: e.clientX, y: e.clientY, time: Date.now() };
+                        }}
+                        onMouseUp={(e) => {
+                            // Only trigger edit if it was a click (not a drag)
+                            const clickStart = (e.currentTarget as any)._clickStart;
+                            if (clickStart) {
+                                const deltaX = Math.abs(e.clientX - clickStart.x);
+                                const deltaY = Math.abs(e.clientY - clickStart.y);
+                                const deltaTime = Date.now() - clickStart.time;
 
-                        {isSelected && (
-                            <>
-                                {/* Top Left - Delete */}
-                                <TouchableOpacity
-                                    style={[styles.controlBtn, styles.controlBtnTL]}
-                                    onPress={(e) => {
-                                        e.stopPropagation();
-                                        deleteSelectedElement();
-                                    }}
-                                >
-                                    <MaterialCommunityIcons name="close" size={16} color="#fff" />
-                                </TouchableOpacity>
+                                // If mouse didn't move much and it was quick, it's a click
+                                if (deltaX < 5 && deltaY < 5 && deltaTime < 300) {
+                                    setSelectedElementId(element.id);
+                                    setSelectedTool('text'); // Switch to text editing mode
+                                }
 
-                                {/* Top Right - Rotate 90deg */}
-                                <TouchableOpacity
-                                    style={[styles.controlBtn, styles.controlBtnTR]}
-                                    onPress={(e) => {
-                                        e.stopPropagation();
-                                        const newRotation = (element.rotation + 90) % 360;
-                                        updateElement(element.id, { rotation: newRotation });
-                                    }}
-                                >
-                                    <MaterialCommunityIcons name="rotate-right" size={16} color="#fff" />
-                                </TouchableOpacity>
-
-                                {/* Bottom Right - Resize by dragging */}
-                                <View
-                                    {...resizeResponder.panHandlers}
-                                    style={[styles.controlBtn, styles.controlBtnBR]}
-                                >
-                                    <MaterialCommunityIcons name="arrow-expand-all" size={16} color="#fff" />
-                                </View>
-                            </>
-                        )}
-                    </Animated.View>
-                ) : (
-                    // Image elements - keep TouchableOpacity for selection
-                    <TouchableOpacity
-                        activeOpacity={1}
-                        onPress={() => setSelectedElementId(element.id)}
+                                delete (e.currentTarget as any)._clickStart;
+                            }
+                        }}
+                        style={{
+                            display: 'inline-block',
+                            cursor: isDragging ? 'grabbing' : 'grab',
+                        }}
                     >
                         <Animated.View
+                            {...panResponder.panHandlers}
+                            style={[
+                                styles.element,
+                                {
+                                    transform: [
+                                        { rotate: rotateStr },
+                                        { scale: scale }
+                                    ],
+                                    borderColor: isSelected ? SP_RED : 'transparent',
+                                    borderStyle: isSelected ? 'dashed' : 'solid',
+                                    borderWidth: isSelected ? 2 : 0,
+                                }
+                            ]}
+                        >
+                            <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
+                                <Text
+                                    selectable={false}
+                                    style={[
+                                        { fontWeight: '700' },
+                                        {
+                                            color: element.color,
+                                            fontSize: element.fontSize,
+                                            fontFamily: element.fontFamily,
+                                            letterSpacing: element.letterSpacing || 0,
+                                            lineHeight: element.lineHeight || (element.fontSize || 24) * 1.2,
+                                            backgroundColor: element.backgroundColor || 'transparent',
+                                            paddingHorizontal: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 0,
+                                            paddingVertical: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                            borderRadius: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                            userSelect: 'none',
+                                        }
+                                    ]}
+                                >
+                                    {element.content}
+                                </Text>
+                            </View>
+                        </Animated.View>
+
+                        {isSelected && (() => {
+                            // Smart toolbar positioning based on text location
+                            const isNearTop = element.y < 100;
+                            const isNearBottom = element.y > canvasSize.h - 150;
+                            const isNearLeft = element.x < 150;
+                            const isNearRight = element.x > canvasSize.w - 150;
+
+                            // Vertical position: below if near top, above if near bottom
+                            const verticalPosition = isNearTop ? { top: '100%', marginTop: 10 } : { bottom: '100%', marginBottom: 10 };
+
+                            // Horizontal alignment: adjust if near edges
+                            let horizontalAlignment: any = { left: '50%', transform: [{ translateX: '-50%' }] };
+                            if (isNearLeft) {
+                                horizontalAlignment = { left: 0 };
+                            } else if (isNearRight) {
+                                horizontalAlignment = { right: 0 };
+                            }
+
+                            return (
+                                <>
+                                    {/* Top Toolbar - Canva Style with Smart Positioning */}
+                                    <View style={{
+                                        position: 'absolute',
+                                        ...verticalPosition,
+                                        ...horizontalAlignment,
+                                        flexDirection: 'row',
+                                        backgroundColor: '#1e293b',
+                                        borderRadius: 8,
+                                        padding: 4,
+                                        gap: 4,
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 2 },
+                                        shadowOpacity: 0.25,
+                                        shadowRadius: 4,
+                                        elevation: 5,
+                                        zIndex: 1000,
+                                    }}>
+                                        {/* Decrease Size */}
+                                        <TouchableOpacity
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 6,
+                                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                updateElement(element.id, {
+                                                    fontSize: Math.max(12, (element.fontSize || 24) - 4)
+                                                });
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="format-font-size-decrease" size={20} color="#fff" />
+                                        </TouchableOpacity>
+
+                                        {/* Font Size Display */}
+                                        <View style={{
+                                            minWidth: 36,
+                                            height: 36,
+                                            borderRadius: 6,
+                                            backgroundColor: 'rgba(255,255,255,0.15)',
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            paddingHorizontal: 8,
+                                        }}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                                                {element.fontSize || 24}
+                                            </Text>
+                                        </View>
+
+                                        {/* Increase Size */}
+                                        <TouchableOpacity
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 6,
+                                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                updateElement(element.id, {
+                                                    fontSize: Math.min(120, (element.fontSize || 24) + 4)
+                                                });
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="format-font-size-increase" size={20} color="#fff" />
+                                        </TouchableOpacity>
+
+                                        {/* Separator */}
+                                        <View style={{ width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+
+                                        {/* Delete */}
+                                        <TouchableOpacity
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 6,
+                                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                deleteSelectedElement();
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="delete" size={20} color="#fff" />
+                                        </TouchableOpacity>
+
+                                        {/* Flip Horizontal */}
+                                        <TouchableOpacity
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 6,
+                                                backgroundColor: element.isFlipped ? '#3b82f6' : 'rgba(255,255,255,0.1)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                updateElement(element.id, { isFlipped: !element.isFlipped });
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="flip-horizontal" size={20} color="#fff" />
+                                        </TouchableOpacity>
+
+                                        {/* Rotate Left */}
+                                        <TouchableOpacity
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 6,
+                                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                const newRotation = (element.rotation - 15) % 360;
+                                                updateElement(element.id, { rotation: newRotation });
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="rotate-left" size={20} color="#fff" />
+                                        </TouchableOpacity>
+
+                                        {/* Rotate Right */}
+                                        <TouchableOpacity
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 6,
+                                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                const newRotation = (element.rotation + 15) % 360;
+                                                updateElement(element.id, { rotation: newRotation });
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="rotate-right" size={20} color="#fff" />
+                                        </TouchableOpacity>
+
+                                        {/* Duplicate */}
+                                        <TouchableOpacity
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 6,
+                                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                // Duplicate the element with offset
+                                                const newElement = {
+                                                    ...element,
+                                                    id: Date.now().toString(),
+                                                    x: element.x + 20,
+                                                    y: element.y + 20,
+                                                };
+                                                setElements(prev => [...prev, newElement]);
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="content-copy" size={20} color="#fff" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </>
+                            );
+                        })()}
+                    </div>
+                ) : (
+                    // Image elements - hover to select with smart toolbar
+                    <div
+                        onMouseEnter={() => {
+                            // Auto-select on hover
+                            if (selectedElementId !== element.id) {
+                                setSelectedElementId(element.id);
+                            }
+                        }}
+                        onMouseDown={(e) => {
+                            // Track click position to differentiate between click and drag
+                            (e.currentTarget as any)._clickStart = { x: e.clientX, y: e.clientY, time: Date.now() };
+                        }}
+                        onMouseUp={(e) => {
+                            // Only trigger action if it was a click (not a drag)
+                            const clickStart = (e.currentTarget as any)._clickStart;
+                            if (clickStart) {
+                                const deltaX = Math.abs(e.clientX - clickStart.x);
+                                const deltaY = Math.abs(e.clientY - clickStart.y);
+                                const deltaTime = Date.now() - clickStart.time;
+
+                                // If mouse didn't move much and it was quick, it's a click
+                                if (deltaX < 5 && deltaY < 5 && deltaTime < 300) {
+                                    setSelectedElementId(element.id);
+                                }
+
+                                delete (e.currentTarget as any)._clickStart;
+                            }
+                        }}
+                        style={{
+                            display: 'inline-block',
+                            cursor: isDragging ? 'grabbing' : 'grab',
+                        }}
+                    >
+                        <Animated.View
+                            {...panResponder.panHandlers}
                             style={[
                                 styles.element,
                                 {
@@ -663,52 +1091,11 @@ export default function DesktopPosterEditor() {
                                 <Image source={{ uri: element.content }} style={styles.elementImage} />
                             </View>
 
-                            {isSelected && (
-                                <>
-                                    {/* Top Left - Delete */}
-                                    <TouchableOpacity
-                                        style={[styles.controlBtn, styles.controlBtnTL]}
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                            deleteSelectedElement();
-                                        }}
-                                    >
-                                        <MaterialCommunityIcons name="close" size={16} color="#fff" />
-                                    </TouchableOpacity>
-
-                                    {/* Top Right - Rotate 90deg */}
-                                    <TouchableOpacity
-                                        style={[styles.controlBtn, styles.controlBtnTR]}
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                            const newRotation = (element.rotation + 90) % 360;
-                                            updateElement(element.id, { rotation: newRotation });
-                                        }}
-                                    >
-                                        <MaterialCommunityIcons name="rotate-right" size={16} color="#fff" />
-                                    </TouchableOpacity>
-
-                                    {/* Bottom Left - Move/Drag Handle (for images) */}
-                                    <View
-                                        {...panResponder.panHandlers}
-                                        style={[styles.controlBtn, styles.controlBtnBL]}
-                                    >
-                                        <MaterialCommunityIcons name="cursor-move" size={16} color="#fff" />
-                                    </View>
-
-                                    {/* Bottom Right - Resize by dragging */}
-                                    <View
-                                        {...resizeResponder.panHandlers}
-                                        style={[styles.controlBtn, styles.controlBtnBR]}
-                                    >
-                                        <MaterialCommunityIcons name="arrow-expand-all" size={16} color="#fff" />
-                                    </View>
-                                </>
-                            )}
                         </Animated.View>
-                    </TouchableOpacity>
-                )}
-            </View>
+                    </div>
+                )
+                }
+            </View >
         );
     };
 
@@ -724,13 +1111,105 @@ export default function DesktopPosterEditor() {
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Poster Editor</Text>
                 <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <TouchableOpacity onPress={handleDownloadPDF} style={[styles.saveButton, { backgroundColor: '#16a34a' }]}>
-                        <MaterialCommunityIcons name="file-pdf-box" size={18} color="#fff" />
-                        <Text style={styles.saveButtonText}>PDF</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-                        <MaterialCommunityIcons name="download" size={18} color="#fff" />
-                        <Text style={styles.saveButtonText}>Download</Text>
+
+
+
+
+                    <TouchableOpacity
+                        onPress={async () => {
+                            if (canvasRef.current) {
+                                try {
+                                    // Load libraries if needed
+                                    if (typeof window !== 'undefined') {
+                                        if (!(window as any).html2canvas) {
+                                            await new Promise((resolve, reject) => {
+                                                const script = document.createElement('script');
+                                                script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                                                script.onload = resolve;
+                                                script.onerror = reject;
+                                                document.head.appendChild(script);
+                                            });
+                                        }
+                                    }
+
+                                    const html2canvas = (window as any).html2canvas;
+
+                                    // --- ROBUST VISIBLE OVERLAY STRATEGY ---
+                                    // 1. Create a container on top of everything
+                                    const captureContainer = document.createElement('div');
+                                    captureContainer.style.position = 'fixed';
+                                    captureContainer.style.top = '0';
+                                    captureContainer.style.left = '0';
+                                    captureContainer.style.width = `${canvasSize.w}px`;
+                                    captureContainer.style.height = `${canvasSize.h}px`;
+                                    captureContainer.style.zIndex = '9999999';
+                                    captureContainer.style.backgroundColor = '#ffffff';
+                                    captureContainer.style.overflow = 'hidden';
+
+                                    // 2. Clone the editor canvas
+                                    const originalCanvas = canvasRef.current as unknown as HTMLElement;
+                                    const clone = originalCanvas.cloneNode(true) as HTMLElement;
+
+                                    // 3. Reset styles on clone to ensure perfect fit
+                                    clone.style.transform = 'none';
+                                    clone.style.margin = '0';
+                                    clone.style.width = '100%';
+                                    clone.style.height = '100%';
+                                    clone.style.position = 'absolute';
+                                    clone.style.top = '0';
+                                    clone.style.left = '0';
+
+                                    // 4. Mount
+                                    captureContainer.appendChild(clone);
+                                    document.body.appendChild(captureContainer);
+
+                                    // 5. Wait for layout settling (fonts, images)
+                                    await new Promise(r => setTimeout(r, 500));
+
+                                    // --- REMOVE UI ELEMENTS FROM CLONE ---
+                                    // Remove the pencil edit button from the captured clone
+                                    const pencilBtn = captureContainer.querySelector('[data-testid="edit-pencil-btn"]');
+                                    if (pencilBtn) {
+                                        pencilBtn.remove();
+                                    }
+
+                                    // 6. Capture
+                                    const canvas = await html2canvas(captureContainer, {
+                                        useCORS: true,
+                                        allowTaint: true,
+                                        backgroundColor: '#ffffff',
+                                        scale: 4, // Increased Resolution
+                                        width: canvasSize.w,
+                                        height: canvasSize.h,
+                                        x: 0,
+                                        y: 0,
+                                        scrollX: 0,
+                                        scrollY: 0,
+                                        windowWidth: canvasSize.w,
+                                        windowHeight: canvasSize.h
+                                    });
+
+                                    // 7. Cleanup
+                                    document.body.removeChild(captureContainer);
+
+                                    const uri = canvas.toDataURL('image/png');
+                                    setPreviewImageUri(uri);
+                                    setShowPreviewModal(true);
+
+                                } catch (error) {
+                                    // Cleanup on error
+                                    const existingContainer = document.querySelector('div[style*="z-index: 9999999"]');
+                                    if (existingContainer) document.body.removeChild(existingContainer);
+
+                                    console.error('Preview capture error:', error);
+                                    Alert.alert('Error', 'Failed to generate preview');
+                                }
+                            }
+                        }}
+                        style={[styles.saveButton, { backgroundColor: '#8b5cf6' }]}
+                    >
+                        <MaterialCommunityIcons name="eye" size={18} color="#fff" />
+                        <Text style={styles.saveButtonText}>Preview</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -825,6 +1304,7 @@ export default function DesktopPosterEditor() {
                                     customization={frameCustomization}
                                 />
                                 <TouchableOpacity
+                                    testID="edit-pencil-btn"
                                     style={{
                                         position: 'absolute',
                                         top: 8,
@@ -834,7 +1314,10 @@ export default function DesktopPosterEditor() {
                                         padding: 8,
                                         zIndex: 10,
                                     }}
-                                    onPress={() => setShowBottomBarEditForm(true)}
+                                    onPress={() => {
+                                        setSelectedTool('content');
+                                        setShowBottomBarModal(false);
+                                    }}
                                 >
                                     <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
                                 </TouchableOpacity>
@@ -943,17 +1426,53 @@ export default function DesktopPosterEditor() {
 
                             {selectedElement.type === 'image' && (
                                 <>
-                                    <TouchableOpacity
-                                        style={[styles.toolActionButton, { backgroundColor: '#16a34a' }]}
-                                        onPress={() => {
-                                            setSelectedImageUri(selectedElement.content);
-                                            setProcessedImageUri(null);
-                                            setShowImageModal(true);
-                                        }}
-                                    >
-                                        <MaterialCommunityIcons name="image-filter-center-focus" size={20} color="#fff" />
-                                        <Text style={styles.toolActionText}>Remove Background</Text>
-                                    </TouchableOpacity>
+                                    {/* Scale Control */}
+                                    <Text style={styles.propLabel}>Size: {Math.round((selectedElement.scale || 1) * 100)}%</Text>
+                                    <View style={styles.row}>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { scale: Math.max(0.1, (selectedElement.scale || 1) - 0.1) })} style={styles.propBtn}><Text>-</Text></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { scale: Math.min(3, (selectedElement.scale || 1) + 0.1) })} style={styles.propBtn}><Text>+</Text></TouchableOpacity>
+                                    </View>
+
+                                    {/* Rotation Control */}
+                                    <Text style={styles.propLabel}>Rotation: {Math.round(selectedElement.rotation || 0)}°</Text>
+                                    <View style={styles.row}>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { rotation: (selectedElement.rotation || 0) - 15 })} style={styles.propBtn}>
+                                            <MaterialCommunityIcons name="rotate-left" size={16} color="#334155" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { rotation: (selectedElement.rotation || 0) + 15 })} style={styles.propBtn}>
+                                            <MaterialCommunityIcons name="rotate-right" size={16} color="#334155" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {/* Actions */}
+                                    <Text style={styles.propLabel}>Actions</Text>
+                                    <View style={{ gap: 8 }}>
+                                        <TouchableOpacity
+                                            style={[styles.toolActionButton, { backgroundColor: selectedElement.isFlipped ? '#3b82f6' : '#fff', borderWidth: 1, borderColor: '#e2e8f0' }]}
+                                            onPress={() => updateElement(selectedElement.id, { isFlipped: !selectedElement.isFlipped })}
+                                        >
+                                            <MaterialCommunityIcons name="flip-horizontal" size={20} color={selectedElement.isFlipped ? "#fff" : "#1e293b"} />
+                                            <Text style={[styles.toolActionText, { color: selectedElement.isFlipped ? "#fff" : "#1e293b" }]}>Flip Horizontal</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.toolActionButton, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0' }]}
+                                            onPress={() => {
+                                                const newElement = {
+                                                    ...selectedElement,
+                                                    id: Date.now().toString(),
+                                                    x: selectedElement.x + 20,
+                                                    y: selectedElement.y + 20,
+                                                };
+                                                setElements(prev => [...prev, newElement]);
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="content-copy" size={20} color="#1e293b" />
+                                            <Text style={[styles.toolActionText, { color: "#1e293b" }]}>Duplicate</Text>
+                                        </TouchableOpacity>
+
+
+                                    </View>
                                 </>
                             )}
 
@@ -965,7 +1484,202 @@ export default function DesktopPosterEditor() {
                     ) : (
                         // Show tool-specific options based on selected tool
                         <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }}>
-                            {selectedTool === 'text' ? (
+                            {selectedTool === 'content' ? (
+                                // Change Content Form
+                                <>
+                                    <Text style={styles.sectionTitle}>Edit Frame Content</Text>
+                                    <Text style={styles.helpText}>Update the information displayed in your poster</Text>
+
+                                    <View style={{ gap: 16, marginTop: 16 }}>
+                                        {/* Name Field */}
+                                        <View>
+                                            <Text style={styles.inputLabel}>Name</Text>
+                                            <TextInput
+                                                style={styles.textInput}
+                                                value={bottomBarDetails.name}
+                                                onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, name: text }))}
+                                                placeholder="Enter name"
+                                                placeholderTextColor="#94a3b8"
+                                            />
+                                        </View>
+
+                                        {/* Designation Field */}
+                                        <View>
+                                            <Text style={styles.inputLabel}>Designation / Role</Text>
+                                            <TextInput
+                                                style={styles.textInput}
+                                                value={bottomBarDetails.designation}
+                                                onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, designation: text }))}
+                                                placeholder="Enter designation"
+                                                placeholderTextColor="#94a3b8"
+                                            />
+                                        </View>
+
+                                        {/* Mobile Field */}
+                                        <View>
+                                            <Text style={styles.inputLabel}>Mobile Number</Text>
+                                            <TextInput
+                                                style={styles.textInput}
+                                                value={bottomBarDetails.mobile}
+                                                onChangeText={(text) => {
+                                                    // Only allow numeric characters and limit to 10 digits
+                                                    const numericText = text.replace(/[^0-9]/g, '');
+                                                    if (numericText.length <= 10) {
+                                                        setBottomBarDetails(prev => ({ ...prev, mobile: numericText }));
+                                                    }
+                                                }}
+                                                placeholder="Enter 10-digit mobile number"
+                                                placeholderTextColor="#94a3b8"
+                                                keyboardType="numeric"
+                                                maxLength={10}
+                                            />
+                                            {bottomBarDetails.mobile && bottomBarDetails.mobile.length < 10 && (
+                                                <Text style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>
+                                                    Mobile number must be 10 digits ({bottomBarDetails.mobile.length}/10)
+                                                </Text>
+                                            )}
+                                        </View>
+
+                                        {/* Social Field with Platform Selection */}
+                                        <View>
+                                            <Text style={styles.inputLabel}>Social Media</Text>
+
+                                            {/* Platform Icons */}
+                                            <View style={{
+                                                flexDirection: 'row',
+                                                gap: 8,
+                                                marginBottom: 8,
+                                                flexWrap: 'wrap'
+                                            }}>
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.socialIconButton,
+                                                        selectedSocialPlatform === 'twitter' && styles.selectedSocialIconButton
+                                                    ]}
+                                                    onPress={() => {
+                                                        setSelectedSocialPlatform('twitter');
+                                                        setBottomBarDetails(prev => ({ ...prev, socialPlatform: 'twitter' }));
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name="twitter"
+                                                        size={20}
+                                                        color={selectedSocialPlatform === 'twitter' ? '#fff' : '#1DA1F2'}
+                                                    />
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.socialIconButton,
+                                                        selectedSocialPlatform === 'facebook' && styles.selectedSocialIconButton
+                                                    ]}
+                                                    onPress={() => {
+                                                        setSelectedSocialPlatform('facebook');
+                                                        setBottomBarDetails(prev => ({ ...prev, socialPlatform: 'facebook' }));
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name="facebook"
+                                                        size={20}
+                                                        color={selectedSocialPlatform === 'facebook' ? '#fff' : '#1877F2'}
+                                                    />
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.socialIconButton,
+                                                        selectedSocialPlatform === 'instagram' && styles.selectedSocialIconButton
+                                                    ]}
+                                                    onPress={() => {
+                                                        setSelectedSocialPlatform('instagram');
+                                                        setBottomBarDetails(prev => ({ ...prev, socialPlatform: 'instagram' }));
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name="instagram"
+                                                        size={20}
+                                                        color={selectedSocialPlatform === 'instagram' ? '#fff' : '#E4405F'}
+                                                    />
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.socialIconButton,
+                                                        selectedSocialPlatform === 'youtube' && styles.selectedSocialIconButton
+                                                    ]}
+                                                    onPress={() => {
+                                                        setSelectedSocialPlatform('youtube');
+                                                        setBottomBarDetails(prev => ({ ...prev, socialPlatform: 'youtube' }));
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name="youtube"
+                                                        size={20}
+                                                        color={selectedSocialPlatform === 'youtube' ? '#fff' : '#FF0000'}
+                                                    />
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.socialIconButton,
+                                                        selectedSocialPlatform === 'linkedin' && styles.selectedSocialIconButton
+                                                    ]}
+                                                    onPress={() => {
+                                                        setSelectedSocialPlatform('linkedin');
+                                                        setBottomBarDetails(prev => ({ ...prev, socialPlatform: 'linkedin' }));
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name="linkedin"
+                                                        size={20}
+                                                        color={selectedSocialPlatform === 'linkedin' ? '#fff' : '#0A66C2'}
+                                                    />
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.socialIconButton,
+                                                        selectedSocialPlatform === 'whatsapp' && styles.selectedSocialIconButton
+                                                    ]}
+                                                    onPress={() => {
+                                                        setSelectedSocialPlatform('whatsapp');
+                                                        setBottomBarDetails(prev => ({ ...prev, socialPlatform: 'whatsapp' }));
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name="whatsapp"
+                                                        size={20}
+                                                        color={selectedSocialPlatform === 'whatsapp' ? '#fff' : '#25D366'}
+                                                    />
+                                                </TouchableOpacity>
+                                            </View>
+
+                                            {/* Handle Input */}
+                                            <TextInput
+                                                style={styles.textInput}
+                                                value={bottomBarDetails.social}
+                                                onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, social: text }))}
+                                                placeholder={`Enter ${selectedSocialPlatform} handle or ID`}
+                                                placeholderTextColor="#94a3b8"
+                                            />
+                                        </View>
+
+                                        {/* Address Field */}
+                                        <View>
+                                            <Text style={styles.inputLabel}>Address</Text>
+                                            <TextInput
+                                                style={[styles.textInput, { height: 80 }]}
+                                                value={bottomBarDetails.address}
+                                                onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, address: text }))}
+                                                placeholder="Enter address"
+                                                placeholderTextColor="#94a3b8"
+                                                multiline
+                                                numberOfLines={3}
+                                            />
+                                        </View>
+                                    </View>
+                                </>
+                            ) : selectedTool === 'text' ? (
                                 // Show only text tool options, no posters
                                 <>
                                     <Text style={styles.helpText}>Click button below to add text to your poster</Text>
@@ -1029,13 +1743,17 @@ export default function DesktopPosterEditor() {
                                                 ]}
                                                 onPress={() => {
                                                     setSelectedBottomBarTemplate(template.id);
+                                                    // Auto-switch to customize mode when frame is selected
+                                                    setSelectedTool('customize');
+                                                    // Auto-select Background element for immediate customization
+                                                    setSelectedCustomElement('Background');
                                                 }}
                                             >
                                                 <View style={styles.framePreview}>
                                                     <RenderBottomBar
                                                         template={template.id}
                                                         details={bottomBarDetails}
-                                                        width={240}
+                                                        width={200}
                                                     />
                                                 </View>
                                                 <Text style={[
@@ -1106,47 +1824,172 @@ export default function DesktopPosterEditor() {
                                                     {frameCustomization.backgroundType === 'solid' ? (
                                                         <View style={styles.customSection}>
                                                             <Text style={styles.customizeLabel}>Background Color</Text>
-                                                            <View style={styles.colorGrid}>
-                                                                {['#ffffff', '#f8fafc', '#E30512', '#009933', '#FFD700', '#000000', 'transparent'].map(c => (
-                                                                    <TouchableOpacity
-                                                                        key={c}
-                                                                        style={[
-                                                                            styles.colorDot,
-                                                                            { backgroundColor: c === 'transparent' ? '#fff' : c },
-                                                                            c === 'transparent' && { borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed' },
-                                                                            frameCustomization.backgroundColor === c && { borderWidth: 3, borderColor: SP_RED }
-                                                                        ]}
-                                                                        onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundColor: c }))}
-                                                                    >
-                                                                        {c === 'transparent' && <Text style={{ fontSize: 10 }}>T</Text>}
-                                                                    </TouchableOpacity>
-                                                                ))}
+                                                            <View style={{ gap: 12 }}>
+                                                                {/* Color Picker Input */}
+                                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                                    <input
+                                                                        type="color"
+                                                                        value={frameCustomization.backgroundColor || '#ffffff'}
+                                                                        onChange={(e) => setFrameCustomization(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                                                                        style={{
+                                                                            width: 60,
+                                                                            height: 40,
+                                                                            border: '2px solid #e2e8f0',
+                                                                            borderRadius: 8,
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    />
+                                                                    <View style={{ flex: 1 }}>
+                                                                        <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Custom Color</Text>
+                                                                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                                                                            {frameCustomization.backgroundColor || '#ffffff'}
+                                                                        </Text>
+                                                                    </View>
+                                                                </View>
+
+                                                                {/* Quick Presets */}
+                                                                <View>
+                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Quick Presets:</Text>
+                                                                    <View style={styles.colorGrid}>
+                                                                        {[
+                                                                            '#ffffff', '#f8fafc', '#E30512', '#009933',
+                                                                            '#FFD700', '#3b82f6', '#8b5cf6', '#000000'
+                                                                        ].map(c => (
+                                                                            <TouchableOpacity
+                                                                                key={c}
+                                                                                style={[
+                                                                                    styles.colorDot,
+                                                                                    { backgroundColor: c },
+                                                                                    frameCustomization.backgroundColor === c && { borderWidth: 3, borderColor: SP_RED }
+                                                                                ]}
+                                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundColor: c }))}
+                                                                            />
+                                                                        ))}
+                                                                    </View>
+                                                                </View>
                                                             </View>
                                                         </View>
                                                     ) : (
                                                         <View style={styles.customSection}>
                                                             <Text style={styles.customizeLabel}>Gradient Colors</Text>
-                                                            <View style={styles.gradientGrid}>
-                                                                {[
-                                                                    { name: 'Red', colors: ['#E30512', '#b91c1c'] as const },
-                                                                    { name: 'Green', colors: ['#009933', '#15803d'] as const },
-                                                                    { name: 'Red-Green', colors: ['#E30512', '#009933'] as const },
-                                                                    { name: 'Dark', colors: ['#1e293b', '#0f172a'] as const },
-                                                                    { name: 'Gold', colors: ['#FFD700', '#FFA500'] as const },
-                                                                    { name: 'Blue', colors: ['#3b82f6', '#1e40af'] as const },
-                                                                ].map(gradient => (
-                                                                    <TouchableOpacity
-                                                                        key={gradient.name}
-                                                                        style={[
-                                                                            styles.gradientOption,
-                                                                            JSON.stringify(frameCustomization.backgroundGradient) === JSON.stringify(gradient.colors) && styles.selectedGradientOption
-                                                                        ]}
-                                                                        onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundGradient: [...gradient.colors] }))}
-                                                                    >
-                                                                        <LinearGradient colors={gradient.colors} style={styles.gradientPreview} />
-                                                                        <Text style={styles.gradientName}>{gradient.name}</Text>
-                                                                    </TouchableOpacity>
-                                                                ))}
+                                                            <View style={{ gap: 16 }}>
+                                                                {/* Color 1 Picker */}
+                                                                <View>
+                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Start Color</Text>
+                                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                                        <input
+                                                                            type="color"
+                                                                            value={frameCustomization.backgroundGradient?.[0] || '#E30512'}
+                                                                            onChange={(e) => {
+                                                                                const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c'])];
+                                                                                newGradient[0] = e.target.value;
+                                                                                setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
+                                                                            }}
+                                                                            style={{
+                                                                                width: 50,
+                                                                                height: 40,
+                                                                                border: '2px solid #e2e8f0',
+                                                                                borderRadius: 8,
+                                                                                cursor: 'pointer'
+                                                                            }}
+                                                                        />
+                                                                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                                                                            {frameCustomization.backgroundGradient?.[0] || '#E30512'}
+                                                                        </Text>
+                                                                    </View>
+                                                                </View>
+
+                                                                {/* Color 2 Picker */}
+                                                                <View>
+                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>End Color</Text>
+                                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                                        <input
+                                                                            type="color"
+                                                                            value={frameCustomization.backgroundGradient?.[1] || '#b91c1c'}
+                                                                            onChange={(e) => {
+                                                                                const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c'])];
+                                                                                newGradient[1] = e.target.value;
+                                                                                setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
+                                                                            }}
+                                                                            style={{
+                                                                                width: 50,
+                                                                                height: 40,
+                                                                                border: '2px solid #e2e8f0',
+                                                                                borderRadius: 8,
+                                                                                cursor: 'pointer'
+                                                                            }}
+                                                                        />
+                                                                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                                                                            {frameCustomization.backgroundGradient?.[1] || '#b91c1c'}
+                                                                        </Text>
+                                                                    </View>
+                                                                </View>
+
+                                                                {/* Color 3 Picker (Optional) */}
+                                                                <View>
+                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Middle Color (Optional)</Text>
+                                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                                        <input
+                                                                            type="color"
+                                                                            value={frameCustomization.backgroundGradient?.[2] || '#7f1d1d'}
+                                                                            onChange={(e) => {
+                                                                                const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c', '#7f1d1d'])];
+                                                                                if (newGradient.length < 3) newGradient.push(e.target.value);
+                                                                                else newGradient[2] = e.target.value;
+                                                                                setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
+                                                                            }}
+                                                                            style={{
+                                                                                width: 50,
+                                                                                height: 40,
+                                                                                border: '2px solid #e2e8f0',
+                                                                                borderRadius: 8,
+                                                                                cursor: 'pointer'
+                                                                            }}
+                                                                        />
+                                                                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                                                                            {frameCustomization.backgroundGradient?.[2] || 'Click to add'}
+                                                                        </Text>
+                                                                    </View>
+                                                                </View>
+
+                                                                {/* Gradient Preview */}
+                                                                <View>
+                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Preview:</Text>
+                                                                    <LinearGradient
+                                                                        colors={(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c']) as any}
+                                                                        start={{ x: 0, y: 0 }}
+                                                                        end={{ x: 1, y: 1 }}
+                                                                        style={{ height: 60, borderRadius: 8, borderWidth: 2, borderColor: '#e2e8f0' }}
+                                                                    />
+                                                                </View>
+
+                                                                {/* Quick Gradient Presets */}
+                                                                <View>
+                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Quick Presets:</Text>
+                                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                                            {[
+                                                                                { name: 'Red', colors: ['#E30512', '#b91c1c'] },
+                                                                                { name: 'Green', colors: ['#009933', '#15803d'] },
+                                                                                { name: 'Gold', colors: ['#fbbf24', '#f59e0b'] },
+                                                                                { name: 'Blue', colors: ['#3b82f6', '#1e40af'] },
+                                                                                { name: 'Purple', colors: ['#8b5cf6', '#d946ef'] },
+                                                                            ].map(preset => (
+                                                                                <TouchableOpacity
+                                                                                    key={preset.name}
+                                                                                    onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundGradient: preset.colors }))}
+                                                                                    style={{ alignItems: 'center', gap: 4 }}
+                                                                                >
+                                                                                    <LinearGradient
+                                                                                        colors={preset.colors as any}
+                                                                                        style={{ width: 50, height: 40, borderRadius: 6 }}
+                                                                                    />
+                                                                                    <Text style={{ fontSize: 10, color: '#64748b' }}>{preset.name}</Text>
+                                                                                </TouchableOpacity>
+                                                                            ))}
+                                                                        </View>
+                                                                    </ScrollView>
+                                                                </View>
                                                             </View>
                                                         </View>
                                                     )}
@@ -1620,7 +2463,91 @@ export default function DesktopPosterEditor() {
                     </View>
                 </View>
             </Modal>
-        </View>
+            {/* Preview Modal */}
+            <Modal
+                visible={showPreviewModal}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setShowPreviewModal(false)}
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+                    <TouchableOpacity
+                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                        activeOpacity={1}
+                        onPress={() => setShowPreviewModal(false)}
+                    />
+
+                    <View style={{ width: '90%', maxWidth: 800, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' }}>
+                        {/* Preview Header */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' }}>
+                            <Text style={{ fontSize: 20, fontWeight: '700', color: '#1e293b' }}>Poster Preview</Text>
+                            <TouchableOpacity onPress={() => setShowPreviewModal(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Poster Preview */}
+                        <ScrollView style={{ maxHeight: 600 }}>
+                            <View style={{ padding: 20, alignItems: 'center', backgroundColor: '#f8fafc' }}>
+                                <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 }}>
+                                    {/* This will show the captured screenshot */}
+                                    <View style={{ width: canvasSize.w, height: canvasSize.h }}>
+                                        {previewImageUri ? (
+                                            <Image
+                                                source={{ uri: previewImageUri }}
+                                                style={{ width: '100%', height: '100%', borderRadius: 4 }}
+                                                resizeMode="contain"
+                                            />
+                                        ) : (
+                                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                                <ActivityIndicator size="large" color="#8b5cf6" />
+                                                <Text style={{ marginTop: 10, color: '#64748b' }}>Loading Preview...</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            </View>
+                        </ScrollView>
+
+                        {/* Action Buttons */}
+                        <View style={{ flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' }}>
+                            <TouchableOpacity
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#3b82f6', padding: 14, borderRadius: 8 }}
+                                onPress={handleSharePoster}
+                            >
+                                <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
+                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Share</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#10b981', padding: 14, borderRadius: 8 }}
+                                onPress={() => {
+                                    if (previewImageUri) {
+                                        const link = document.createElement('a');
+                                        link.href = previewImageUri;
+                                        link.download = `poster-${Date.now()}.png`;
+                                        link.click();
+                                        Alert.alert('Success', 'Poster downloaded successfully!');
+                                        setShowPreviewModal(false);
+                                    }
+                                }}
+                            >
+                                <MaterialCommunityIcons name="download" size={20} color="#fff" />
+                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Download</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#f59e0b', padding: 14, borderRadius: 8 }}
+                                onPress={() => setShowPreviewModal(false)}
+                            >
+                                <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
+                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Edit</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal >
+        </View >
     );
 }
 
@@ -2254,5 +3181,35 @@ const styles = StyleSheet.create({
     },
     selectedFontButtonText: {
         color: '#fff',
+    },
+    inputLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#1e293b',
+        marginBottom: 6,
+    },
+    textInput: {
+        backgroundColor: '#f8fafc',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 14,
+        color: '#1e293b',
+    },
+    socialIconButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: '#e2e8f0',
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    selectedSocialIconButton: {
+        borderColor: SP_RED,
+        backgroundColor: SP_RED,
     },
 });
