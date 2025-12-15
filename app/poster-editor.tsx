@@ -814,7 +814,7 @@ export default function PosterEditor() {
                                 bottom: 0,
                                 left: 0,
                                 right: 0,
-                                height: BANNER_HEIGHT,
+                                height: canvasSize.h * 0.2,
                                 width: '100%'
                             }}>
                                 <RenderBottomBar

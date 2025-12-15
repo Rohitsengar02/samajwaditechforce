@@ -108,39 +108,39 @@ export default function DesktopPosterEditor() {
     // Frame Customization State
     const [frameCustomization, setFrameCustomization] = useState({
         // Background
-        backgroundType: 'solid' as 'solid' | 'gradient',
-        backgroundColor: '#fff',
-        backgroundGradient: ['#fff', '#f8fafc'],
+        backgroundType: 'gradient' as 'solid' | 'gradient',
+        backgroundColor: SP_RED,
+        backgroundGradient: [SP_RED, '#16a34a'],
         backgroundOpacity: 1,
 
         // Image
-        imageSize: 85,
-        imageBorderColor: SP_RED,
+        imageSize: 100,
+        imageBorderColor: '#ffffff',
         imageBorderWidth: 2,
 
         // Name
-        nameFontSize: 22,
-        nameColor: '#0f172a',
+        nameFontSize: 15,
+        nameColor: '#ffffff',
         nameBackgroundColor: 'transparent',
 
         // Designation
-        designationFontSize: 22,
-        designationColor: '#64748b',
+        designationFontSize: 15,
+        designationColor: '#ffffff',
         designationBackgroundColor: 'transparent',
 
         // Mobile
-        mobileFontSize: 22,
-        mobileColor: '#64748b',
+        mobileFontSize: 15,
+        mobileColor: '#ffffff',
         mobileBackgroundColor: 'transparent',
 
         // Address
         addressFontSize: 15,
-        addressColor: '#94a3b8',
+        addressColor: '#ffffff',
         addressBackgroundColor: 'transparent',
 
         // Social
-        socialFontSize: 22,
-        socialColor: '#64748b',
+        socialFontSize: 15,
+        socialColor: '#ffffff',
         socialBackgroundColor: 'transparent',
     });
 
@@ -1295,6 +1295,7 @@ export default function DesktopPosterEditor() {
                                 left: 0,
                                 right: 0,
                                 width: '100%',
+                                height: canvasSize.h * 0.2,
                                 overflow: 'hidden',
                             }}>
                                 <RenderBottomBar
@@ -1804,195 +1805,128 @@ export default function DesktopPosterEditor() {
                                             {selectedCustomElement === 'Background' && (
                                                 <>
                                                     <View style={styles.customSection}>
-                                                        <Text style={styles.customizeLabel}>Background Type</Text>
-                                                        <View style={styles.row}>
-                                                            <TouchableOpacity
-                                                                style={[styles.typeButton, frameCustomization.backgroundType === 'solid' && styles.activeTypeButton]}
-                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundType: 'solid' }))}
-                                                            >
-                                                                <Text style={[styles.typeButtonText, frameCustomization.backgroundType === 'solid' && styles.activeTypeButtonText]}>Solid</Text>
-                                                            </TouchableOpacity>
-                                                            <TouchableOpacity
-                                                                style={[styles.typeButton, frameCustomization.backgroundType === 'gradient' && styles.activeTypeButton]}
-                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundType: 'gradient' }))}
-                                                            >
-                                                                <Text style={[styles.typeButtonText, frameCustomization.backgroundType === 'gradient' && styles.activeTypeButtonText]}>Gradient</Text>
-                                                            </TouchableOpacity>
-                                                        </View>
-                                                    </View>
-
-                                                    {frameCustomization.backgroundType === 'solid' ? (
-                                                        <View style={styles.customSection}>
-                                                            <Text style={styles.customizeLabel}>Background Color</Text>
-                                                            <View style={{ gap: 12 }}>
-                                                                {/* Color Picker Input */}
+                                                        <Text style={styles.customizeLabel}>Gradient Colors</Text>
+                                                        <View style={{ gap: 16 }}>
+                                                            {/* Color 1 Picker */}
+                                                            <View>
+                                                                <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Start Color</Text>
                                                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                                                     <input
                                                                         type="color"
-                                                                        value={frameCustomization.backgroundColor || '#ffffff'}
-                                                                        onChange={(e) => setFrameCustomization(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                                                                        value={frameCustomization.backgroundGradient?.[0] || '#E30512'}
+                                                                        onChange={(e) => {
+                                                                            const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c'])];
+                                                                            newGradient[0] = e.target.value;
+                                                                            setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
+                                                                        }}
                                                                         style={{
-                                                                            width: 60,
+                                                                            width: 50,
                                                                             height: 40,
                                                                             border: '2px solid #e2e8f0',
                                                                             borderRadius: 8,
                                                                             cursor: 'pointer'
                                                                         }}
                                                                     />
-                                                                    <View style={{ flex: 1 }}>
-                                                                        <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Custom Color</Text>
-                                                                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
-                                                                            {frameCustomization.backgroundColor || '#ffffff'}
-                                                                        </Text>
-                                                                    </View>
-                                                                </View>
-
-                                                                {/* Quick Presets */}
-                                                                <View>
-                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Quick Presets:</Text>
-                                                                    <View style={styles.colorGrid}>
-                                                                        {[
-                                                                            '#ffffff', '#f8fafc', '#E30512', '#009933',
-                                                                            '#FFD700', '#3b82f6', '#8b5cf6', '#000000'
-                                                                        ].map(c => (
-                                                                            <TouchableOpacity
-                                                                                key={c}
-                                                                                style={[
-                                                                                    styles.colorDot,
-                                                                                    { backgroundColor: c },
-                                                                                    frameCustomization.backgroundColor === c && { borderWidth: 3, borderColor: SP_RED }
-                                                                                ]}
-                                                                                onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundColor: c }))}
-                                                                            />
-                                                                        ))}
-                                                                    </View>
+                                                                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                                                                        {frameCustomization.backgroundGradient?.[0] || '#E30512'}
+                                                                    </Text>
                                                                 </View>
                                                             </View>
-                                                        </View>
-                                                    ) : (
-                                                        <View style={styles.customSection}>
-                                                            <Text style={styles.customizeLabel}>Gradient Colors</Text>
-                                                            <View style={{ gap: 16 }}>
-                                                                {/* Color 1 Picker */}
-                                                                <View>
-                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Start Color</Text>
-                                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                                                        <input
-                                                                            type="color"
-                                                                            value={frameCustomization.backgroundGradient?.[0] || '#E30512'}
-                                                                            onChange={(e) => {
-                                                                                const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c'])];
-                                                                                newGradient[0] = e.target.value;
-                                                                                setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
-                                                                            }}
-                                                                            style={{
-                                                                                width: 50,
-                                                                                height: 40,
-                                                                                border: '2px solid #e2e8f0',
-                                                                                borderRadius: 8,
-                                                                                cursor: 'pointer'
-                                                                            }}
-                                                                        />
-                                                                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
-                                                                            {frameCustomization.backgroundGradient?.[0] || '#E30512'}
-                                                                        </Text>
-                                                                    </View>
-                                                                </View>
 
-                                                                {/* Color 2 Picker */}
-                                                                <View>
-                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>End Color</Text>
-                                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                                                        <input
-                                                                            type="color"
-                                                                            value={frameCustomization.backgroundGradient?.[1] || '#b91c1c'}
-                                                                            onChange={(e) => {
-                                                                                const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c'])];
-                                                                                newGradient[1] = e.target.value;
-                                                                                setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
-                                                                            }}
-                                                                            style={{
-                                                                                width: 50,
-                                                                                height: 40,
-                                                                                border: '2px solid #e2e8f0',
-                                                                                borderRadius: 8,
-                                                                                cursor: 'pointer'
-                                                                            }}
-                                                                        />
-                                                                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
-                                                                            {frameCustomization.backgroundGradient?.[1] || '#b91c1c'}
-                                                                        </Text>
-                                                                    </View>
-                                                                </View>
-
-                                                                {/* Color 3 Picker (Optional) */}
-                                                                <View>
-                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Middle Color (Optional)</Text>
-                                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                                                        <input
-                                                                            type="color"
-                                                                            value={frameCustomization.backgroundGradient?.[2] || '#7f1d1d'}
-                                                                            onChange={(e) => {
-                                                                                const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c', '#7f1d1d'])];
-                                                                                if (newGradient.length < 3) newGradient.push(e.target.value);
-                                                                                else newGradient[2] = e.target.value;
-                                                                                setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
-                                                                            }}
-                                                                            style={{
-                                                                                width: 50,
-                                                                                height: 40,
-                                                                                border: '2px solid #e2e8f0',
-                                                                                borderRadius: 8,
-                                                                                cursor: 'pointer'
-                                                                            }}
-                                                                        />
-                                                                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
-                                                                            {frameCustomization.backgroundGradient?.[2] || 'Click to add'}
-                                                                        </Text>
-                                                                    </View>
-                                                                </View>
-
-                                                                {/* Gradient Preview */}
-                                                                <View>
-                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Preview:</Text>
-                                                                    <LinearGradient
-                                                                        colors={(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c']) as any}
-                                                                        start={{ x: 0, y: 0 }}
-                                                                        end={{ x: 1, y: 1 }}
-                                                                        style={{ height: 60, borderRadius: 8, borderWidth: 2, borderColor: '#e2e8f0' }}
+                                                            {/* Color 2 Picker */}
+                                                            <View>
+                                                                <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>End Color</Text>
+                                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                                    <input
+                                                                        type="color"
+                                                                        value={frameCustomization.backgroundGradient?.[1] || '#b91c1c'}
+                                                                        onChange={(e) => {
+                                                                            const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c'])];
+                                                                            newGradient[1] = e.target.value;
+                                                                            setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
+                                                                        }}
+                                                                        style={{
+                                                                            width: 50,
+                                                                            height: 40,
+                                                                            border: '2px solid #e2e8f0',
+                                                                            borderRadius: 8,
+                                                                            cursor: 'pointer'
+                                                                        }}
                                                                     />
+                                                                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                                                                        {frameCustomization.backgroundGradient?.[1] || '#b91c1c'}
+                                                                    </Text>
                                                                 </View>
+                                                            </View>
 
-                                                                {/* Quick Gradient Presets */}
-                                                                <View>
-                                                                    <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Quick Presets:</Text>
-                                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                                            {[
-                                                                                { name: 'Red', colors: ['#E30512', '#b91c1c'] },
-                                                                                { name: 'Green', colors: ['#009933', '#15803d'] },
-                                                                                { name: 'Gold', colors: ['#fbbf24', '#f59e0b'] },
-                                                                                { name: 'Blue', colors: ['#3b82f6', '#1e40af'] },
-                                                                                { name: 'Purple', colors: ['#8b5cf6', '#d946ef'] },
-                                                                            ].map(preset => (
-                                                                                <TouchableOpacity
-                                                                                    key={preset.name}
-                                                                                    onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundGradient: preset.colors }))}
-                                                                                    style={{ alignItems: 'center', gap: 4 }}
-                                                                                >
-                                                                                    <LinearGradient
-                                                                                        colors={preset.colors as any}
-                                                                                        style={{ width: 50, height: 40, borderRadius: 6 }}
-                                                                                    />
-                                                                                    <Text style={{ fontSize: 10, color: '#64748b' }}>{preset.name}</Text>
-                                                                                </TouchableOpacity>
-                                                                            ))}
-                                                                        </View>
-                                                                    </ScrollView>
+                                                            {/* Color 3 Picker (Optional) */}
+                                                            <View>
+                                                                <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Middle Color (Optional)</Text>
+                                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                                    <input
+                                                                        type="color"
+                                                                        value={frameCustomization.backgroundGradient?.[2] || '#7f1d1d'}
+                                                                        onChange={(e) => {
+                                                                            const newGradient = [...(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c', '#7f1d1d'])];
+                                                                            if (newGradient.length < 3) newGradient.push(e.target.value);
+                                                                            else newGradient[2] = e.target.value;
+                                                                            setFrameCustomization(prev => ({ ...prev, backgroundGradient: newGradient }));
+                                                                        }}
+                                                                        style={{
+                                                                            width: 50,
+                                                                            height: 40,
+                                                                            border: '2px solid #e2e8f0',
+                                                                            borderRadius: 8,
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    />
+                                                                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                                                                        {frameCustomization.backgroundGradient?.[2] || 'Click to add'}
+                                                                    </Text>
+                                                                </View>
+                                                            </View>
+
+                                                            {/* Gradient Preview */}
+                                                            <View>
+                                                                <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>Preview:</Text>
+                                                                <LinearGradient
+                                                                    colors={(frameCustomization.backgroundGradient || ['#E30512', '#b91c1c']) as any}
+                                                                    start={{ x: 0, y: 0 }}
+                                                                    end={{ x: 1, y: 1 }}
+                                                                    style={{ height: 60, borderRadius: 8, borderWidth: 2, borderColor: '#e2e8f0' }}
+                                                                />
+                                                            </View>
+
+                                                            {/* Quick Gradient Presets */}
+                                                            <View>
+                                                                <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>Quick Presets:</Text>
+                                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                                                    {[
+                                                                        { name: 'Party', colors: ['#E30512', '#16a34a'] },
+                                                                        { name: 'Red', colors: ['#E30512', '#b91c1c'] },
+                                                                        { name: 'Green', colors: ['#009933', '#15803d'] },
+                                                                        { name: 'Gold', colors: ['#fbbf24', '#f59e0b'] },
+                                                                        { name: 'Blue', colors: ['#3b82f6', '#1e40af'] },
+                                                                        { name: 'Purple', colors: ['#8b5cf6', '#d946ef'] },
+                                                                    ].map(preset => (
+                                                                        <TouchableOpacity
+                                                                            key={preset.name}
+                                                                            onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundGradient: preset.colors }))}
+                                                                            style={{ alignItems: 'center', gap: 4, width: '48%' }}
+                                                                        >
+                                                                            <LinearGradient
+                                                                                colors={preset.colors as any}
+                                                                                start={{ x: 0, y: 0 }}
+                                                                                end={{ x: 1, y: 0 }}
+                                                                                style={{ width: '100%', height: 40, borderRadius: 8 }}
+                                                                            />
+                                                                            <Text style={{ fontSize: 11, color: '#64748b', fontWeight: '500' }}>{preset.name}</Text>
+                                                                        </TouchableOpacity>
+                                                                    ))}
                                                                 </View>
                                                             </View>
                                                         </View>
-                                                    )}
+                                                    </View>
 
                                                     <View style={styles.customSection}>
                                                         <Text style={styles.customizeLabel}>Opacity: {Math.round(frameCustomization.backgroundOpacity * 100)}%</Text>
@@ -2671,7 +2605,7 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     rightPanel: {
-        width: 300,
+        width: 360,
         backgroundColor: '#fff',
         borderLeftWidth: 1,
         borderLeftColor: '#e2e8f0',
