@@ -24,6 +24,7 @@ import { captureRef } from 'react-native-view-shot';
 import { removeBackground as imglyRemoveBackground } from '../../utils/backgroundRemoval';
 import { getApiUrl } from '../../utils/api';
 import { TEMPLATES, RenderBottomBar } from '../../components/posteredit/BottomBarTemplates';
+import FrameSelector from '../../components/posteredit/FrameSelector';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1288,15 +1289,15 @@ export default function DesktopPosterEditor() {
                                 <DraggableItem key={el.id} element={el} />
                             ))}
 
-                            {/* Dynamic Bottom Bar */}
+                            {/* Dynamic Bottom Bar - Auto-height based on content */}
                             <View style={{
                                 position: 'absolute',
                                 bottom: 0,
                                 left: 0,
                                 right: 0,
                                 width: '100%',
-                                height: canvasSize.h * 0.2,
-                                overflow: 'hidden',
+                                minHeight: canvasSize.h * 0.15,
+                                maxHeight: canvasSize.h * 0.35,
                             }}>
                                 <RenderBottomBar
                                     template={selectedBottomBarTemplate}
@@ -1731,40 +1732,17 @@ export default function DesktopPosterEditor() {
                                     </View>
                                 </>
                             ) : selectedTool === 'sticker' ? (
-                                // Show all frames directly, no posters
-                                <>
-                                    <Text style={styles.helpText}>Select a frame to add to your poster</Text>
-                                    <View style={{ gap: 16, marginTop: 12 }}>
-                                        {TEMPLATES.map(template => (
-                                            <TouchableOpacity
-                                                key={template.id}
-                                                style={[
-                                                    styles.frameCard,
-                                                    selectedBottomBarTemplate === template.id && styles.selectedFrameCard
-                                                ]}
-                                                onPress={() => {
-                                                    setSelectedBottomBarTemplate(template.id);
-                                                    // Auto-switch to customize mode when frame is selected
-                                                    setSelectedTool('customize');
-                                                    // Auto-select Background element for immediate customization
-                                                    setSelectedCustomElement('Background');
-                                                }}
-                                            >
-                                                <View style={styles.framePreview}>
-                                                    <RenderBottomBar
-                                                        template={template.id}
-                                                        details={bottomBarDetails}
-                                                        width={200}
-                                                    />
-                                                </View>
-                                                <Text style={[
-                                                    styles.frameOptionText,
-                                                    selectedBottomBarTemplate === template.id && styles.selectedFrameOptionText
-                                                ]}>{template.name}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </>
+                                // Frame Selector Component
+                                <FrameSelector
+                                    selectedTemplate={selectedBottomBarTemplate}
+                                    onSelectTemplate={(templateId) => {
+                                        setSelectedBottomBarTemplate(templateId);
+                                        // Auto-switch to customize mode when frame is selected
+                                        setSelectedTool('customize');
+                                        // Auto-select Background element for immediate customization
+                                        setSelectedCustomElement('Background');
+                                    }}
+                                />
                             ) : selectedTool === 'customize' ? (
                                 // Show frame customization options
                                 <>
@@ -2919,11 +2897,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     framePreview: {
-        width: 240,
-        height: 80,
-        borderRadius: 8,
-        overflow: 'visible',
-        marginVertical: 8,
+        width: '100%',
+        height: 120,
+        borderRadius: 10,
+        overflow: 'hidden',
     },
     frameOptionText: {
         fontSize: 14,

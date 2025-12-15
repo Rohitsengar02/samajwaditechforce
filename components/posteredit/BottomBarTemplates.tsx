@@ -68,7 +68,7 @@ const DefaultBar = ({ details, width, customization }: TemplateProps) => {
         : (customization?.backgroundGradient || [SP_RED, '#16a34a']);
 
     return (
-        <LinearGradient colors={bgColors as any} style={[styles.bottomBar, { width, height: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
+        <LinearGradient colors={bgColors as any} style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
                 <View style={[styles.photoContainer, {
                     width: customization?.imageSize || 100,
@@ -83,17 +83,19 @@ const DefaultBar = ({ details, width, customization }: TemplateProps) => {
                         <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                     )}
                 </View>
-                <View style={{ flex: 1, marginLeft: 8 }}>
+                <View style={{ flex: 1, marginLeft: 8, flexShrink: 1 }}>
                     <Text style={[styles.textBold, {
                         fontSize: customization?.nameFontSize || 15,
                         color: customization?.nameColor || '#ffffff',
                         backgroundColor: customization?.nameBackgroundColor || 'transparent',
-                    }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                        flexWrap: 'wrap',
+                    }]}>{details?.name || 'Your Name'}</Text>
                     <Text style={[styles.textRegular, {
                         fontSize: customization?.designationFontSize || 15,
                         color: customization?.designationColor || '#ffffff',
                         backgroundColor: customization?.designationBackgroundColor || 'transparent',
-                    }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                        flexWrap: 'wrap',
+                    }]}>{details?.designation || 'Designation'}</Text>
                 </View>
                 <View style={{ gap: 2 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -104,14 +106,15 @@ const DefaultBar = ({ details, width, customization }: TemplateProps) => {
                             backgroundColor: customization?.mobileBackgroundColor || 'transparent',
                         }]}>{details?.mobile || '+91 98765 43210'}</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4, flexWrap: 'wrap' }}>
                         <MaterialCommunityIcons name="map-marker" size={customization?.addressFontSize ? customization.addressFontSize + 6 : 20} color={customization?.addressColor || '#ffffff'} />
                         <Text style={[styles.textRegular, {
                             fontSize: customization?.addressFontSize || 15,
                             color: customization?.addressColor || '#ffffff',
                             backgroundColor: customization?.addressBackgroundColor || 'transparent',
                             flex: 1,
-                        }]} numberOfLines={2}>{details?.address || 'Lucknow, Uttar Pradesh'}</Text>
+                            flexWrap: 'wrap',
+                        }]}>{details?.address || 'Lucknow, Uttar Pradesh'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                         <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={customization?.socialFontSize ? customization.socialFontSize + 4 : 20} color={customization?.socialColor || '#ffffff'} />
@@ -134,7 +137,7 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
     const bgColors = customization?.backgroundGradient || ['#1e3a8a', '#1e40af', '#3b82f6'];
 
     return (
-        <LinearGradient colors={bgColors as any} style={[styles.bottomBar, { width, height: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
+        <LinearGradient colors={bgColors as any} style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 16 }}>
                 {/* Large circular photo with golden border */}
                 <View style={[styles.photoContainer, {
@@ -216,7 +219,7 @@ const MinimalWhiteBar = ({ details, width, customization }: TemplateProps) => {
     const bgColors = customization?.backgroundGradient || [SP_RED, '#16a34a'];
 
     return (
-        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.bottomBar, { width, height: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
+        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
             {/* Top accent line */}
             <View style={{ height: 4, width: '100%', backgroundColor: 'rgba(255,255,255,0.3)' }} />
 
@@ -284,7 +287,7 @@ const RedAccentBar = ({ details, width, customization }: TemplateProps) => {
     const bgColors = customization?.backgroundGradient || [SP_RED, '#b91c1c', '#7f1d1d'];
 
     return (
-        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.bottomBar, { width, height: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
+        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
             {/* Decorative elements */}
             <View style={{ position: 'absolute', top: -15, right: 30, width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.1)' }} />
             <View style={{ position: 'absolute', bottom: -10, left: '40%', width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)' }} />
@@ -360,7 +363,7 @@ const YellowThemeBar = ({ details, width, customization }: TemplateProps) => {
     const bgColors = customization?.backgroundGradient || ['#fbbf24', '#f59e0b', '#d97706'];
 
     return (
-        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.bottomBar, { width, height: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
+        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
             {/* Top brown border */}
             <View style={{ height: 3, width: '100%', backgroundColor: '#78350f' }} />
 
@@ -437,7 +440,7 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
     const bgColors = customization?.backgroundGradient || ['#6366f1', '#8b5cf6', '#d946ef'];
 
     return (
-        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.bottomBar, { width, height: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
+        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 10, gap: 10, position: 'relative', overflow: 'hidden' }}>
                 {/* Multiple wave decorations */}
                 <View style={{ position: 'absolute', bottom: -15, right: -15, opacity: 0.15 }}>
