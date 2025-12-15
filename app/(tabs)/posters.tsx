@@ -119,19 +119,6 @@ export default function PostersScreen() {
         setModalVisible(true);
     };
 
-    const handleNormalEdit = () => {
-        if (!selectedPoster) return;
-        setModalVisible(false);
-        router.push({
-            pathname: '/normal-edit',
-            params: {
-                id: selectedPoster._id,
-                imageUrl: selectedPoster.imageUrl,
-                title: selectedPoster.title
-            }
-        });
-    };
-
     const handleDetailedEdit = () => {
         if (!selectedPoster) return;
         setModalVisible(false);
@@ -273,43 +260,25 @@ export default function PostersScreen() {
                         <TouchableWithoutFeedback>
                             <View style={styles.modalContent}>
                                 <Text style={styles.modalTitle}>
-                                    <TranslatedText>Choose Edit Mode</TranslatedText>
+                                    <TranslatedText>What would you like to do?</TranslatedText>
                                 </Text>
                                 <Text style={styles.modalSubtitle}>
-                                    <TranslatedText>How would you like to edit this poster?</TranslatedText>
+                                    <TranslatedText>Edit or download this poster</TranslatedText>
                                 </Text>
-
-                                <TouchableOpacity
-                                    style={styles.modalButton}
-                                    onPress={handleNormalEdit}
-                                >
-                                    <View style={[styles.iconContainer, { backgroundColor: '#e0f2fe' }]}>
-                                        <MaterialCommunityIcons name="pencil" size={24} color="#0284c7" />
-                                    </View>
-                                    <View style={styles.buttonTextContainer}>
-                                        <Text style={styles.buttonTitle}>
-                                            <TranslatedText>Normal Edit</TranslatedText>
-                                        </Text>
-                                        <Text style={styles.buttonSubtitle}>
-                                            <TranslatedText>Quickly add your details</TranslatedText>
-                                        </Text>
-                                    </View>
-                                    <MaterialCommunityIcons name="chevron-right" size={24} color="#cbd5e1" />
-                                </TouchableOpacity>
 
                                 <TouchableOpacity
                                     style={styles.modalButton}
                                     onPress={handleDetailedEdit}
                                 >
-                                    <View style={[styles.iconContainer, { backgroundColor: '#f0fdf4' }]}>
-                                        <MaterialCommunityIcons name="palette" size={24} color="#16a34a" />
+                                    <View style={[styles.iconContainer, { backgroundColor: '#fee2e2' }]}>
+                                        <MaterialCommunityIcons name="palette" size={24} color={SP_RED} />
                                     </View>
                                     <View style={styles.buttonTextContainer}>
                                         <Text style={styles.buttonTitle}>
-                                            <TranslatedText>Detailed Edit</TranslatedText>
+                                            <TranslatedText>Edit Poster</TranslatedText>
                                         </Text>
                                         <Text style={styles.buttonSubtitle}>
-                                            <TranslatedText>Full customization control</TranslatedText>
+                                            <TranslatedText>Add your details and customize</TranslatedText>
                                         </Text>
                                     </View>
                                     <MaterialCommunityIcons name="chevron-right" size={24} color="#cbd5e1" />
@@ -319,8 +288,8 @@ export default function PostersScreen() {
                                     style={[styles.modalButton, { borderBottomWidth: 0 }]}
                                     onPress={() => selectedPoster && handleDownload(selectedPoster)}
                                 >
-                                    <View style={[styles.iconContainer, { backgroundColor: '#fef2f2' }]}>
-                                        <MaterialCommunityIcons name="download" size={24} color="#dc2626" />
+                                    <View style={[styles.iconContainer, { backgroundColor: '#f0fdf4' }]}>
+                                        <MaterialCommunityIcons name="download" size={24} color="#16a34a" />
                                     </View>
                                     <View style={styles.buttonTextContainer}>
                                         <Text style={styles.buttonTitle}>

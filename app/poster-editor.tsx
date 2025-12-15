@@ -26,6 +26,7 @@ import { captureRef } from 'react-native-view-shot';
 import { removeBackground as imglyRemoveBackground } from '../utils/backgroundRemoval';
 import { getApiUrl } from '../utils/api';
 import { TEMPLATES, RenderBottomBar } from '../components/posteredit/BottomBarTemplates';
+import FrameSelector from '../components/posteredit/FrameSelector';
 import { FlatList } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -137,9 +138,46 @@ export default function PosterEditor() {
     });
     const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
 
+    // Frame Customization State (matching desktop)
+    const [frameCustomization, setFrameCustomization] = useState({
+        // Background
+        backgroundType: 'gradient' as 'solid' | 'gradient',
+        backgroundColor: SP_RED,
+        backgroundGradient: [SP_RED, '#16a34a'],
+        backgroundOpacity: 1,
+        // Image
+        imageSize: 80,
+        imageBorderColor: '#ffffff',
+        imageBorderWidth: 3,
+        // Name
+        nameFontSize: 14,
+        nameColor: '#ffffff',
+        nameBackgroundColor: 'transparent',
+        // Designation
+        designationFontSize: 11,
+        designationColor: '#ffffff',
+        designationBackgroundColor: 'transparent',
+        // Mobile
+        mobileFontSize: 10,
+        mobileColor: '#ffffff',
+        mobileBackgroundColor: 'transparent',
+        // Address
+        addressFontSize: 9,
+        addressColor: '#ffffff',
+        addressBackgroundColor: 'transparent',
+        // Social
+        socialFontSize: 10,
+        socialColor: '#ffffff',
+        socialBackgroundColor: 'transparent',
+    });
+
     // Filter State
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [selectedFilter, setSelectedFilter] = useState('none');
+
+    // Preview Modal State (desktop-like preview with download)
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Poster Pan/Move State
     const posterOffsetRef = useRef({ x: 0, y: 0 });
@@ -822,22 +860,50 @@ export default function PosterEditor() {
                                     template={selectedBottomBarTemplate}
                                     details={bottomBarDetails}
                                     width={canvasSize.w}
+                                    customization={frameCustomization}
                                 />
-                                {/* Edit Button Overlay */}
-                                <TouchableOpacity
-                                    style={{
-                                        position: 'absolute',
-                                        top: 8,
-                                        right: 8,
-                                        backgroundColor: 'rgba(0,0,0,0.6)',
-                                        borderRadius: 20,
-                                        padding: 8,
-                                        zIndex: 10,
-                                    }}
-                                    onPress={() => setShowBottomBarEditForm(true)}
-                                >
-                                    <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
-                                </TouchableOpacity>
+                                {/* Action Buttons Overlay */}
+                                <View style={{
+                                    position: 'absolute',
+                                    top: 6,
+                                    right: 6,
+                                    flexDirection: 'row',
+                                    gap: 6,
+                                    zIndex: 10,
+                                }}>
+                                    {/* Update Content Button */}
+                                    <TouchableOpacity
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            backgroundColor: 'rgba(0,0,0,0.7)',
+                                            borderRadius: 16,
+                                            paddingVertical: 6,
+                                            paddingHorizontal: 10,
+                                            gap: 4,
+                                        }}
+                                        onPress={() => setShowBottomBarEditForm(true)}
+                                    >
+                                        <MaterialCommunityIcons name="pencil" size={14} color="#fff" />
+                                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Edit</Text>
+                                    </TouchableOpacity>
+                                    {/* Preview Button */}
+                                    <TouchableOpacity
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            backgroundColor: SP_RED,
+                                            borderRadius: 16,
+                                            paddingVertical: 6,
+                                            paddingHorizontal: 10,
+                                            gap: 4,
+                                        }}
+                                        onPress={() => setShowPreviewModal(true)}
+                                    >
+                                        <MaterialCommunityIcons name="eye" size={14} color="#fff" />
+                                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Preview</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
                     </View>
@@ -1302,6 +1368,7 @@ export default function PosterEditor() {
                                                 template={item.id}
                                                 details={bottomBarDetails}
                                                 width={width - 80 - 28}
+                                                customization={frameCustomization}
                                             />
                                         </View>
                                         <Text style={[
@@ -1505,6 +1572,193 @@ export default function PosterEditor() {
                                 </TouchableOpacity>
                             )}
                         />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Preview Modal - Desktop-like preview with download */}
+            <Modal
+                visible={showPreviewModal}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setShowPreviewModal(false)}
+            >
+                <View style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(0,0,0,0.9)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 20,
+                }}>
+                    {/* Close Button */}
+                    <TouchableOpacity
+                        style={{
+                            position: 'absolute',
+                            top: 50,
+                            right: 20,
+                            backgroundColor: 'rgba(255,255,255,0.2)',
+                            borderRadius: 20,
+                            padding: 10,
+                            zIndex: 10,
+                        }}
+                        onPress={() => setShowPreviewModal(false)}
+                    >
+                        <MaterialCommunityIcons name="close" size={24} color="#fff" />
+                    </TouchableOpacity>
+
+                    {/* Preview Title */}
+                    <Text style={{
+                        color: '#fff',
+                        fontSize: 18,
+                        fontWeight: '700',
+                        marginBottom: 16,
+                        textAlign: 'center',
+                    }}>
+                        Poster Preview
+                    </Text>
+
+                    {/* Preview Canvas */}
+                    <View style={{
+                        backgroundColor: '#fff',
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 10 },
+                        shadowOpacity: 0.5,
+                        shadowRadius: 20,
+                        elevation: 20,
+                        maxWidth: width * 0.9,
+                        maxHeight: height * 0.6,
+                    }}>
+                        <View
+                            ref={canvasRef}
+                            style={{
+                                width: canvasSize.w * 0.9,
+                                height: canvasSize.h * 0.9,
+                                backgroundColor: '#fff',
+                                overflow: 'hidden',
+                            }}
+                            collapsable={false}
+                        >
+                            {/* Poster Image with Filter */}
+                            <Image
+                                source={{ uri: currentImage }}
+                                style={{ width: '100%', height: '100%' }}
+                                resizeMode="cover"
+                            />
+                            {/* Filter Overlay */}
+                            {selectedFilter !== 'none' && (
+                                <View
+                                    style={{
+                                        ...StyleSheet.absoluteFillObject,
+                                        backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
+                                    }}
+                                />
+                            )}
+                            {/* Elements */}
+                            {elements.map((el) => (
+                                <View
+                                    key={el.id}
+                                    style={{
+                                        position: 'absolute',
+                                        left: el.x * 0.9,
+                                        top: el.y * 0.9,
+                                        transform: [
+                                            { scale: el.scale * 0.9 },
+                                            { rotate: `${el.rotation}deg` },
+                                            { scaleX: el.isFlipped ? -1 : 1 },
+                                        ],
+                                    }}
+                                >
+                                    {el.type === 'text' ? (
+                                        <Text style={{
+                                            color: el.color || '#000',
+                                            fontSize: (el.fontSize || 24) * 0.9,
+                                            fontFamily: el.fontFamily,
+                                        }}>
+                                            {el.content}
+                                        </Text>
+                                    ) : (
+                                        <Image
+                                            source={{ uri: el.content }}
+                                            style={{ width: 100 * 0.9, height: 100 * 0.9 }}
+                                            resizeMode="contain"
+                                        />
+                                    )}
+                                </View>
+                            ))}
+                            {/* Bottom Bar */}
+                            <View style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                minHeight: canvasSize.h * 0.15 * 0.9,
+                            }}>
+                                <RenderBottomBar
+                                    template={selectedBottomBarTemplate}
+                                    details={bottomBarDetails}
+                                    width={canvasSize.w * 0.9}
+                                    customization={frameCustomization}
+                                />
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Action Buttons */}
+                    <View style={{
+                        flexDirection: 'row',
+                        gap: 16,
+                        marginTop: 24,
+                    }}>
+                        {/* Download Button */}
+                        <TouchableOpacity
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: SP_RED,
+                                borderRadius: 25,
+                                paddingVertical: 14,
+                                paddingHorizontal: 28,
+                                gap: 8,
+                            }}
+                            onPress={() => {
+                                setShowPreviewModal(false);
+                                handleSave();
+                            }}
+                            disabled={isSaving}
+                        >
+                            {isSaving ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <MaterialCommunityIcons name="download" size={20} color="#fff" />
+                            )}
+                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                                {isSaving ? 'Saving...' : 'Download'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Share Button */}
+                        <TouchableOpacity
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                borderRadius: 25,
+                                paddingVertical: 14,
+                                paddingHorizontal: 28,
+                                gap: 8,
+                                borderWidth: 1,
+                                borderColor: 'rgba(255,255,255,0.3)',
+                            }}
+                            onPress={() => {
+                                setShowPreviewModal(false);
+                                handleSave();
+                            }}
+                        >
+                            <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
+                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Share</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>

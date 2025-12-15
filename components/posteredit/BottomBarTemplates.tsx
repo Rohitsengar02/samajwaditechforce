@@ -409,23 +409,23 @@ const YellowThemeBar = ({ details, width, customization }: TemplateProps) => {
                         )}
                     </View>
 
-                    {/* RIGHT: Mobile & Social */}
-                    <View style={{ flex: 1, alignItems: 'flex-end', gap: 3 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(120,53,15,0.15)', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    {/* RIGHT: Mobile & Social - 60% max width with wrapping */}
+                    <View style={{ width: '60%', alignItems: 'flex-end', gap: 3 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(120,53,15,0.15)', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, maxWidth: '100%', flexWrap: 'wrap' }}>
                             <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 10) + 2} color={customization?.mobileColor || '#78350f'} />
-                            <Text style={{ fontSize: customization?.mobileFontSize || 10, color: customization?.mobileColor || '#78350f', fontWeight: '600' }} numberOfLines={1}>{details?.mobile || '+91...'}</Text>
+                            <Text style={{ fontSize: customization?.mobileFontSize || 10, color: customization?.mobileColor || '#78350f', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap' }}>{details?.mobile || '+91...'}</Text>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(120,53,15,0.15)', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(120,53,15,0.15)', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, maxWidth: '100%', flexWrap: 'wrap' }}>
                             <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 10) + 2} color={customization?.socialColor || '#78350f'} />
-                            <Text style={{ fontSize: customization?.socialFontSize || 10, color: customization?.socialColor || '#78350f', fontWeight: '600' }} numberOfLines={1}>{details?.socialHandle || '@user'}</Text>
+                            <Text style={{ fontSize: customization?.socialFontSize || 10, color: customization?.socialColor || '#78350f', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap' }}>{details?.socialHandle || '@user'}</Text>
                         </View>
                     </View>
                 </View>
 
-                {/* BOTTOM: Address bar */}
-                <View style={{ backgroundColor: 'rgba(120,53,15,0.15)', paddingVertical: 3, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
-                    <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 10) + 2} color={customization?.addressColor || '#78350f'} />
-                    <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#78350f', fontWeight: '600' }} numberOfLines={1}>{details?.address || 'Your Address'}</Text>
+                {/* BOTTOM: Address bar - allows multi-line wrapping */}
+                <View style={{ backgroundColor: 'rgba(120,53,15,0.15)', paddingVertical: 4, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 6, flexWrap: 'wrap' }}>
+                    <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 10) + 2} color={customization?.addressColor || '#78350f'} style={{ marginTop: 2 }} />
+                    <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#78350f', fontWeight: '600', flex: 1, flexWrap: 'wrap' }}>{details?.address || 'Your Address'}</Text>
                 </View>
             </View>
 
@@ -491,19 +491,19 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
                     </View>
                 </View>
 
-                {/* Contact Info in glass pills */}
-                <View style={{ gap: 4 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 }}>
+                {/* Contact Info in glass pills - 60% width to prevent collision */}
+                <View style={{ width: '60%', alignItems: 'flex-end', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 10) + 2} color={customization?.mobileColor || '#fff'} />
-                        <Text style={{ fontSize: customization?.mobileFontSize || 10, color: customization?.mobileColor || '#fff', fontWeight: '500' }} numberOfLines={1}>{details?.mobile || '+91...'}</Text>
+                        <Text style={{ fontSize: customization?.mobileFontSize || 10, color: customization?.mobileColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.mobile || '+91...'}</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 10) + 2} color={customization?.socialColor || '#fff'} />
-                        <Text style={{ fontSize: customization?.socialFontSize || 10, color: customization?.socialColor || '#fff', fontWeight: '500' }} numberOfLines={1}>{details?.socialHandle || '@user'}</Text>
+                        <Text style={{ fontSize: customization?.socialFontSize || 10, color: customization?.socialColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.socialHandle || '@user'}</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 10) + 2} color={customization?.addressColor || '#fff'} />
-                        <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#fff', fontWeight: '500' }} numberOfLines={1}>{details?.address || 'Address'}</Text>
+                        <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.address || 'Address'}</Text>
                     </View>
                 </View>
             </View>

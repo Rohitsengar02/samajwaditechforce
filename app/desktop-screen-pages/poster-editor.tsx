@@ -91,12 +91,12 @@ export default function DesktopPosterEditor() {
     const [showBottomBarModal, setShowBottomBarModal] = useState(false);
     const [selectedBottomBarTemplate, setSelectedBottomBarTemplate] = useState(TEMPLATES[2].id);
     const [bottomBarDetails, setBottomBarDetails] = useState({
-        name: 'Your Name',
-        designation: 'Designation',
-        mobile: '+91 XXXXX XXXXX',
-        social: '@username',
+        name: '',
+        designation: '',
+        mobile: '',
+        socialHandle: '',
         socialPlatform: 'twitter' as 'twitter' | 'facebook' | 'instagram' | 'youtube' | 'linkedin' | 'whatsapp',
-        address: 'Your Address',
+        address: '',
         photo: null as string | null,
     });
     const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
@@ -222,12 +222,12 @@ export default function DesktopPosterEditor() {
                 }
 
                 setBottomBarDetails({
-                    name: userInfo.name || 'Your Name',
-                    designation: userInfo.partyRole || userInfo.designation || 'Party Role',
-                    mobile: userInfo.phone || '+91 XXXXX XXXXX',
-                    social: userInfo.twitter || userInfo.social || '@username',
+                    name: userInfo.name || '',
+                    designation: userInfo.partyRole || userInfo.designation || '',
+                    mobile: userInfo.phone || '',
+                    socialHandle: userInfo.twitter || userInfo.social || '',
                     socialPlatform: 'twitter',
-                    address: addressStr,
+                    address: addressStr || '',
                     photo: userInfo.profileImage || null,
                 });
             }
@@ -357,7 +357,7 @@ export default function DesktopPosterEditor() {
         const newElement: EditorElement = {
             id: Date.now().toString(),
             type,
-            content,
+            content: type === 'text' ? '' : content, // Empty for text so user can type immediately
             x: 50,
             y: 50,
             scale: 1,
@@ -369,6 +369,10 @@ export default function DesktopPosterEditor() {
         };
         setElements([...elements, newElement]);
         setSelectedElementId(newElement.id);
+        // Auto-switch to text tool when adding text for immediate editing
+        if (type === 'text') {
+            setSelectedTool('text');
+        }
     };
 
     const updateElement = (id: string, updates: Partial<EditorElement>) => {
@@ -817,28 +821,58 @@ export default function DesktopPosterEditor() {
                                 }
                             ]}
                         >
-                            <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
-                                <Text
-                                    selectable={false}
-                                    style={[
-                                        { fontWeight: '700' },
-                                        {
-                                            color: element.color,
-                                            fontSize: element.fontSize,
-                                            fontFamily: element.fontFamily,
-                                            letterSpacing: element.letterSpacing || 0,
-                                            lineHeight: element.lineHeight || (element.fontSize || 24) * 1.2,
-                                            backgroundColor: element.backgroundColor || 'transparent',
-                                            paddingHorizontal: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 0,
-                                            paddingVertical: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
-                                            borderRadius: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
-                                            userSelect: 'none',
-                                        }
-                                    ]}
-                                >
-                                    {element.content}
-                                </Text>
-                            </View>
+                            {isSelected ? (
+                                // Editable TextInput when selected - NO flip transform to prevent flipped typing
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={element.content}
+                                    onChange={(e) => updateElement(element.id, { content: e.target.value })}
+                                    style={{
+                                        fontWeight: '700',
+                                        color: element.color,
+                                        fontSize: element.fontSize,
+                                        fontFamily: element.fontFamily,
+                                        letterSpacing: element.letterSpacing || 0,
+                                        lineHeight: `${element.lineHeight || (element.fontSize || 24) * 1.2}px`,
+                                        backgroundColor: element.backgroundColor || 'transparent',
+                                        paddingLeft: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 4,
+                                        paddingRight: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 4,
+                                        paddingTop: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 2,
+                                        paddingBottom: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 2,
+                                        borderRadius: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                        minWidth: 100,
+                                        border: 'none',
+                                        outline: 'none',
+                                        textAlign: 'left',
+                                        direction: 'ltr',
+                                    }}
+                                />
+                            ) : (
+                                // Display-only Text when not selected - apply flip transform here only
+                                <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
+                                    <Text
+                                        selectable={false}
+                                        style={[
+                                            { fontWeight: '700' },
+                                            {
+                                                color: element.color,
+                                                fontSize: element.fontSize,
+                                                fontFamily: element.fontFamily,
+                                                letterSpacing: element.letterSpacing || 0,
+                                                lineHeight: element.lineHeight || (element.fontSize || 24) * 1.2,
+                                                backgroundColor: element.backgroundColor || 'transparent',
+                                                paddingHorizontal: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 0,
+                                                paddingVertical: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                                borderRadius: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                                userSelect: 'none',
+                                            }
+                                        ]}
+                                    >
+                                        {element.content || 'Type here...'}
+                                    </Text>
+                                </View>
+                            )}
                         </Animated.View>
 
                         {isSelected && (() => {
@@ -1659,8 +1693,8 @@ export default function DesktopPosterEditor() {
                                             {/* Handle Input */}
                                             <TextInput
                                                 style={styles.textInput}
-                                                value={bottomBarDetails.social}
-                                                onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, social: text }))}
+                                                value={bottomBarDetails.socialHandle}
+                                                onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, socialHandle: text }))}
                                                 placeholder={`Enter ${selectedSocialPlatform} handle or ID`}
                                                 placeholderTextColor="#94a3b8"
                                             />
@@ -1737,10 +1771,7 @@ export default function DesktopPosterEditor() {
                                     selectedTemplate={selectedBottomBarTemplate}
                                     onSelectTemplate={(templateId) => {
                                         setSelectedBottomBarTemplate(templateId);
-                                        // Auto-switch to customize mode when frame is selected
-                                        setSelectedTool('customize');
-                                        // Auto-select Background element for immediate customization
-                                        setSelectedCustomElement('Background');
+                                        // Stay on frame selection section - don't auto-switch to customize
                                     }}
                                 />
                             ) : selectedTool === 'customize' ? (
@@ -2218,8 +2249,8 @@ export default function DesktopPosterEditor() {
                                 <Text style={styles.formLabel}>Social Handle</Text>
                                 <TextInput
                                     style={styles.formInput}
-                                    value={bottomBarDetails.social}
-                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, social: text }))}
+                                    value={bottomBarDetails.socialHandle}
+                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, socialHandle: text }))}
                                     placeholder="@username"
                                     placeholderTextColor="#94a3b8"
                                 />
