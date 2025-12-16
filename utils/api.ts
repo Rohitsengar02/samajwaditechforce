@@ -7,18 +7,23 @@ export const getApiUrl = () => {
         let url = process.env.EXPO_PUBLIC_API_URL;
         // Fix: Ensure we don't duplicate /api if already present
         if (!url.endsWith('/api') && !url.endsWith('/api/')) url += '/api';
+
+        // AUTO-FIX: 192.168.1.38 is confirmed dead. Switch to localhost to unblock user.
+        if (url.includes('192.168.1.38')) {
+            console.warn('⚠️ Detected unreachable IP 192.168.1.38 in variables. Auto-switching to localhost.');
+            url = url.replace('192.168.1.38', 'localhost');
+        }
+
         console.log('🔧 Using Configured API URL:', url);
         return url;
     }
 
     // 2. Force Local Dev if __DEV__ is true AND no env var is set
-    // This ensures we connect to the running local backend if user hasn't specified otherwise.
     if (__DEV__) {
-        console.log('🔧 DEV Mode: Forcing Local API URL (192.168.1.38)');
-        return 'http://192.168.1.38:5001/api';
+        console.log('🔧 DEV Mode: Using localhost for API');
+        return 'http://localhost:5001/api';
     }
 
     // 3. In Production (EAS Build / Release), default to Render URL
-    // This acts as a fallback if no env var is provided in production
     return 'https://api-samajwaditechforce.onrender.com/api';
 };

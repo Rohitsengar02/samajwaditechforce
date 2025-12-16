@@ -255,7 +255,7 @@ export default function DesktopHeader() {
                 <Pressable onPress={() => navigateTo('/events')}><TranslatedText text="Events" style={styles.navItem} /></Pressable>
                 <Pressable onPress={() => navigateTo('/desktop-screen-pages/posters')}><TranslatedText text="Posters" style={styles.navItem} /></Pressable>
                 <Pressable onPress={() => navigateTo('/desktop-screen-pages/training')}><TranslatedText text="Training" style={styles.navItem} /></Pressable>
-                <Pressable onPress={() => navigateTo('/desktop-screen-pages/leaderboard')}><TranslatedText text="Leaderboard" style={styles.navItem} /></Pressable>
+
 
                 <Pressable onPress={() => navigateTo('/desktop-screen-pages/daily-work')}><TranslatedText text="Daily Work" style={styles.navItem} /></Pressable>
 

@@ -10,8 +10,7 @@ const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
 
-// Import the JSON data
-import volunteersData from '../(tabs)/समाजवादी टेक फोर्स से जुड़ें — बने समाजवाद की डिजिटल आवाज़! (Responses) (5).json';
+// Import removed as API handles it
 
 export default function DesktopLeaderboard() {
     const router = useRouter();
@@ -26,43 +25,32 @@ export default function DesktopLeaderboard() {
     const fetchLeaderboard = async () => {
         setLoading(true);
         try {
-            // Process local JSON volunteers
-            const rawData = (volunteersData as any).default || volunteersData;
-            const safeData = Array.isArray(rawData) ? rawData : [];
+            const url = getApiUrl();
+            console.log('Leaderboard Fetch URL:', url);
+            const res = await fetch(`${url}/leaderboard?period=${filter}`);
+            const data = await res.json();
 
-            // Filter verified
-            const verifiedVolunteers = safeData.filter((item: any) =>
-                item && item['वेरिफिकेशन स्टेटस ']?.trim() === 'Verified'
-            );
+            // API now includes volunteers and users
+            if (Array.isArray(data)) { // The backend returns array directly now based on my edit, or object with data?
+                // Backend: res.json(allParticipants) -> Array
+                // Old backend: res.json(users) -> Array
+                // Leaderboard.tsx (lines 27-31) expected:
+                // const res = await fetch(`${url}/leaderboard?period=${filter}`);
+                // const data = await res.json();
+                // if (data.success && Array.isArray(data.data)) ...
+                // Wait. My backend `getLeaderboard` returns `res.json(allParticipants)` (Array).
+                // But `DesktopLeaderboard` expects `data.success`?
+                // Let's check `leaderboard.tsx` lines 27-31 again.
+                // "if (data.success && Array.isArray(data.data))"
 
-            // Map to Leaderboard format with simulated points (since JSON lacks points)
-            const jsonUsers = verifiedVolunteers.map((v: any, index: number) => ({
-                id: `vol-${index}`,
-                name: v['Column2'] || v["आपका पूरा नाम क्या है? "] || 'Unknown',
-                points: Math.floor(Math.random() * 500) + 50, // Simulated points
-                location: v['Column4'] || v["जिला "] || 'N/A',
-                avatar: null
-            }));
+                // My backend update: `res.json(allParticipants)` which is `[{}, {}]`.
+                // It does NOT wrap in `{ success: true, data: [...] }`.
+                // So frontend check `data.success` will FAIL.
 
-            // Fetch API data
-            let apiUsers: any[] = [];
-            try {
-                const url = getApiUrl();
-                const res = await fetch(`${url}/leaderboard?period=${filter}`);
-                const data = await res.json();
-                if (data.success && Array.isArray(data.data)) {
-                    apiUsers = data.data;
-                }
-            } catch (err) {
-                console.warn('API fetch failed, utilizing local data');
+                setLeaderboard(data); // If data is array
+            } else if (data.success && Array.isArray(data.data)) {
+                setLeaderboard(data.data);
             }
-
-            // Combine and Sort
-            const allUsers = [...apiUsers, ...jsonUsers].sort((a, b) => (b.points || 0) - (a.points || 0));
-
-            // Limit to top 100 for performance if needed, but user said "all"
-            setLeaderboard(allUsers);
-
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
             setLeaderboard([]);

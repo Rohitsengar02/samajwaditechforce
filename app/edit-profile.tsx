@@ -279,27 +279,29 @@ export default function EditProfileScreen() {
                             </View>
                         </View>
                     </View>
+
+                    <View style={styles.footer}>
+                        <TouchableOpacity
+                            style={styles.saveButton}
+                            onPress={handleSave}
+                            disabled={loading}
+                        >
+                            <LinearGradient
+                                colors={loading ? ['#666', '#444'] : [SP_RED, '#b91c1c']}
+                                style={styles.saveButtonGradient}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    style={styles.saveButton}
-                    onPress={handleSave}
-                    disabled={loading}
-                >
-                    <LinearGradient
-                        colors={loading ? ['#666', '#444'] : [SP_RED, '#b91c1c']}
-                        style={styles.saveButtonGradient}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.saveButtonText}>Save Changes</Text>
-                        )}
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
+
 
             {uploading && (
                 <View style={styles.loadingOverlay}>
@@ -336,7 +338,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
-        paddingBottom: 100,
+        paddingBottom: 40,
     },
     imageContainer: {
         alignItems: 'center',
@@ -414,17 +416,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     footer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: 20,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#e2e8f0',
+        paddingVertical: 20,
+        backgroundColor: 'transparent',
     },
     saveButton: {
-        marginBottom: 50,
         borderRadius: 12,
         overflow: 'hidden',
     },

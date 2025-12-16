@@ -10,6 +10,9 @@ import { getApiUrl } from '../../utils/api';
 
 import DesktopHeader from '../../components/DesktopHeader';
 
+// Import the JSON data
+// Removed as API now handles volunteers
+
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const { width } = Dimensions.get('window');
@@ -114,18 +117,25 @@ export default function DesktopDailyWork() {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const data = await leaderboardRes.json();
+            // let apiUsers: LeaderboardUser[] = []; // Removed
 
             if (Array.isArray(data)) {
-                const formattedData = data.map((user: any, index: number) => ({
+                const allUsers = data.map((user: any) => ({
                     _id: user._id,
                     name: user.name,
                     profileImage: user.profileImage,
                     district: user.district || 'Unknown District',
                     points: user.points || 0,
-                    rank: index + 1,
                     isUser: user._id === currentUserId
                 }));
-                setLeaderboardData(formattedData);
+
+                // Assign Ranks
+                const finalData = allUsers.map((user, index) => ({
+                    ...user,
+                    rank: index + 1
+                }));
+
+                setLeaderboardData(finalData);
             }
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
