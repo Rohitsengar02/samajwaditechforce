@@ -167,6 +167,10 @@ export default function EditProfileScreen() {
             const updatedUser = { ...user, ...data };
             await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUser));
 
+            if (data.token) {
+                await AsyncStorage.setItem('userToken', data.token);
+            }
+
             Alert.alert('Success', 'Profile updated successfully');
             router.back();
         } catch (error: any) {

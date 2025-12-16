@@ -240,7 +240,10 @@ export default function ProfileScreen() {
                   </Text>
                 )}
               </LinearGradient>
-              <TouchableOpacity style={styles.editAvatarButton}>
+              <TouchableOpacity
+                style={styles.editAvatarButton}
+                onPress={() => router.push('/edit-profile')}
+              >
                 <MaterialCommunityIcons name="camera" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
