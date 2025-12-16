@@ -16,7 +16,8 @@ import {
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
-    useWindowDimensions
+    useWindowDimensions,
+    Linking
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -128,13 +129,71 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
         }
     };
 
-    const handleShare = async () => {
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [sharing, setSharing] = useState(false);
+
+    const handleShare = () => {
+        setShowShareModal(true);
+    };
+
+    const getShareContent = () => {
+        const shareUrl = `https://samajwaditechforce.com/news-detail?id=${id}`;
+        const message = `${title}\n\nRead more at: ${shareUrl}`;
+        return { message, shareUrl };
+    };
+
+    const shareToWhatsApp = async () => {
+        const { message } = getShareContent();
+        const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
         try {
-            await Share.share({
-                message: `${title}\n\n${description}`,
-            });
+            const supported = await Linking.canOpenURL(url);
+            if (supported) {
+                await Linking.openURL(url);
+            } else {
+                alert('WhatsApp is not installed');
+            }
+            setShowShareModal(false);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const shareViaSystem = async () => {
+        setSharing(true);
+        try {
+            const { message, shareUrl } = getShareContent();
+
+            // Try to share image if available
+            if (image && image.startsWith('http')) {
+                const FileSystem = require('expo-file-system/legacy');
+                const Sharing = require('expo-sharing');
+
+                const fileUri = FileSystem.documentDirectory + `news_share_${id}.jpg`;
+                const { uri } = await FileSystem.downloadAsync(image, fileUri);
+
+                if (Platform.OS === 'android') {
+                    await Sharing.shareAsync(uri, {
+                        mimeType: 'image/jpeg',
+                        dialogTitle: 'Share News',
+                        UTI: 'public.jpeg'
+                    });
+                } else {
+                    await Share.share({
+                        url: uri,
+                        message: message,
+                    });
+                }
+            } else {
+                await Share.share({
+                    message: message,
+                    url: shareUrl,
+                });
+            }
         } catch (error) {
-            console.log(error);
+            console.error('Sharing error:', error);
+        } finally {
+            setSharing(false);
+            setShowShareModal(false);
         }
     };
 
@@ -373,7 +432,53 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                     </Animated.View>
                 </TouchableOpacity>
             </Modal>
-        </Animated.View>
+
+
+            {/* Share Modal */}
+            <Modal
+                visible={showShareModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowShareModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowShareModal(false)}
+                >
+                    <View style={[styles.commentsModal, { maxHeight: undefined, padding: 24, paddingBottom: 40, borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                        <View style={styles.modalHandle} />
+                        <Text style={[styles.modalTitle, { marginBottom: 20 }]}>Share News</Text>
+
+                        <View style={{ gap: 16 }}>
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: '#f0fdf4', borderRadius: 16, borderWidth: 1, borderColor: '#dcfce7' }}
+                                onPress={shareToWhatsApp}
+                            >
+                                <MaterialCommunityIcons name="whatsapp" size={32} color="#25D366" />
+                                <View>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#14532d' }}>WhatsApp</Text>
+                                    <Text style={{ fontSize: 13, color: '#166534' }}>Share with link preview</Text>
+                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color="#166534" style={{ marginLeft: 'auto' }} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0' }}
+                                onPress={shareViaSystem}
+                            >
+                                {sharing ? <ActivityIndicator color="#3b82f6" /> : <MaterialCommunityIcons name="share-variant" size={32} color="#3b82f6" />}
+                                <View>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1e293b' }}>More Options</Text>
+                                    <Text style={{ fontSize: 13, color: '#64748b' }}>Share image & link</Text>
+                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color="#64748b" style={{ marginLeft: 'auto' }} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </Animated.View >
     );
 };
 

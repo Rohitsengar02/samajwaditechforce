@@ -13,6 +13,7 @@ import {
     Image,
     KeyboardAvoidingView,
     Platform,
+    Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -195,14 +196,82 @@ export default function NewsDetailScreen() {
         }
     };
 
-    const handleShare = async () => {
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [sharing, setSharing] = useState(false);
+
+    const handleShare = () => {
+        setShowShareModal(true);
+    };
+
+    const getShareContent = () => {
+        // Use news-detail?id= format to match Expo Router path for correct deep linking
+        const shareUrl = `https://samajwaditechforce.com/news-detail?id=${news?._id}`;
+        const message = `${news?.title}\n\nRead more at: ${shareUrl}`;
+        return { message, shareUrl };
+    };
+
+    const shareToWhatsApp = async () => {
         if (!news) return;
+        const { message } = getShareContent();
+        const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
         try {
-            await Share.share({
-                message: `${news.title}\n\n${news.excerpt}`,
-            });
+            const supported = await Linking.canOpenURL(url);
+            if (supported) {
+                await Linking.openURL(url);
+            } else {
+                alert('WhatsApp is not installed');
+            }
+            setShowShareModal(false);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const shareViaSystem = async () => {
+        if (!news) return;
+        setSharing(true);
+        try {
+            const { message, shareUrl } = getShareContent();
+
+            // Try to share image if available
+            if (news.coverImage && news.coverImage.startsWith('http')) {
+                // Use legacy API for downloadAsync as suggested by Expo SDK 54 error
+                const FileSystem = require('expo-file-system/legacy');
+                const Sharing = require('expo-sharing');
+
+                const fileUri = FileSystem.documentDirectory + 'news_share.jpg';
+                const { uri } = await FileSystem.downloadAsync(news.coverImage, fileUri);
+
+                if (Platform.OS === 'android') {
+                    // On Android, sharing generic content with image + text is tricky. 
+                    // Sharing.shareAsync works well for files.
+                    await Sharing.shareAsync(uri, {
+                        mimeType: 'image/jpeg',
+                        dialogTitle: 'Share News',
+                        UTI: 'public.jpeg'
+                    });
+                    // Note: Android often drops the caption/message when sharing a file via certain apps.
+                    // Clipboard the text as backup? Or just rely on link being in image?
+                    // Alternatively use React Native Share (core)
+                } else {
+                    // iOS
+                    await Share.share({
+                        url: uri,
+                        message: message,
+                    });
+                }
+            } else {
+                // Fallback to text only
+                await Share.share({
+                    message: message,
+                    url: shareUrl, // iOS uses this for link metadata
+                });
+            }
         } catch (error) {
-            console.log(error);
+            console.error('Sharing error:', error);
+        } finally {
+            setSharing(false);
+            setShowShareModal(false);
         }
     };
 
@@ -387,6 +456,51 @@ export default function NewsDetailScreen() {
                     </View>
                 </View>
             </ScrollView>
+
+            {/* Share Modal */}
+            <Modal
+                visible={showShareModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowShareModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowShareModal(false)}
+                >
+                    <View style={[styles.commentsModal, { maxHeight: undefined, padding: 24, paddingBottom: 40, borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                        <View style={styles.modalHandle} />
+                        <Text style={[styles.modalTitle, { marginBottom: 20 }]}>Share News</Text>
+
+                        <View style={{ gap: 16 }}>
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: '#f0fdf4', borderRadius: 16, borderWidth: 1, borderColor: '#dcfce7' }}
+                                onPress={shareToWhatsApp}
+                            >
+                                <MaterialCommunityIcons name="whatsapp" size={32} color="#25D366" />
+                                <View>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#14532d' }}>WhatsApp</Text>
+                                    <Text style={{ fontSize: 13, color: '#166534' }}>Share with link preview</Text>
+                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color="#166534" style={{ marginLeft: 'auto' }} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0' }}
+                                onPress={shareViaSystem}
+                            >
+                                {sharing ? <ActivityIndicator color="#3b82f6" /> : <MaterialCommunityIcons name="share-variant" size={32} color="#3b82f6" />}
+                                <View>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1e293b' }}>More Options</Text>
+                                    <Text style={{ fontSize: 13, color: '#64748b' }}>Share image & link</Text>
+                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color="#64748b" style={{ marginLeft: 'auto' }} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
 
             {/* Comments Modal */}
             <Modal
