@@ -388,35 +388,41 @@ export default function DesktopPosterEditor() {
 
 
     const removeImageBackground = async (elementId: string) => {
-        console.log('removeImageBackground called with elementId:', elementId);
         const element = elements.find(el => el.id === elementId);
-        console.log('Found element:', element);
-        if (!element || element.type !== 'image') {
-            console.log('Element not found or not an image');
-            return;
-        }
+        if (!element || element.type !== 'image') return;
 
         setIsRemovingBg(true);
-        console.log('Starting background removal...');
+
         try {
-            // Remove background using the web utility
-            console.log('Calling imglyRemoveBackground with:', element.content);
-            const blob = await imglyRemoveBackground(element.content);
-            console.log('Got blob:', blob);
-            const url = URL.createObjectURL(blob);
-            console.log('Created URL:', url);
+            // Use Gemini API for background removal
+            let formData = new FormData();
 
-            // Update the element with the new background-removed image
-            updateElement(elementId, { content: url });
-            console.log('Element updated');
+            // Fetch image to get blob
+            const response = await fetch(element.content);
+            const blob = await response.blob();
+            formData.append('image', blob, 'image.jpg');
 
-            Alert.alert('Success', 'Background removed successfully!');
+            const apiResponse = await fetch(`${API_URL}/ai-gemini/remove-background`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await apiResponse.json();
+
+            // Handle response
+            const processedImageUrl = result.processedImageUrl || result.image || result.data?.image || result.data?.url;
+
+            if (result.success && processedImageUrl) {
+                updateElement(elementId, { content: processedImageUrl });
+                Alert.alert('Success', 'Background removed successfully!');
+            } else {
+                throw new Error(result.message || result.error || 'Failed to remove background');
+            }
         } catch (error) {
             console.error('Background removal failed:', error);
             Alert.alert('Error', 'Failed to remove background. Please try again.');
         } finally {
             setIsRemovingBg(false);
-            console.log('Background removal process complete');
         }
     };
 
@@ -1395,6 +1401,22 @@ export default function DesktopPosterEditor() {
                                         multiline
                                     />
 
+                                    <Text style={styles.propLabel}>Position</Text>
+                                    <View style={styles.row}>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { x: selectedElement.x - 5 })} style={[styles.propBtn, { flex: 1 }]}>
+                                            <MaterialCommunityIcons name="arrow-left" size={20} color="#334155" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { y: selectedElement.y - 5 })} style={[styles.propBtn, { flex: 1 }]}>
+                                            <MaterialCommunityIcons name="arrow-up" size={20} color="#334155" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { y: selectedElement.y + 5 })} style={[styles.propBtn, { flex: 1 }]}>
+                                            <MaterialCommunityIcons name="arrow-down" size={20} color="#334155" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateElement(selectedElement.id, { x: selectedElement.x + 5 })} style={[styles.propBtn, { flex: 1 }]}>
+                                            <MaterialCommunityIcons name="arrow-right" size={20} color="#334155" />
+                                        </TouchableOpacity>
+                                    </View>
+
                                     <Text style={styles.propLabel}>Font Size: {selectedElement.fontSize || 24}</Text>
                                     <View style={styles.row}>
                                         <TouchableOpacity onPress={() => updateElement(selectedElement.id, { fontSize: Math.max(12, (selectedElement.fontSize || 24) - 2) })} style={styles.propBtn}><Text>-</Text></TouchableOpacity>
@@ -1460,6 +1482,8 @@ export default function DesktopPosterEditor() {
                                 </>
                             )}
 
+
+
                             {selectedElement.type === 'image' && (
                                 <>
                                     {/* Scale Control */}
@@ -1480,8 +1504,27 @@ export default function DesktopPosterEditor() {
                                         </TouchableOpacity>
                                     </View>
 
-                                    {/* Actions */}
                                     <Text style={styles.propLabel}>Actions</Text>
+
+                                    <View style={{ marginBottom: 16 }}>
+                                        <Text style={[styles.propLabel, { marginTop: 0 }]}>Position</Text>
+                                        <View style={styles.row}>
+                                            <TouchableOpacity onPress={() => updateElement(selectedElement.id, { x: selectedElement.x - 5 })} style={[styles.propBtn, { flex: 1 }]}>
+                                                <MaterialCommunityIcons name="arrow-left" size={20} color="#334155" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity onPress={() => updateElement(selectedElement.id, { y: selectedElement.y - 5 })} style={[styles.propBtn, { flex: 1 }]}>
+                                                <MaterialCommunityIcons name="arrow-up" size={20} color="#334155" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity onPress={() => updateElement(selectedElement.id, { y: selectedElement.y + 5 })} style={[styles.propBtn, { flex: 1 }]}>
+                                                <MaterialCommunityIcons name="arrow-down" size={20} color="#334155" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity onPress={() => updateElement(selectedElement.id, { x: selectedElement.x + 5 })} style={[styles.propBtn, { flex: 1 }]}>
+                                                <MaterialCommunityIcons name="arrow-right" size={20} color="#334155" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+
+                                    <Text style={styles.propLabel}>Tools</Text>
                                     <View style={{ gap: 8 }}>
                                         <TouchableOpacity
                                             style={[styles.toolActionButton, { backgroundColor: selectedElement.isFlipped ? '#3b82f6' : '#fff', borderWidth: 1, borderColor: '#e2e8f0' }]}
@@ -1489,6 +1532,21 @@ export default function DesktopPosterEditor() {
                                         >
                                             <MaterialCommunityIcons name="flip-horizontal" size={20} color={selectedElement.isFlipped ? "#fff" : "#1e293b"} />
                                             <Text style={[styles.toolActionText, { color: selectedElement.isFlipped ? "#fff" : "#1e293b" }]}>Flip Horizontal</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.toolActionButton, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', opacity: isRemovingBg ? 0.7 : 1 }]}
+                                            onPress={() => removeImageBackground(selectedElement.id)}
+                                            disabled={isRemovingBg}
+                                        >
+                                            {isRemovingBg ? (
+                                                <ActivityIndicator size="small" color={SP_RED} style={{ marginRight: 8 }} />
+                                            ) : (
+                                                <MaterialCommunityIcons name="image-remove" size={20} color="#1e293b" style={{ marginRight: 8 }} />
+                                            )}
+                                            <Text style={[styles.toolActionText, { color: "#1e293b" }]}>
+                                                {isRemovingBg ? 'Removing...' : 'Remove Background'}
+                                            </Text>
                                         </TouchableOpacity>
 
                                         <TouchableOpacity

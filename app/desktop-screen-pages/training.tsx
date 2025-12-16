@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
         maxWidth: 1200,
         width: '100%',
         alignSelf: 'center',
-        paddingHorizontal: 20,
+
         paddingTop: 40,
     },
     sectionTitle: {
@@ -269,13 +269,15 @@ const styles = StyleSheet.create({
     phasesGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 24,
+        gap: 20,
+        width: '100%',
     },
     phaseCard: {
-        width: 380,
+        width: '31%',
+        minWidth: 280,
         height: 280,
         borderRadius: 20,
-        padding: 32,
+        padding: 24,
         position: 'relative',
         overflow: 'hidden',
         shadowColor: '#000',

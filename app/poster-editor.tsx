@@ -22,10 +22,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import { captureRef } from 'react-native-view-shot';
 import { removeBackground as imglyRemoveBackground } from '../utils/backgroundRemoval';
 import { getApiUrl } from '../utils/api';
-import { TEMPLATES, RenderBottomBar } from '../components/posteredit/BottomBarTemplates';
+import { TEMPLATES, RenderBottomBar } from '../components/posteredit/MobileBottomBarTemplates';
 import FrameSelector from '../components/posteredit/FrameSelector';
 import { FlatList } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -48,7 +49,7 @@ const MAX_CANVAS_HEIGHT = height - HEADER_HEIGHT - TOOLBAR_HEIGHT - ZOOM_HEIGHT 
 const API_URL = getApiUrl();
 
 // Types
-type ToolType = 'text' | 'image' | 'music' | 'layout' | 'banner' | 'filter' | 'sticker' | 'shape' | 'draw' | 'bg';
+type ToolType = 'text' | 'image' | 'music' | 'layout' | 'banner' | 'filter' | 'frame' | 'shape' | 'draw' | 'bg' | 'content' | 'customize';
 
 interface EditorElement {
     id: string;
@@ -60,8 +61,15 @@ interface EditorElement {
     rotation: number;
     isFlipped: boolean;
     color?: string;
+    backgroundColor?: string;
     fontSize?: number;
     fontFamily?: string;
+    // Image specific
+    imageWidth?: number;
+    imageHeight?: number;
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadius?: number;
 }
 
 interface PosterAsset {
@@ -93,7 +101,7 @@ export default function PosterEditor() {
     const [elements, setElements] = useState<EditorElement[]>([]);
     const [selectedTool, setSelectedTool] = useState<ToolType | null>(null);
     // Initial canvas fits in view - will be adjusted based on image aspect ratio
-    const [canvasSize, setCanvasSize] = useState({ w: width * 0.85, h: Math.min(width * 0.85, MAX_CANVAS_HEIGHT) });
+    const [canvasSize, setCanvasSize] = useState({ w: width, h: Math.min(width, MAX_CANVAS_HEIGHT) });
     const [bannerText, setBannerText] = useState('Samajwadi Party');
     const [showTextModal, setShowTextModal] = useState(false);
     const [newText, setNewText] = useState('');
@@ -122,7 +130,7 @@ export default function PosterEditor() {
     const [processedImageUri, setProcessedImageUri] = useState<string | null>(null);
     const [isProcessingBg, setIsProcessingBg] = useState(false);
 
-    // Zoom State - Start at 80% to fit in view
+    // Zoom State - Start at 80%
     const [zoomScale, setZoomScale] = useState(0.8);
 
     // Bottom Bar Template Modal State
@@ -133,10 +141,12 @@ export default function PosterEditor() {
         designation: 'Designation',
         mobile: '+91 XXXXX XXXXX',
         social: '@username',
+        socialPlatform: 'instagram',
         address: 'Your Address',
         photo: null as string | null,
     });
     const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
+    const [showCustomizationModal, setShowCustomizationModal] = useState(false);
 
     // Frame Customization State (matching desktop)
     const [frameCustomization, setFrameCustomization] = useState({
@@ -171,6 +181,9 @@ export default function PosterEditor() {
         socialBackgroundColor: 'transparent',
     });
 
+    // Edit Tab State (for carousel in text/image toolbar)
+    const [activeEditTab, setActiveEditTab] = useState<'move' | 'typo' | 'style'>('move');
+
     // Filter State
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [selectedFilter, setSelectedFilter] = useState('none');
@@ -178,6 +191,7 @@ export default function PosterEditor() {
     // Preview Modal State (desktop-like preview with download)
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isRemovingBg, setIsRemovingBg] = useState(false);
 
     // Poster Pan/Move State
     const posterOffsetRef = useRef({ x: 0, y: 0 });
@@ -214,11 +228,25 @@ export default function PosterEditor() {
 
     // Tools Configuration
     const tools = [
+        { id: 'content', name: 'Content', icon: 'card-account-details-star-outline' },
         { id: 'banner', name: 'Posters', icon: 'image-multiple' },
+        { id: 'frame', name: 'Frames', icon: 'card-account-details-outline' },
+        { id: 'customize', name: 'Style', icon: 'palette' },
+        { id: 'filter', name: 'Filters', icon: 'filter-variant' },
         { id: 'text', name: 'Add Text', icon: 'format-text' },
         { id: 'image', name: 'Add Image', icon: 'image-plus' },
-        { id: 'filter', name: 'Filters', icon: 'filter-variant' },
-        { id: 'sticker', name: 'Stickers', icon: 'sticker-emoji' },
+
+
+    ];
+
+    // Social platform options
+    const SOCIAL_PLATFORMS = [
+        { id: 'facebook', name: 'Facebook', icon: 'facebook' },
+        { id: 'twitter', name: 'Twitter/X', icon: 'twitter' },
+        { id: 'instagram', name: 'Instagram', icon: 'instagram' },
+        { id: 'youtube', name: 'YouTube', icon: 'youtube' },
+        { id: 'whatsapp', name: 'WhatsApp', icon: 'whatsapp' },
+        { id: 'telegram', name: 'Telegram', icon: 'telegram' },
     ];
 
     useEffect(() => {
@@ -280,6 +308,7 @@ export default function PosterEditor() {
                     designation: user.partyRole || 'Designation',
                     mobile: user.phone || '+91 XXXXX XXXXX',
                     social: user.socialHandle || (user.email ? `@${user.email.split('@')[0]}` : '@username'),
+                    socialPlatform: user.socialPlatform || 'instagram',
                     address: fullAddress,
                     photo: user.profileImage || null,
                 });
@@ -327,13 +356,12 @@ export default function PosterEditor() {
     const updateCanvasToImageSize = (uri: string) => {
         Image.getSize(uri, (w, h) => {
             const aspectRatio = h / w;
-            let newWidth = width * 0.85;
-            let newHeight = (newWidth * aspectRatio) + BANNER_HEIGHT;
+            let newWidth = width; // Always full screen width
+            let newHeight = newWidth * aspectRatio; // Same as image height
 
-            // If height exceeds max, scale down to fit
+            // Cap height at max but keep width at full screen
             if (newHeight > MAX_CANVAS_HEIGHT) {
                 newHeight = MAX_CANVAS_HEIGHT;
-                newWidth = (newHeight - BANNER_HEIGHT) / aspectRatio;
             }
 
             setCanvasSize({ w: newWidth, h: newHeight });
@@ -355,21 +383,58 @@ export default function PosterEditor() {
         });
     };
 
-    const handleToolPress = (toolId: string) => {
+    const handleToolPress = async (toolId: string) => {
         const tool = toolId as ToolType;
         setSelectedTool(tool);
         setSelectedElementId(null); // Deselect element when switching main tools
 
         switch (tool) {
             case 'text':
-                setNewText('');
-                setShowTextModal(true);
+                // Add text directly to canvas and select it
+                const newTextElement: EditorElement = {
+                    id: Date.now().toString(),
+                    type: 'text',
+                    content: 'Your Text',
+                    x: canvasSize.w / 2 - 50,
+                    y: canvasSize.h / 2 - 20,
+                    scale: 1,
+                    rotation: 0,
+                    isFlipped: false,
+                    color: '#ffffff',
+                    fontSize: 24,
+                    fontFamily: 'System'
+                };
+                setElements(prev => [...prev, newTextElement]);
+                setSelectedElementId(newTextElement.id);
+                setActiveEditTab('move');
                 break;
             case 'image':
-                // Open Image Processing Modal instead of direct pick
-                setSelectedImageUri(null);
-                setProcessedImageUri(null);
-                setShowImageModal(true);
+                // Open image picker directly
+                const result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing: false,
+                    quality: 1,
+                });
+                if (!result.canceled && result.assets[0]) {
+                    const newImageElement: EditorElement = {
+                        id: Date.now().toString(),
+                        type: 'image',
+                        content: result.assets[0].uri,
+                        x: canvasSize.w / 2 - 50,
+                        y: canvasSize.h / 2 - 50,
+                        scale: 1,
+                        rotation: 0,
+                        isFlipped: false,
+                        imageWidth: 100,
+                        imageHeight: 100,
+                        borderWidth: 0,
+                        borderColor: '#ffffff',
+                        borderRadius: 0,
+                    };
+                    setElements(prev => [...prev, newImageElement]);
+                    setSelectedElementId(newImageElement.id);
+                    setActiveEditTab('move');
+                }
                 break;
             case 'layout':
                 setShowLayoutModal(true);
@@ -377,11 +442,17 @@ export default function PosterEditor() {
             case 'banner':
                 setShowBannerModal(true);
                 break;
-            case 'sticker':
+            case 'frame':
                 setShowBottomBarModal(true);
+                break;
+            case 'content':
+                setShowBottomBarEditForm(true);
                 break;
             case 'filter':
                 setShowFilterModal(true);
+                break;
+            case 'customize':
+                setShowCustomizationModal(true);
                 break;
             case 'music':
                 Alert.alert('Coming Soon', 'Music feature will be available in the next update!');
@@ -392,7 +463,7 @@ export default function PosterEditor() {
     };
 
     const applyLayout = () => {
-        let newWidth = width * 0.85;
+        let newWidth = width; // Full screen width
         let newHeight = newWidth;
         let aspectRatio = 1;
 
@@ -525,7 +596,78 @@ export default function PosterEditor() {
         }
     };
 
-    const handleSave = async () => {
+    // Background Removal Function - Uses Gemini API for all platforms (Web, Android, iOS)
+    const handleRemoveBackground = async (elementId: string, imageUri: string) => {
+        setIsRemovingBg(true);
+
+        try {
+            // Use Gemini API for all platforms
+            let formData: FormData;
+
+            if (Platform.OS === 'web') {
+                // For web, fetch the image and convert to blob
+                const response = await fetch(imageUri);
+                const blob = await response.blob();
+                formData = new FormData();
+                formData.append('image', blob, 'image.jpg');
+            } else {
+                // For native, use the file URI directly
+                formData = new FormData();
+                formData.append('image', {
+                    uri: imageUri,
+                    name: 'image.jpg',
+                    type: 'image/jpeg',
+                } as any);
+            }
+
+            console.log('Sending request to:', `${API_URL}/ai-gemini/remove-background`);
+
+            const apiResponse = await fetch(`${API_URL}/ai-gemini/remove-background`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await apiResponse.json();
+            console.log('API Response:', JSON.stringify(result, null, 2));
+
+            // Handle different API response formats
+            const processedImageUrl = result.processedImageUrl || result.image || result.data?.image || result.data?.url;
+
+            if (result.success && processedImageUrl) {
+                if (Platform.OS === 'web') {
+                    // For web, use the URL or base64 directly
+                    updateElement(elementId, { content: processedImageUrl });
+                } else {
+                    // For native, download and save to cache
+                    if (processedImageUrl.startsWith('data:image')) {
+                        const filename = `bg_removed_${Date.now()}.png`;
+                        const fileUri = (FileSystem.cacheDirectory || '') + filename;
+                        const base64Data = processedImageUrl.split(',')[1];
+                        await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+                            encoding: FileSystem.EncodingType.Base64,
+                        });
+                        updateElement(elementId, { content: fileUri });
+                    } else {
+                        const filename = `bg_removed_${Date.now()}.png`;
+                        const fileUri = (FileSystem.cacheDirectory || '') + filename;
+                        const downloadRes = await FileSystem.downloadAsync(processedImageUrl, fileUri);
+                        updateElement(elementId, { content: downloadRes.uri });
+                    }
+                }
+                Alert.alert('Success', 'Background removed successfully!');
+            } else {
+                console.error('API Error Response:', result);
+                throw new Error(result.message || result.error || 'API did not return processed image');
+            }
+        } catch (error) {
+            console.error('Background removal failed:', error);
+            Alert.alert('Error', 'Failed to remove background. Please check API connection.');
+        } finally {
+            setIsRemovingBg(false);
+        }
+    };
+
+    const handleSave = async (action: 'download' | 'share' = 'download') => {
         try {
             setSelectedElementId(null); // Deselect before saving to hide border
             // Wait a tick for state to update
@@ -548,12 +690,12 @@ export default function PosterEditor() {
                                 allowTaint: true,
                                 backgroundColor: null,
                             });
-                            uri = canvas.toDataURL('image/jpeg', 0.9);
+                            uri = canvas.toDataURL('image/png');
                         } else {
                             // Fallback: create a manual download link
                             // This is a simpler approach that just saves the current view
                             const link = document.createElement('a');
-                            link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}.jpg`;
+                            link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}.png`;
 
                             // Try to get the image from the canvas if it's a simple image view
                             const imgElement = canvasElement.querySelector('img');
@@ -564,7 +706,7 @@ export default function PosterEditor() {
                                 const ctx = canvas.getContext('2d');
                                 if (ctx) {
                                     ctx.drawImage(imgElement, 0, 0, canvasSize.w, canvasSize.h);
-                                    uri = canvas.toDataURL('image/jpeg', 0.9);
+                                    uri = canvas.toDataURL('image/png');
                                 } else {
                                     throw new Error('Could not get canvas context');
                                 }
@@ -576,15 +718,27 @@ export default function PosterEditor() {
 
                         const link = document.createElement('a');
                         link.href = uri;
-                        link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}.jpg`;
+                        link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}.png`;
                         link.click();
                     } else {
                         // For mobile, use captureRef
                         uri = await captureRef(canvasRef, {
-                            format: 'jpg',
-                            quality: 0.9,
+                            format: 'png',
+                            quality: 1.0,
                         });
-                        await Sharing.shareAsync(uri);
+
+                        if (action === 'share') {
+                            await Sharing.shareAsync(uri);
+                        } else {
+                            // Download / Save to Gallery
+                            const { status } = await MediaLibrary.requestPermissionsAsync(true);
+                            if (status === 'granted') {
+                                await MediaLibrary.saveToLibraryAsync(uri);
+                                Alert.alert('Success', 'Poster saved to gallery!');
+                            } else {
+                                Alert.alert('Permission Required', 'Please grant permission to save photos to your gallery.');
+                            }
+                        }
                     }
                 } catch (innerError) {
                     console.error('Capture error:', innerError);
@@ -619,6 +773,7 @@ export default function PosterEditor() {
                 onPanResponderGrant: () => {
                     setIsDragging(true);
                     setSelectedElementId(element.id);
+                    setActiveEditTab('move');
                     setDragStartPos({ x: element.x, y: element.y });
                     setCurrentGesture({ dx: 0, dy: 0 });
                 },
@@ -687,7 +842,10 @@ export default function PosterEditor() {
             >
                 <TouchableOpacity
                     activeOpacity={1}
-                    onPress={() => setSelectedElementId(element.id)}
+                    onPress={() => {
+                        setSelectedElementId(element.id);
+                        setActiveEditTab('move');
+                    }}
                 >
                     <Animated.View
                         style={[
@@ -710,58 +868,29 @@ export default function PosterEditor() {
                                     {
                                         color: element.color,
                                         fontSize: element.fontSize,
-                                        fontFamily: element.fontFamily
+                                        fontFamily: element.fontFamily,
+                                        backgroundColor: element.backgroundColor || 'transparent',
+                                        paddingHorizontal: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 0,
+                                        paddingVertical: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                        borderRadius: 4,
+                                        overflow: 'hidden',
                                     }
                                 ]}>
                                     {element.content}
                                 </Text>
                             ) : (
-                                <Image source={{ uri: element.content }} style={styles.elementImage} />
+                                <Image
+                                    source={{ uri: element.content }}
+                                    style={{
+                                        width: element.imageWidth || 100,
+                                        height: element.imageHeight || 100,
+                                        borderWidth: element.borderWidth || 0,
+                                        borderColor: element.borderColor || '#ffffff',
+                                        borderRadius: element.borderRadius || 0,
+                                    }}
+                                />
                             )}
                         </View>
-
-                        {isSelected && (
-                            <>
-                                {/* Top Left - Delete */}
-                                <TouchableOpacity
-                                    style={[styles.controlBtn, styles.controlBtnTL]}
-                                    onPress={(e) => {
-                                        e.stopPropagation();
-                                        deleteSelectedElement();
-                                    }}
-                                >
-                                    <MaterialCommunityIcons name="close" size={16} color="#fff" />
-                                </TouchableOpacity>
-
-                                {/* Top Right - Rotate 90deg */}
-                                <TouchableOpacity
-                                    style={[styles.controlBtn, styles.controlBtnTR]}
-                                    onPress={(e) => {
-                                        e.stopPropagation();
-                                        const newRotation = (element.rotation + 90) % 360;
-                                        updateElement(element.id, { rotation: newRotation });
-                                    }}
-                                >
-                                    <MaterialCommunityIcons name="rotate-right" size={16} color="#fff" />
-                                </TouchableOpacity>
-
-                                {/* Bottom Left - Move/Drag Handle */}
-                                <View
-                                    {...panResponder.panHandlers}
-                                    style={[styles.controlBtn, styles.controlBtnBL]}
-                                >
-                                    <MaterialCommunityIcons name="cursor-move" size={16} color="#fff" />
-                                </View>
-
-                                {/* Bottom Right - Resize by dragging */}
-                                <View
-                                    {...resizeResponder.panHandlers}
-                                    style={[styles.controlBtn, styles.controlBtnBR]}
-                                >
-                                    <MaterialCommunityIcons name="arrow-expand-all" size={16} color="#fff" />
-                                </View>
-                            </>
-                        )}
                     </Animated.View>
                 </TouchableOpacity>
             </View>
@@ -780,35 +909,31 @@ export default function PosterEditor() {
                     <Ionicons name="close" size={24} color="#1e293b" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{posterName}</Text>
-                <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-                    <Text style={styles.saveButtonText}>Save</Text>
+                <TouchableOpacity onPress={() => setShowPreviewModal(true)} style={styles.saveButton}>
+                    <MaterialCommunityIcons name="eye" size={18} color="#fff" style={{ marginRight: 4 }} />
+                    <Text style={styles.saveButtonText}>Preview</Text>
                 </TouchableOpacity>
             </View>
 
             {/* Main Canvas Area */}
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 10 }]}
+                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 10, alignItems: 'center' }]}
                 scrollEnabled={!isDragging} // Disable scroll when dragging element
                 showsHorizontalScrollIndicator={false}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Zoom Wrapper */}
+                {/* Poster Container - Full Width */}
                 <View style={{
-                    width: canvasSize.w * zoomScale,
-                    height: canvasSize.h * zoomScale,
+                    width: width,
                     alignItems: 'center',
-                    justifyContent: 'flex-start' // Position at top
+                    justifyContent: 'flex-start'
                 }}>
-                    {/* Entire canvas is movable */}
+                    {/* Scalable Canvas */}
                     <View
-                        {...posterPanResponder.panHandlers}
                         style={{
-                            transform: [
-                                { scale: zoomScale },
-                                { translateX: posterOffset.x },
-                                { translateY: posterOffset.y }
-                            ]
+                            transform: [{ scale: zoomScale }],
+                            transformOrigin: 'top center'
                         }}
                     >
                         <View
@@ -825,7 +950,7 @@ export default function PosterEditor() {
                                     styles.baseImage,
                                     { height: canvasSize.h }
                                 ]}
-                                resizeMode="cover"
+                                resizeMode="contain"
                             />
 
                             {/* Filter Overlay */}
@@ -841,184 +966,562 @@ export default function PosterEditor() {
                                 }} />
                             )}
 
-                            {/* Added Elements */}
-                            {elements.map((el) => (
-                                <DraggableItem key={el.id} element={el} />
-                            ))}
-
                             {/* Dynamic Footer Bottom Bar - Positioned at Bottom */}
-                            <View style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                minHeight: canvasSize.h * 0.15,
-                                maxHeight: canvasSize.h * 0.35,
-                                width: '100%'
-                            }}>
+                            <View
+                                style={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    minHeight: canvasSize.h * 0.12,
+                                    maxHeight: canvasSize.h * 0.25,
+                                    width: '100%',
+                                    zIndex: 10,
+                                }}>
                                 <RenderBottomBar
                                     template={selectedBottomBarTemplate}
                                     details={bottomBarDetails}
                                     width={canvasSize.w}
                                     customization={frameCustomization}
                                 />
-                                {/* Action Buttons Overlay */}
-                                <View style={{
-                                    position: 'absolute',
-                                    top: 6,
-                                    right: 6,
-                                    flexDirection: 'row',
-                                    gap: 6,
-                                    zIndex: 10,
-                                }}>
-                                    {/* Update Content Button */}
-                                    <TouchableOpacity
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            backgroundColor: 'rgba(0,0,0,0.7)',
-                                            borderRadius: 16,
-                                            paddingVertical: 6,
-                                            paddingHorizontal: 10,
-                                            gap: 4,
-                                        }}
-                                        onPress={() => setShowBottomBarEditForm(true)}
-                                    >
-                                        <MaterialCommunityIcons name="pencil" size={14} color="#fff" />
-                                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Edit</Text>
-                                    </TouchableOpacity>
-                                    {/* Preview Button */}
-                                    <TouchableOpacity
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            backgroundColor: SP_RED,
-                                            borderRadius: 16,
-                                            paddingVertical: 6,
-                                            paddingHorizontal: 10,
-                                            gap: 4,
-                                        }}
-                                        onPress={() => setShowPreviewModal(true)}
-                                    >
-                                        <MaterialCommunityIcons name="eye" size={14} color="#fff" />
-                                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Preview</Text>
-                                    </TouchableOpacity>
-                                </View>
                             </View>
+
+                            {/* Added Elements - Rendered last with highest z-index */}
+                            {elements.map((el, index) => (
+                                <View key={el.id} style={{ zIndex: 100 + index }}>
+                                    <DraggableItem element={el} />
+                                </View>
+                            ))}
                         </View>
                     </View>
                 </View>
-            </ScrollView>
+            </ScrollView >
 
-            {/* Zoom Controls */}
+            {/* Zoom Controls - Horizontal Layout */}
             <View style={styles.zoomControls}>
                 <TouchableOpacity onPress={() => handleZoom(false)} style={styles.zoomButton}>
-                    <Ionicons name="remove" size={24} color="#1e293b" />
+                    <Ionicons name="remove" size={22} color="#1e293b" />
                 </TouchableOpacity>
                 <Text style={styles.zoomText}>{Math.round(zoomScale * 100)}%</Text>
                 <TouchableOpacity onPress={() => handleZoom(true)} style={styles.zoomButton}>
-                    <Ionicons name="add" size={24} color="#1e293b" />
+                    <Ionicons name="add" size={22} color="#1e293b" />
                 </TouchableOpacity>
-                <View style={{ width: 1, height: 20, backgroundColor: '#cbd5e1', marginHorizontal: 8 }} />
+                <View style={{ width: 1, height: 20, backgroundColor: '#cbd5e1', marginHorizontal: 6 }} />
                 <TouchableOpacity
-                    onPress={() => {
-                        setPosterOffset({ x: 0, y: 0 });
-                        posterOffsetRef.current = { x: 0, y: 0 };
-                        setZoomScale(1); // Reset to 100%
-                    }}
-                    style={[styles.zoomButton, { paddingHorizontal: 8 }]}
+                    onPress={() => setZoomScale(1)}
+                    style={[styles.zoomButton, { flexDirection: 'row', alignItems: 'center' }]}
                 >
-                    <Ionicons name="refresh" size={18} color="#1e293b" />
-                    <Text style={{ fontSize: 10, color: '#64748b', marginLeft: 4 }}>Reset</Text>
+                    <Ionicons name="refresh" size={16} color="#1e293b" />
+                    <Text style={{ fontSize: 10, color: '#64748b', marginLeft: 2 }}>Reset</Text>
                 </TouchableOpacity>
             </View>
 
             {/* Bottom Toolbar - Safe from navbar */}
-            <SafeAreaView edges={['bottom']} style={styles.toolbarContainer}>
+            < SafeAreaView edges={['bottom']} style={styles.toolbarContainer} >
                 {selectedElement && selectedElement.type === 'text' ? (
-                    // Text Editing Toolbar
+                    // Text Editing Toolbar with Carousel
                     <View style={styles.textToolbar}>
-                        <View style={styles.textToolbarHeader}>
-                            <Text style={styles.textToolbarTitle}>Edit Text</Text>
-                            <View style={{ flexDirection: 'row', gap: 16 }}>
-                                <TouchableOpacity onPress={deleteSelectedElement}>
-                                    <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setSelectedElementId(null)}>
-                                    <Ionicons name="close" size={20} color="#64748b" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {/* Text Content Input */}
+                        {/* Text Input - Always visible above tabs */}
                         <TextInput
-                            style={styles.editTextInput}
+                            style={[styles.editTextInput, { marginBottom: 12 }]}
                             value={selectedElement.content}
                             onChangeText={(text) => updateElement(selectedElement.id, { content: text })}
                             placeholder="Type text here..."
                             placeholderTextColor="#94a3b8"
                         />
 
-                        {/* Font Size */}
-                        <View style={styles.textOptionRow}>
-                            <Text style={styles.textOptionLabel}>Size</Text>
-                            <View style={styles.sizeControls}>
+                        {/* Header with tabs */}
+                        <View style={styles.textToolbarHeader}>
+                            <View style={{ flexDirection: 'row', gap: 0 }}>
                                 <TouchableOpacity
-                                    onPress={() => updateElement(selectedElement.id, { fontSize: (selectedElement.fontSize || 24) - 2 })}
-                                    style={styles.sizeButton}
+                                    onPress={() => setActiveEditTab('move')}
+                                    style={{
+                                        paddingHorizontal: 20,
+                                        paddingVertical: 10,
+                                        backgroundColor: activeEditTab === 'move' ? SP_RED : '#f1f5f9',
+                                        borderTopLeftRadius: 25,
+                                        borderBottomLeftRadius: 25,
+                                        borderWidth: 1,
+                                        borderColor: activeEditTab === 'move' ? SP_RED : '#e2e8f0',
+                                    }}
                                 >
-                                    <Ionicons name="remove" size={16} color="#1e293b" />
+                                    <Text style={{ color: activeEditTab === 'move' ? '#fff' : '#64748b', fontWeight: '600', fontSize: 13 }}>Move</Text>
                                 </TouchableOpacity>
-                                <Text style={styles.sizeValue}>{selectedElement.fontSize}</Text>
                                 <TouchableOpacity
-                                    onPress={() => updateElement(selectedElement.id, { fontSize: (selectedElement.fontSize || 24) + 2 })}
-                                    style={styles.sizeButton}
+                                    onPress={() => setActiveEditTab('typo')}
+                                    style={{
+                                        paddingHorizontal: 20,
+                                        paddingVertical: 10,
+                                        backgroundColor: activeEditTab === 'typo' ? SP_RED : '#f1f5f9',
+                                        borderTopRightRadius: 25,
+                                        borderBottomRightRadius: 25,
+                                        borderWidth: 1,
+                                        borderColor: activeEditTab === 'typo' ? SP_RED : '#e2e8f0',
+                                        borderLeftWidth: 0,
+                                    }}
                                 >
-                                    <Ionicons name="add" size={16} color="#1e293b" />
+                                    <Text style={{ color: activeEditTab === 'typo' ? '#fff' : '#64748b', fontWeight: '600', fontSize: 13 }}>Typo</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                <TouchableOpacity onPress={deleteSelectedElement} style={{ padding: 6, backgroundColor: '#fef2f2', borderRadius: 8 }}>
+                                    <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setSelectedElementId(null)} style={{ padding: 6, backgroundColor: '#f1f5f9', borderRadius: 8 }}>
+                                    <Ionicons name="close" size={18} color="#64748b" />
                                 </TouchableOpacity>
                             </View>
                         </View>
 
-                        {/* Colors */}
-                        <View style={styles.textOptionRow}>
-                            <Text style={styles.textOptionLabel}>Color</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {COLORS.map(color => (
+                        {/* Move Tab Content */}
+                        {activeEditTab === 'move' && (
+                            <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                                     <TouchableOpacity
-                                        key={color}
-                                        style={[
-                                            styles.colorCircle,
-                                            { backgroundColor: color },
-                                            selectedElement.color === color && styles.selectedColor
-                                        ]}
-                                        onPress={() => updateElement(selectedElement.id, { color })}
-                                    />
-                                ))}
+                                        onPressIn={() => {
+                                            const interval = setInterval(() => {
+                                                setElements(prev => prev.map(el =>
+                                                    el.id === selectedElement.id ? { ...el, x: el.x - 5 } : el
+                                                ));
+                                            }, 50);
+                                            (global as any).moveInterval = interval;
+                                        }}
+                                        onPressOut={() => clearInterval((global as any).moveInterval)}
+                                        style={{ backgroundColor: SP_RED, padding: 16, borderRadius: 14, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}
+                                    >
+                                        <Ionicons name="arrow-back" size={26} color="#fff" />
+                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'column', gap: 10 }}>
+                                        <TouchableOpacity
+                                            onPressIn={() => {
+                                                const interval = setInterval(() => {
+                                                    setElements(prev => prev.map(el =>
+                                                        el.id === selectedElement.id ? { ...el, y: el.y - 5 } : el
+                                                    ));
+                                                }, 50);
+                                                (global as any).moveInterval = interval;
+                                            }}
+                                            onPressOut={() => clearInterval((global as any).moveInterval)}
+                                            style={{ backgroundColor: SP_RED, padding: 16, borderRadius: 14, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}
+                                        >
+                                            <Ionicons name="arrow-up" size={26} color="#fff" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPressIn={() => {
+                                                const interval = setInterval(() => {
+                                                    setElements(prev => prev.map(el =>
+                                                        el.id === selectedElement.id ? { ...el, y: el.y + 5 } : el
+                                                    ));
+                                                }, 50);
+                                                (global as any).moveInterval = interval;
+                                            }}
+                                            onPressOut={() => clearInterval((global as any).moveInterval)}
+                                            style={{ backgroundColor: SP_RED, padding: 16, borderRadius: 14, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}
+                                        >
+                                            <Ionicons name="arrow-down" size={26} color="#fff" />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPressIn={() => {
+                                            const interval = setInterval(() => {
+                                                setElements(prev => prev.map(el =>
+                                                    el.id === selectedElement.id ? { ...el, x: el.x + 5 } : el
+                                                ));
+                                            }, 50);
+                                            (global as any).moveInterval = interval;
+                                        }}
+                                        onPressOut={() => clearInterval((global as any).moveInterval)}
+                                        style={{ backgroundColor: SP_RED, padding: 16, borderRadius: 14, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}
+                                    >
+                                        <Ionicons name="arrow-forward" size={26} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Typo Tab Content */}
+                        {activeEditTab === 'typo' && (
+                            <ScrollView
+                                showsVerticalScrollIndicator={true}
+                                style={{ maxHeight: 200 }}
+                                contentContainerStyle={{ paddingVertical: 12, gap: 16 }}
+                            >
+                                {/* Font Size Card */}
+                                <View style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 10 }}>Font Size</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+                                        <TouchableOpacity
+                                            onPress={() => updateElement(selectedElement.id, { fontSize: Math.max(8, (selectedElement.fontSize || 24) - 2) })}
+                                            style={{ backgroundColor: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0' }}
+                                        >
+                                            <Ionicons name="remove" size={20} color="#1e293b" />
+                                        </TouchableOpacity>
+                                        <Text style={{ fontSize: 24, fontWeight: '700', color: '#1e293b', minWidth: 50, textAlign: 'center' }}>{selectedElement.fontSize}</Text>
+                                        <TouchableOpacity
+                                            onPress={() => updateElement(selectedElement.id, { fontSize: (selectedElement.fontSize || 24) + 2 })}
+                                            style={{ backgroundColor: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0' }}
+                                        >
+                                            <Ionicons name="add" size={20} color="#1e293b" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                {/* Text Color Card */}
+                                <View style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 10 }}>Text Color</Text>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                                            {COLORS.map(color => (
+                                                <TouchableOpacity
+                                                    key={color}
+                                                    style={[
+                                                        { width: 36, height: 36, borderRadius: 18, backgroundColor: color, justifyContent: 'center', alignItems: 'center' },
+                                                        selectedElement.color === color && { borderWidth: 3, borderColor: '#1e293b' }
+                                                    ]}
+                                                    onPress={() => updateElement(selectedElement.id, { color })}
+                                                >
+                                                    {selectedElement.color === color && <Ionicons name="checkmark" size={18} color={color === '#ffffff' ? '#000' : '#fff'} />}
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                </View>
+
+                                {/* Background Color Card */}
+                                <View style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 10 }}>Background</Text>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                                            <TouchableOpacity
+                                                style={[
+                                                    { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+                                                    selectedElement.backgroundColor === 'transparent' && { borderWidth: 3, borderColor: '#1e293b' }
+                                                ]}
+                                                onPress={() => updateElement(selectedElement.id, { backgroundColor: 'transparent' })}
+                                            >
+                                                <Ionicons name="close" size={16} color="#94a3b8" />
+                                            </TouchableOpacity>
+                                            {COLORS.map(color => (
+                                                <TouchableOpacity
+                                                    key={`bg-${color}`}
+                                                    style={[
+                                                        { width: 36, height: 36, borderRadius: 18, backgroundColor: color, justifyContent: 'center', alignItems: 'center' },
+                                                        selectedElement.backgroundColor === color && { borderWidth: 3, borderColor: '#1e293b' }
+                                                    ]}
+                                                    onPress={() => updateElement(selectedElement.id, { backgroundColor: color })}
+                                                >
+                                                    {selectedElement.backgroundColor === color && <Ionicons name="checkmark" size={18} color={color === '#ffffff' ? '#000' : '#fff'} />}
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                </View>
+
+                                {/* Fonts Card */}
+                                <View style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 10 }}>Font Family</Text>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                            {FONTS.map(font => (
+                                                <TouchableOpacity
+                                                    key={font}
+                                                    style={[
+                                                        { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0' },
+                                                        selectedElement.fontFamily === font && { backgroundColor: SP_RED, borderColor: SP_RED }
+                                                    ]}
+                                                    onPress={() => updateElement(selectedElement.id, { fontFamily: font })}
+                                                >
+                                                    <Text style={[
+                                                        { fontSize: 13, color: '#1e293b', fontWeight: '500' },
+                                                        selectedElement.fontFamily === font && { color: '#fff' },
+                                                        { fontFamily: font !== 'System' ? font : undefined }
+                                                    ]}>{font}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                </View>
                             </ScrollView>
+                        )}
+                    </View>
+                ) : selectedElement && selectedElement.type === 'image' ? (
+                    // Image Editing Toolbar with Carousel
+                    <View style={styles.textToolbar}>
+                        {/* Crop & Remove BG - Always visible above tabs */}
+                        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                            <TouchableOpacity
+                                onPress={async () => {
+                                    const result = await ImagePicker.launchImageLibraryAsync({
+                                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                                        allowsEditing: true,
+                                        aspect: [1, 1],
+                                        quality: 1,
+                                    });
+                                    if (!result.canceled && result.assets[0]) {
+                                        updateElement(selectedElement.id, { content: result.assets[0].uri });
+                                    }
+                                }}
+                                style={{
+                                    flex: 1,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: '#f1f5f9',
+                                    paddingVertical: 12,
+                                    borderRadius: 10,
+                                    gap: 8,
+                                    borderWidth: 1,
+                                    borderColor: '#e2e8f0',
+                                }}
+                            >
+                                <Ionicons name="crop" size={20} color="#1e293b" />
+                                <Text style={{ color: '#1e293b', fontWeight: '600', fontSize: 14 }}>Crop</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => handleRemoveBackground(selectedElement.id, selectedElement.content)}
+                                disabled={isRemovingBg}
+                                style={{
+                                    flex: 1,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: isRemovingBg ? '#94a3b8' : SP_RED,
+                                    paddingVertical: 12,
+                                    borderRadius: 10,
+                                    gap: 8,
+                                    opacity: isRemovingBg ? 0.8 : 1,
+                                }}
+                            >
+                                {isRemovingBg ? (
+                                    <>
+                                        <ActivityIndicator size="small" color="#fff" />
+                                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Removing...</Text>
+                                    </>
+                                ) : (
+                                    <>
+                                        <MaterialCommunityIcons name="image-remove" size={20} color="#fff" />
+                                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Remove BG</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
                         </View>
 
-                        {/* Fonts */}
-                        <View style={styles.textOptionRow}>
-                            <Text style={styles.textOptionLabel}>Font</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {FONTS.map(font => (
-                                    <TouchableOpacity
-                                        key={font}
-                                        style={[
-                                            styles.fontButton,
-                                            selectedElement.fontFamily === font && styles.selectedFont
-                                        ]}
-                                        onPress={() => updateElement(selectedElement.id, { fontFamily: font })}
-                                    >
-                                        <Text style={[
-                                            styles.fontButtonText,
-                                            selectedElement.fontFamily === font && styles.selectedFontText,
-                                            { fontFamily: font !== 'System' ? font : undefined }
-                                        ]}>{font}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                        {/* Header with tabs */}
+                        <View style={styles.textToolbarHeader}>
+                            <View style={{ flexDirection: 'row', gap: 0 }}>
+                                <TouchableOpacity
+                                    onPress={() => setActiveEditTab('move')}
+                                    style={{
+                                        paddingHorizontal: 20,
+                                        paddingVertical: 10,
+                                        backgroundColor: activeEditTab === 'move' ? SP_RED : '#f1f5f9',
+                                        borderTopLeftRadius: 25,
+                                        borderBottomLeftRadius: 25,
+                                        borderWidth: 1,
+                                        borderColor: activeEditTab === 'move' ? SP_RED : '#e2e8f0',
+                                    }}
+                                >
+                                    <Text style={{ color: activeEditTab === 'move' ? '#fff' : '#64748b', fontWeight: '600', fontSize: 13 }}>Move</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setActiveEditTab('style')}
+                                    style={{
+                                        paddingHorizontal: 20,
+                                        paddingVertical: 10,
+                                        backgroundColor: activeEditTab === 'style' ? SP_RED : '#f1f5f9',
+                                        borderTopRightRadius: 25,
+                                        borderBottomRightRadius: 25,
+                                        borderWidth: 1,
+                                        borderColor: activeEditTab === 'style' ? SP_RED : '#e2e8f0',
+                                        borderLeftWidth: 0,
+                                    }}
+                                >
+                                    <Text style={{ color: activeEditTab === 'style' ? '#fff' : '#64748b', fontWeight: '600', fontSize: 13 }}>Style</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                <TouchableOpacity onPress={deleteSelectedElement} style={{ padding: 6, backgroundColor: '#fef2f2', borderRadius: 8 }}>
+                                    <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setSelectedElementId(null)} style={{ padding: 6, backgroundColor: '#f1f5f9', borderRadius: 8 }}>
+                                    <Ionicons name="close" size={18} color="#64748b" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
+
+                        {/* Move Tab Content */}
+                        {activeEditTab === 'move' && (
+                            <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                    <TouchableOpacity
+                                        onPressIn={() => {
+                                            const interval = setInterval(() => {
+                                                setElements(prev => prev.map(el =>
+                                                    el.id === selectedElement.id ? { ...el, x: el.x - 5 } : el
+                                                ));
+                                            }, 50);
+                                            (global as any).moveInterval = interval;
+                                        }}
+                                        onPressOut={() => clearInterval((global as any).moveInterval)}
+                                        style={{ backgroundColor: SP_RED, padding: 14, borderRadius: 12, elevation: 2 }}
+                                    >
+                                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'column', gap: 8 }}>
+                                        <TouchableOpacity
+                                            onPressIn={() => {
+                                                const interval = setInterval(() => {
+                                                    setElements(prev => prev.map(el =>
+                                                        el.id === selectedElement.id ? { ...el, y: el.y - 5 } : el
+                                                    ));
+                                                }, 50);
+                                                (global as any).moveInterval = interval;
+                                            }}
+                                            onPressOut={() => clearInterval((global as any).moveInterval)}
+                                            style={{ backgroundColor: SP_RED, padding: 14, borderRadius: 12, elevation: 2 }}
+                                        >
+                                            <Ionicons name="arrow-up" size={24} color="#fff" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPressIn={() => {
+                                                const interval = setInterval(() => {
+                                                    setElements(prev => prev.map(el =>
+                                                        el.id === selectedElement.id ? { ...el, y: el.y + 5 } : el
+                                                    ));
+                                                }, 50);
+                                                (global as any).moveInterval = interval;
+                                            }}
+                                            onPressOut={() => clearInterval((global as any).moveInterval)}
+                                            style={{ backgroundColor: SP_RED, padding: 14, borderRadius: 12, elevation: 2 }}
+                                        >
+                                            <Ionicons name="arrow-down" size={24} color="#fff" />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPressIn={() => {
+                                            const interval = setInterval(() => {
+                                                setElements(prev => prev.map(el =>
+                                                    el.id === selectedElement.id ? { ...el, x: el.x + 5 } : el
+                                                ));
+                                            }, 50);
+                                            (global as any).moveInterval = interval;
+                                        }}
+                                        onPressOut={() => clearInterval((global as any).moveInterval)}
+                                        style={{ backgroundColor: SP_RED, padding: 14, borderRadius: 12, elevation: 2 }}
+                                    >
+                                        <Ionicons name="arrow-forward" size={24} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Style Tab Content */}
+                        {activeEditTab === 'style' && (
+                            <ScrollView
+                                showsVerticalScrollIndicator={true}
+                                style={{ maxHeight: 200 }}
+                                contentContainerStyle={{ paddingVertical: 12, gap: 16 }}
+                            >
+                                {/* Image Size Card */}
+                                <View style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 10 }}>Image Size</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+                                        <TouchableOpacity
+                                            onPress={() => updateElement(selectedElement.id, {
+                                                imageWidth: Math.max(30, (selectedElement.imageWidth || 100) - 10),
+                                                imageHeight: Math.max(30, (selectedElement.imageHeight || 100) - 10)
+                                            })}
+                                            style={{ backgroundColor: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0' }}
+                                        >
+                                            <Ionicons name="remove" size={20} color="#1e293b" />
+                                        </TouchableOpacity>
+                                        <Text style={{ fontSize: 24, fontWeight: '700', color: '#1e293b', minWidth: 60, textAlign: 'center' }}>{selectedElement.imageWidth || 100}px</Text>
+                                        <TouchableOpacity
+                                            onPress={() => updateElement(selectedElement.id, {
+                                                imageWidth: (selectedElement.imageWidth || 100) + 10,
+                                                imageHeight: (selectedElement.imageHeight || 100) + 10
+                                            })}
+                                            style={{ backgroundColor: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0' }}
+                                        >
+                                            <Ionicons name="add" size={20} color="#1e293b" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                {/* Border Card */}
+                                <View style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 10 }}>Border</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                        <TouchableOpacity
+                                            onPress={() => updateElement(selectedElement.id, {
+                                                borderWidth: (selectedElement.borderWidth || 0) > 0 ? 0 : 2
+                                            })}
+                                            style={[
+                                                { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0' },
+                                                (selectedElement.borderWidth || 0) > 0 && { backgroundColor: SP_RED, borderColor: SP_RED }
+                                            ]}
+                                        >
+                                            <Text style={[
+                                                { fontSize: 13, fontWeight: '600', color: '#1e293b' },
+                                                (selectedElement.borderWidth || 0) > 0 && { color: '#fff' }
+                                            ]}>
+                                                {(selectedElement.borderWidth || 0) > 0 ? '✓ On' : 'Off'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        {/* Border Color - Only show if border is on */}
+                                        {(selectedElement.borderWidth || 0) > 0 && (
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                    {COLORS.map(color => (
+                                                        <TouchableOpacity
+                                                            key={`border-${color}`}
+                                                            style={[
+                                                                { width: 32, height: 32, borderRadius: 16, backgroundColor: color, justifyContent: 'center', alignItems: 'center' },
+                                                                selectedElement.borderColor === color && { borderWidth: 3, borderColor: '#1e293b' }
+                                                            ]}
+                                                            onPress={() => updateElement(selectedElement.id, { borderColor: color })}
+                                                        >
+                                                            {selectedElement.borderColor === color && <Ionicons name="checkmark" size={16} color={color === '#ffffff' ? '#000' : '#fff'} />}
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            </ScrollView>
+                                        )}
+                                    </View>
+                                </View>
+
+                                {/* Border Radius Card */}
+                                <View style={{ backgroundColor: '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 10 }}>Corner Radius</Text>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                            {[
+                                                { label: 'None', value: 0 },
+                                                { label: 'Small', value: 8 },
+                                                { label: 'Medium', value: 16 },
+                                                { label: 'Large', value: 30 },
+                                                { label: 'Circle', value: 999 },
+                                            ].map(option => (
+                                                <TouchableOpacity
+                                                    key={option.label}
+                                                    style={[
+                                                        { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0' },
+                                                        selectedElement.borderRadius === option.value && { backgroundColor: SP_RED, borderColor: SP_RED }
+                                                    ]}
+                                                    onPress={() => updateElement(selectedElement.id, { borderRadius: option.value })}
+                                                >
+                                                    <Text style={[
+                                                        { fontSize: 13, color: '#1e293b', fontWeight: '500' },
+                                                        selectedElement.borderRadius === option.value && { color: '#fff' }
+                                                    ]}>{option.label}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                </View>
+                            </ScrollView>
+                        )}
                     </View>
                 ) : (
                     // Main Tools
@@ -1052,11 +1555,12 @@ export default function PosterEditor() {
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
-                )}
-            </SafeAreaView>
+                )
+                }
+            </SafeAreaView >
 
             {/* Layout Modal */}
-            <Modal
+            < Modal
                 visible={showLayoutModal}
                 transparent={true}
                 animationType="slide"
@@ -1140,10 +1644,10 @@ export default function PosterEditor() {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Poster Selection Modal */}
-            <Modal
+            < Modal
                 visible={showBannerModal}
                 transparent={true}
                 animationType="slide"
@@ -1205,10 +1709,10 @@ export default function PosterEditor() {
                         )}
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Text Input Modal */}
-            <Modal
+            < Modal
                 visible={showTextModal}
                 transparent={true}
                 animationType="slide"
@@ -1244,10 +1748,10 @@ export default function PosterEditor() {
                         </View>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Image Processing Modal */}
-            <Modal
+            < Modal
                 visible={showImageModal}
                 transparent={true}
                 animationType="slide"
@@ -1318,10 +1822,10 @@ export default function PosterEditor() {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Bottom Bar Template Modal */}
-            <Modal
+            < Modal
                 visible={showBottomBarModal}
                 animationType="slide"
                 transparent={true}
@@ -1333,58 +1837,76 @@ export default function PosterEditor() {
                         activeOpacity={1}
                         onPress={() => setShowBottomBarModal(false)}
                     />
-                    <View style={styles.bottomSheet2}>
+                    <View style={[styles.bottomSheet2, { height: '75%' }]}>
                         <View style={styles.modalHeader2}>
-                            <Text style={styles.modalTitle2}>Select Bottom Bar Frame</Text>
+                            <View>
+                                <Text style={styles.modalTitle2}>Bottom Bar Frames</Text>
+                                <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Select a Frame</Text>
+                            </View>
                             <TouchableOpacity onPress={() => setShowBottomBarModal(false)} style={styles.closeButton2}>
                                 <MaterialCommunityIcons name="close" size={24} color="#0f172a" />
                             </TouchableOpacity>
                         </View>
+                        <Text style={{ fontSize: 12, color: '#94a3b8', paddingHorizontal: 20, marginBottom: 12 }}>Choose a template for your poster</Text>
                         <FlatList
                             data={TEMPLATES}
-                            horizontal
-                            pagingEnabled
-                            showsHorizontalScrollIndicator={false}
+                            showsVerticalScrollIndicator={false}
                             keyExtractor={item => item.id}
-                            contentContainerStyle={styles.carouselContent2}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={[
-                                        styles.carouselItem2,
-                                        { width: width }
-                                    ]}
-                                    onPress={() => {
-                                        setSelectedBottomBarTemplate(item.id);
-                                        setShowBottomBarModal(false);
-                                        setShowBottomBarEditForm(true);
-                                    }}
-                                >
-                                    <View style={{ paddingHorizontal: 40, width: '100%' }}>
-                                        <View style={[
-                                            styles.framePreviewContainer2,
-                                            selectedBottomBarTemplate === item.id && styles.selectedFrameBorder2
-                                        ]}>
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+                            renderItem={({ item }) => {
+                                const isSelected = selectedBottomBarTemplate === item.id;
+                                const frameDescriptions: { [key: string]: string } = {
+                                    'default': 'Traditional horizontal layout',
+                                    'bold_strip': 'Blue gradient with golden accent',
+                                    'minimal_white': 'Clean design with accent line',
+                                    'red_accent': 'Creative split design with geometric accents',
+                                    'gradient_wave': 'Modern glassmorphism with neon glow',
+                                };
+                                return (
+                                    <TouchableOpacity
+                                        style={{
+                                            marginBottom: 16,
+                                            borderRadius: 12,
+                                            borderWidth: isSelected ? 2 : 1,
+                                            borderColor: isSelected ? SP_RED : '#e2e8f0',
+                                            backgroundColor: '#fff',
+                                            overflow: 'hidden',
+                                        }}
+                                        onPress={() => {
+                                            setSelectedBottomBarTemplate(item.id);
+                                            setShowBottomBarModal(false);
+                                        }}
+                                    >
+                                        {/* Frame Preview */}
+                                        <View style={{ width: '100%', minHeight: 70, overflow: 'hidden', borderTopLeftRadius: 10, borderTopRightRadius: 10 }}>
                                             <RenderBottomBar
                                                 template={item.id}
                                                 details={bottomBarDetails}
-                                                width={width - 80 - 28}
+                                                width={width - 82}
                                                 customization={frameCustomization}
                                             />
                                         </View>
-                                        <Text style={[
-                                            styles.templateName2,
-                                            selectedBottomBarTemplate === item.id && styles.selectedTemplateName2
-                                        ]}>{item.name}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            )}
+                                        {/* Selected Checkmark */}
+                                        {isSelected && (
+                                            <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: SP_RED, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+                                                <MaterialCommunityIcons name="check" size={16} color="#fff" />
+                                            </View>
+                                        )}
+                                        {/* Frame Name & Description */}
+                                        <View style={{ padding: 12, backgroundColor: '#fff' }}>
+                                            <Text style={{ fontSize: 14, fontWeight: '600', color: isSelected ? SP_RED : '#0f172a' }}>{item.name}</Text>
+                                            <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{frameDescriptions[item.id] || 'Custom frame design'}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            }}
                         />
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Bottom Bar Edit Form Modal */}
-            <Modal
+            < Modal
                 visible={showBottomBarEditForm}
                 animationType="slide"
                 transparent={true}
@@ -1396,11 +1918,15 @@ export default function PosterEditor() {
                         activeOpacity={1}
                         onPress={() => setShowBottomBarEditForm(false)}
                     />
-                    <View style={[styles.bottomSheet2, { height: '70%' }]}>
+                    <View style={[styles.bottomSheet2, { height: '75%' }]}>
                         <View style={styles.modalHeader2}>
-                            <Text style={styles.modalTitle2}>Edit Bottom Bar Details</Text>
-                            <TouchableOpacity onPress={() => setShowBottomBarEditForm(false)} style={styles.closeButton2}>
-                                <MaterialCommunityIcons name="close" size={24} color="#0f172a" />
+                            <Text style={styles.modalTitle2}>Edit Content</Text>
+                            <TouchableOpacity
+                                onPress={() => setShowBottomBarEditForm(false)}
+                                style={{ backgroundColor: SP_RED, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            >
+                                <MaterialCommunityIcons name="check" size={18} color="#fff" />
+                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Save</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -1440,6 +1966,41 @@ export default function PosterEditor() {
                                     keyboardType="phone-pad"
                                     placeholderTextColor="#94a3b8"
                                 />
+                            </View>
+
+                            {/* Social Platform Selector */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Social Platform</Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                    {SOCIAL_PLATFORMS.map((platform) => (
+                                        <TouchableOpacity
+                                            key={platform.id}
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                paddingHorizontal: 12,
+                                                paddingVertical: 8,
+                                                borderRadius: 8,
+                                                borderWidth: 2,
+                                                borderColor: bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#e2e8f0',
+                                                backgroundColor: bottomBarDetails.socialPlatform === platform.id ? '#fef2f2' : '#fff',
+                                            }}
+                                            onPress={() => setBottomBarDetails(prev => ({ ...prev, socialPlatform: platform.id }))}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name={platform.icon as any}
+                                                size={18}
+                                                color={bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#64748b'}
+                                            />
+                                            <Text style={{
+                                                fontSize: 12,
+                                                fontWeight: bottomBarDetails.socialPlatform === platform.id ? '600' : '400',
+                                                color: bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#64748b'
+                                            }}>{platform.name}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
                             </View>
 
                             {/* Social Handle Field */}
@@ -1496,19 +2057,14 @@ export default function PosterEditor() {
                                 </TouchableOpacity>
                             </View>
 
-                            <TouchableOpacity
-                                style={styles.saveFormButton}
-                                onPress={() => setShowBottomBarEditForm(false)}
-                            >
-                                <Text style={styles.saveFormButtonText}>Save Changes</Text>
-                            </TouchableOpacity>
+                            <View style={{ height: 20 }} />
                         </ScrollView>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Filter Carousel Modal */}
-            <Modal
+            < Modal
                 visible={showFilterModal}
                 animationType="slide"
                 transparent={true}
@@ -1574,10 +2130,10 @@ export default function PosterEditor() {
                         />
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Preview Modal - Desktop-like preview with download */}
-            <Modal
+            < Modal
                 visible={showPreviewModal}
                 animationType="fade"
                 transparent={true}
@@ -1631,7 +2187,6 @@ export default function PosterEditor() {
                         maxHeight: height * 0.6,
                     }}>
                         <View
-                            ref={canvasRef}
                             style={{
                                 width: canvasSize.w * 0.9,
                                 height: canvasSize.h * 0.9,
@@ -1681,7 +2236,13 @@ export default function PosterEditor() {
                                     ) : (
                                         <Image
                                             source={{ uri: el.content }}
-                                            style={{ width: 100 * 0.9, height: 100 * 0.9 }}
+                                            style={{
+                                                width: (el.imageWidth || 100) * 0.9,
+                                                height: (el.imageHeight || 100) * 0.9,
+                                                borderWidth: (el.borderWidth || 0),
+                                                borderColor: el.borderColor || '#ffffff',
+                                                borderRadius: (el.borderRadius || 0) * 0.9
+                                            }}
                                             resizeMode="contain"
                                         />
                                     )}
@@ -1693,7 +2254,7 @@ export default function PosterEditor() {
                                 bottom: 0,
                                 left: 0,
                                 right: 0,
-                                minHeight: canvasSize.h * 0.15 * 0.9,
+                                minHeight: canvasSize.h * 0.12 * 0.9,
                             }}>
                                 <RenderBottomBar
                                     template={selectedBottomBarTemplate}
@@ -1724,7 +2285,7 @@ export default function PosterEditor() {
                             }}
                             onPress={() => {
                                 setShowPreviewModal(false);
-                                handleSave();
+                                handleSave('download');
                             }}
                             disabled={isSaving}
                         >
@@ -1753,12 +2314,167 @@ export default function PosterEditor() {
                             }}
                             onPress={() => {
                                 setShowPreviewModal(false);
-                                handleSave();
+                                handleSave('share');
                             }}
                         >
                             <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
                             <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Share</Text>
                         </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal >
+
+            {/* Frame Customization Modal */}
+            <Modal
+                visible={showCustomizationModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowCustomizationModal(false)}
+            >
+                <View style={styles.modalOverlay2}>
+                    <TouchableOpacity
+                        style={styles.modalBackdrop2}
+                        activeOpacity={1}
+                        onPress={() => setShowCustomizationModal(false)}
+                    />
+                    <View style={[styles.bottomSheet2, { height: '80%' }]}>
+                        <View style={styles.modalHeader2}>
+                            <Text style={styles.modalTitle2}>Customize Frame Style</Text>
+                            <TouchableOpacity
+                                onPress={() => setShowCustomizationModal(false)}
+                                style={{ backgroundColor: SP_RED, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            >
+                                <MaterialCommunityIcons name="check" size={18} color="#fff" />
+                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
+                            {/* Gradient Presets */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Background Gradient</Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                                    {[
+                                        { name: 'Party', colors: ['#E30512', '#16a34a'] },
+                                        { name: 'Red', colors: ['#E30512', '#b91c1c'] },
+                                        { name: 'Green', colors: ['#009933', '#15803d'] },
+                                        { name: 'Gold', colors: ['#fbbf24', '#f59e0b'] },
+                                        { name: 'Blue', colors: ['#3b82f6', '#1e40af'] },
+                                        { name: 'Purple', colors: ['#8b5cf6', '#d946ef'] },
+                                    ].map(preset => (
+                                        <TouchableOpacity
+                                            key={preset.name}
+                                            onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundGradient: preset.colors }))}
+                                            style={{
+                                                alignItems: 'center',
+                                                gap: 4,
+                                                width: '30%',
+                                                borderRadius: 8,
+                                                borderWidth: JSON.stringify(frameCustomization.backgroundGradient) === JSON.stringify(preset.colors) ? 3 : 0,
+                                                borderColor: SP_RED,
+                                                padding: 4,
+                                            }}
+                                        >
+                                            <LinearGradient
+                                                colors={preset.colors as any}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                                style={{ width: '100%', height: 40, borderRadius: 8 }}
+                                            />
+                                            <Text style={{ fontSize: 11, color: '#64748b', fontWeight: '500' }}>{preset.name}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+
+                            {/* Opacity */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Opacity: {Math.round(frameCustomization.backgroundOpacity * 100)}%</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                    <TouchableOpacity
+                                        onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundOpacity: Math.max(0.3, prev.backgroundOpacity - 0.1) }))}
+                                        style={{ backgroundColor: '#e2e8f0', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <Text style={{ fontSize: 20, fontWeight: '600' }}>-</Text>
+                                    </TouchableOpacity>
+                                    <View style={{ flex: 1, height: 6, backgroundColor: '#e2e8f0', borderRadius: 3 }}>
+                                        <View style={{ width: `${frameCustomization.backgroundOpacity * 100}%`, height: '100%', backgroundColor: SP_RED, borderRadius: 3 }} />
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => setFrameCustomization(prev => ({ ...prev, backgroundOpacity: Math.min(1, prev.backgroundOpacity + 0.1) }))}
+                                        style={{ backgroundColor: '#e2e8f0', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <Text style={{ fontSize: 20, fontWeight: '600' }}>+</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {/* Image Size */}
+                            <View style={styles.formField}>
+                                <Text style={styles.formLabel}>Profile Photo Size: {frameCustomization.imageSize}px</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                    <TouchableOpacity
+                                        onPress={() => setFrameCustomization(prev => ({ ...prev, imageSize: Math.max(30, prev.imageSize - 5) }))}
+                                        style={{ backgroundColor: '#e2e8f0', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <Text style={{ fontSize: 20, fontWeight: '600' }}>-</Text>
+                                    </TouchableOpacity>
+                                    <View style={{ flex: 1, height: 6, backgroundColor: '#e2e8f0', borderRadius: 3 }}>
+                                        <View style={{ width: `${((frameCustomization.imageSize - 30) / 70) * 100}%`, height: '100%', backgroundColor: SP_RED, borderRadius: 3 }} />
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => setFrameCustomization(prev => ({ ...prev, imageSize: Math.min(100, prev.imageSize + 5) }))}
+                                        style={{ backgroundColor: '#e2e8f0', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <Text style={{ fontSize: 20, fontWeight: '600' }}>+</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {/* Text Customization Sections */}
+                            {(['name', 'designation', 'mobile', 'address', 'social'] as const).map((field) => (
+                                <View key={field} style={styles.formField}>
+                                    <Text style={styles.formLabel}>{field.charAt(0).toUpperCase() + field.slice(1)} Font Size: {frameCustomization[`${field}FontSize`]}px</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                        <TouchableOpacity
+                                            onPress={() => setFrameCustomization(prev => ({ ...prev, [`${field}FontSize`]: Math.max(8, (prev as any)[`${field}FontSize`] - 1) }))}
+                                            style={{ backgroundColor: '#e2e8f0', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <Text style={{ fontSize: 20, fontWeight: '600' }}>-</Text>
+                                        </TouchableOpacity>
+                                        <View style={{ flex: 1, height: 6, backgroundColor: '#e2e8f0', borderRadius: 3 }}>
+                                            <View style={{ width: `${(((frameCustomization as any)[`${field}FontSize`] - 8) / 22) * 100}%`, height: '100%', backgroundColor: SP_RED, borderRadius: 3 }} />
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={() => setFrameCustomization(prev => ({ ...prev, [`${field}FontSize`]: Math.min(30, (prev as any)[`${field}FontSize`] + 1) }))}
+                                            style={{ backgroundColor: '#e2e8f0', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <Text style={{ fontSize: 20, fontWeight: '600' }}>+</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <Text style={[styles.formLabel, { marginTop: 10 }]}>{field.charAt(0).toUpperCase() + field.slice(1)} Color</Text>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                        {['#ffffff', '#000000', '#E30512', '#16a34a', '#fbbf24', '#3b82f6', '#8b5cf6'].map(color => (
+                                            <TouchableOpacity
+                                                key={color}
+                                                onPress={() => setFrameCustomization(prev => ({ ...prev, [`${field}Color`]: color }))}
+                                                style={{
+                                                    width: 36,
+                                                    height: 36,
+                                                    borderRadius: 18,
+                                                    backgroundColor: color,
+                                                    borderWidth: (frameCustomization as any)[`${field}Color`] === color ? 3 : 1,
+                                                    borderColor: (frameCustomization as any)[`${field}Color`] === color ? SP_RED : '#e2e8f0',
+                                                }}
+                                            />
+                                        ))}
+                                    </View>
+                                </View>
+                            ))}
+
+                            <View style={{ height: 30 }} />
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -1809,8 +2525,8 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 10,
-        paddingBottom: 10, // Reduced to fit in one view
+        padding: 0,
+        paddingBottom: 10,
     },
     canvas: {
         backgroundColor: SP_RED,
@@ -1870,11 +2586,14 @@ const styles = StyleSheet.create({
     zoomControls: {
         position: 'absolute',
         bottom: 150,
-        right: 20,
+        left: '72%',
+        transform: [{ translateX: -100 }],
+        flexDirection: 'row',
         backgroundColor: '#ffffff',
-        borderRadius: 20,
-        padding: 8,
-        gap: 12,
+        borderRadius: 25,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        gap: 8,
         alignItems: 'center',
         elevation: 4,
         shadowColor: '#000',

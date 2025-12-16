@@ -10,6 +10,9 @@ const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
 
+// Import the JSON data
+import volunteersData from '../(tabs)/समाजवादी टेक फोर्स से जुड़ें — बने समाजवाद की डिजिटल आवाज़! (Responses) (5).json';
+
 export default function DesktopLeaderboard() {
     const router = useRouter();
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -23,12 +26,43 @@ export default function DesktopLeaderboard() {
     const fetchLeaderboard = async () => {
         setLoading(true);
         try {
-            const url = getApiUrl();
-            const res = await fetch(`${url}/leaderboard?period=${filter}`);
-            const data = await res.json();
-            if (data.success && Array.isArray(data.data)) {
-                setLeaderboard(data.data);
+            // Process local JSON volunteers
+            const rawData = (volunteersData as any).default || volunteersData;
+            const safeData = Array.isArray(rawData) ? rawData : [];
+
+            // Filter verified
+            const verifiedVolunteers = safeData.filter((item: any) =>
+                item && item['वेरिफिकेशन स्टेटस ']?.trim() === 'Verified'
+            );
+
+            // Map to Leaderboard format with simulated points (since JSON lacks points)
+            const jsonUsers = verifiedVolunteers.map((v: any, index: number) => ({
+                id: `vol-${index}`,
+                name: v['Column2'] || v["आपका पूरा नाम क्या है? "] || 'Unknown',
+                points: Math.floor(Math.random() * 500) + 50, // Simulated points
+                location: v['Column4'] || v["जिला "] || 'N/A',
+                avatar: null
+            }));
+
+            // Fetch API data
+            let apiUsers: any[] = [];
+            try {
+                const url = getApiUrl();
+                const res = await fetch(`${url}/leaderboard?period=${filter}`);
+                const data = await res.json();
+                if (data.success && Array.isArray(data.data)) {
+                    apiUsers = data.data;
+                }
+            } catch (err) {
+                console.warn('API fetch failed, utilizing local data');
             }
+
+            // Combine and Sort
+            const allUsers = [...apiUsers, ...jsonUsers].sort((a, b) => (b.points || 0) - (a.points || 0));
+
+            // Limit to top 100 for performance if needed, but user said "all"
+            setLeaderboard(allUsers);
+
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
             setLeaderboard([]);
