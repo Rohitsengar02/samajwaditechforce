@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Modal, TextInput, Platform, Linking, Animated, Share as RNShare, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Modal, TextInput, Platform, Linking, Animated, Share as RNShare, Alert, TouchableWithoutFeedback } from 'react-native';
 import { Text, Button, Avatar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../../utils/api';
 import { newsAPI } from '../../services/newsAPI'; // Ensure this path is correct
 import DesktopHeader from '../../components/DesktopHeader';
+import { transparent } from 'react-native-paper/lib/typescript/styles/themes/v2/colors';
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
@@ -29,6 +30,8 @@ export default function DesktopNewsDetail() {
     // Modals
     const [showCommentsModal, setShowCommentsModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
+    const [isVerified, setIsVerified] = useState(false);
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
 
     // Animations
     const likeAnim = useRef(new Animated.Value(1)).current;
@@ -58,7 +61,9 @@ export default function DesktopNewsDetail() {
             if (userInfoStr) {
                 const userInfo = JSON.parse(userInfoStr);
                 setCurrentUserId(userInfo._id || userInfo.id);
+
                 setCurrentUserName(userInfo.name || 'User');
+                setIsVerified(userInfo.verificationStatus === 'Verified');
             }
         } catch (e) {
             console.error(e);
@@ -92,6 +97,7 @@ export default function DesktopNewsDetail() {
     };
 
     const handleLike = async () => {
+        if (!isVerified) { setShowVerifyModal(true); return; }
         if (!news || !currentUserId) return;
 
         const isLiked = !liked;
@@ -113,6 +119,7 @@ export default function DesktopNewsDetail() {
     };
 
     const handleShare = () => {
+        if (!isVerified) { setShowVerifyModal(true); return; }
         setShowShareModal(true);
     };
 
@@ -140,6 +147,8 @@ export default function DesktopNewsDetail() {
     };
 
     const handlePostComment = async () => {
+
+        if (!isVerified) { setShowVerifyModal(true); return; }
         if (!commentText.trim() || !news || !currentUserId) return;
 
         try {
@@ -222,7 +231,10 @@ export default function DesktopNewsDetail() {
                             <Text style={[styles.actionText, liked && { color: themeColor }]}>{likesCount} Likes</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.actionButton} onPress={() => setShowCommentsModal(true)}>
+                        <TouchableOpacity style={styles.actionButton} onPress={() => {
+                            if (!isVerified) { setShowVerifyModal(true); return; }
+                            setShowCommentsModal(true);
+                        }}>
                             <MaterialCommunityIcons name="comment-outline" size={24} color="#64748b" />
                             <Text style={styles.actionText}>{news.comments ? news.comments.length : 0} Comments</Text>
                         </TouchableOpacity>
@@ -337,7 +349,40 @@ export default function DesktopNewsDetail() {
                     </View>
                 </TouchableOpacity>
             </Modal>
-        </View>
+
+
+            {/* Verification Modal */}
+            <Modal
+                visible={showVerifyModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowVerifyModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowVerifyModal(false)}
+                >
+                    <View style={styles.shareModalContent}>
+                        <MaterialCommunityIcons name="shield-alert" size={48} color={SP_RED} style={{ marginBottom: 16 }} />
+                        <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>Verification Required</Text>
+                        <Text style={{ textAlign: 'center', color: '#64748b', marginBottom: 24 }}>
+                            You must be a verified member to perform this action.
+                        </Text>
+
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <Button mode="outlined" onPress={() => setShowVerifyModal(false)}>Cancel</Button>
+                            <Button mode="contained" buttonColor={SP_RED} onPress={() => {
+                                setShowVerifyModal(false);
+                                router.push('/(tabs)/profile');
+                            }}>
+                                Go to Profile
+                            </Button>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal >
+        </View >
     );
 }
 

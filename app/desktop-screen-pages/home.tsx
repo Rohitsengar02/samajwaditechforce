@@ -128,17 +128,19 @@ export default function DesktopHome() {
 
     const trackRecordData = getTrackRecordData();
 
-    // Get President slides (only active ones) for card display
-    const getPresidentSlides = () => {
+    // Get President data (title + active slides)
+    const getPresidentData = () => {
         const president = homeContent?.president || {};
         const allSlides = president.slides || [];
-        // Filter only active slides
         const activeSlides = allSlides.filter((s: any) => s.isActive !== false);
-        return activeSlides;
+        return {
+            title: president.title || 'Our Leaders',
+            slides: activeSlides
+        };
     };
 
-    const presidentSlides = getPresidentSlides();
-    const showPresidentSection = presidentSlides.length > 0;
+    const presidentData = getPresidentData();
+    const showPresidentSection = presidentData.slides.length > 0;
 
     // Get Legacy data (leaders and cards)
     const getLegacyData = () => {
@@ -285,7 +287,7 @@ export default function DesktopHome() {
                 {/* Section 2: News Updates */}
                 < View style={styles.section} >
                     <View style={styles.sectionHeader}>
-                        <TranslatedText text="Latest News Updates" style={styles.sectionTitle} />
+                        <TranslatedText text="Samajwadi Updates" style={styles.sectionTitle} />
                         <Button mode="text" textColor={SP_RED} onPress={() => router.push('/news' as any)}>
                             View All →
                         </Button>
@@ -353,13 +355,13 @@ export default function DesktopHome() {
                 {/* Section 5: Our Leaders - Cards Layout (Only if active slides exist) */}
                 {showPresidentSection && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Our Leaders</Text>
+                        <Text style={styles.sectionTitle}>{presidentData.title}</Text>
                         <ScrollView
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.leadersCardsContainer}
                         >
-                            {presidentSlides.map((leader: any, index: number) => (
+                            {presidentData.slides.map((leader: any, index: number) => (
                                 <View key={index} style={styles.leaderCard}>
                                     {/* Leader Image */}
                                     <View style={styles.leaderCardImageWrapper}>

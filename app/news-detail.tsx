@@ -14,7 +14,9 @@ import {
     KeyboardAvoidingView,
     Platform,
     Linking,
+    TouchableWithoutFeedback,
 } from 'react-native';
+import { Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -94,6 +96,8 @@ export default function NewsDetailScreen() {
     const [saved, setSaved] = useState(false);
     const [commentText, setCommentText] = useState('');
     const [showCommentsModal, setShowCommentsModal] = useState(false);
+    const [isVerified, setIsVerified] = useState(false);
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
 
     const likeAnim = useRef(new Animated.Value(1)).current;
     const slideAnim = useRef(new Animated.Value(1000)).current;
@@ -121,6 +125,7 @@ export default function NewsDetailScreen() {
                 const userInfo = JSON.parse(userInfoStr);
                 setCurrentUserId(userInfo._id || userInfo.id);
                 setCurrentUserName(userInfo.name || 'User');
+                setIsVerified(userInfo.verificationStatus === 'Verified');
             }
         } catch (e) {
             console.error(e);
@@ -158,6 +163,14 @@ export default function NewsDetailScreen() {
         }
     }, [showCommentsModal]);
 
+    const checkVerification = () => {
+        if (!isVerified) {
+            setShowVerifyModal(true);
+            return false;
+        }
+        return true;
+    };
+
     const fetchNewsDetail = async () => {
         try {
             setLoading(true);
@@ -176,6 +189,7 @@ export default function NewsDetailScreen() {
     };
 
     const handleLike = async () => {
+        if (!checkVerification()) return;
         if (!news || !currentUserId) return;
 
         const isLiked = !liked;
@@ -200,6 +214,7 @@ export default function NewsDetailScreen() {
     const [sharing, setSharing] = useState(false);
 
     const handleShare = () => {
+        if (!checkVerification()) return;
         setShowShareModal(true);
     };
 
@@ -276,6 +291,7 @@ export default function NewsDetailScreen() {
     };
 
     const handlePostComment = async () => {
+        if (!checkVerification()) return;
         if (!commentText.trim() || !news || !currentUserId) return;
 
         try {
@@ -583,6 +599,54 @@ export default function NewsDetailScreen() {
                         </KeyboardAvoidingView>
                     </Animated.View>
                 </TouchableOpacity>
+            </Modal>
+
+            {/* Verification Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={showVerifyModal}
+                onRequestClose={() => setShowVerifyModal(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setShowVerifyModal(false)}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+                        <TouchableWithoutFeedback>
+                            <View style={{ backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 }}>
+                                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                                    <MaterialCommunityIcons name="shield-alert" size={48} color={SP_RED} />
+                                </View>
+                                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginBottom: 8, textAlign: 'center' }}>
+                                    Verification Required
+                                </Text>
+                                <Text style={{ fontSize: 14, color: '#64748b', marginBottom: 24, textAlign: 'center', lineHeight: 20 }}>
+                                    You must be a verified member to perform this action.
+                                </Text>
+
+                                <View style={{ gap: 12 }}>
+                                    <Button
+                                        mode="contained"
+                                        buttonColor={SP_RED}
+                                        onPress={() => {
+                                            setShowVerifyModal(false);
+                                            router.push('/(tabs)/profile');
+                                        }}
+                                        style={{ borderRadius: 8 }}
+                                    >
+                                        Go to Profile
+                                    </Button>
+                                    <Button
+                                        mode="outlined"
+                                        textColor="#64748b"
+                                        onPress={() => setShowVerifyModal(false)}
+                                        style={{ borderRadius: 8, borderColor: '#cbd5e1' }}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </View>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
             </Modal>
         </View>
     );

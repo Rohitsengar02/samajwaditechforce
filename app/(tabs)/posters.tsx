@@ -20,6 +20,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { Button } from 'react-native-paper';
 import { getApiUrl } from '../../utils/api';
 import { TranslatedText } from '../../components/TranslatedText';
 import DesktopPosters from '../desktop-screen-pages/posters';
@@ -53,6 +54,7 @@ export default function PostersScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [selectedPoster, setSelectedPoster] = useState<Poster | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
 
     useEffect(() => {
         fetchPosters();
@@ -76,7 +78,6 @@ export default function PostersScreen() {
                     setPosters(data.posters);
                 }
 
-                // Check if there are more pages
                 if (data.pagination) {
                     setHasMore(data.pagination.current < data.pagination.total);
                 }
@@ -114,9 +115,22 @@ export default function PostersScreen() {
         }
     };
 
-    const handlePosterPress = (poster: Poster) => {
-        setSelectedPoster(poster);
-        setModalVisible(true);
+    const handlePosterPress = async (poster: Poster) => {
+        try {
+            const userInfo = await AsyncStorage.getItem('userInfo');
+            const user = userInfo ? JSON.parse(userInfo) : null;
+
+            if (!user || user.verificationStatus !== 'Verified') {
+                setShowVerifyModal(true);
+                return;
+            }
+
+            setSelectedPoster(poster);
+            setModalVisible(true);
+        } catch (error) {
+            console.error('Error checking verification:', error);
+            setShowVerifyModal(true);
+        }
     };
 
     const handleDetailedEdit = () => {
@@ -301,6 +315,55 @@ export default function PostersScreen() {
                                     </View>
                                     <MaterialCommunityIcons name="chevron-right" size={24} color="#cbd5e1" />
                                 </TouchableOpacity>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
+
+            {/* Verification Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={showVerifyModal}
+                onRequestClose={() => setShowVerifyModal(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setShowVerifyModal(false)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.modalContent}>
+                                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                                    <MaterialCommunityIcons name="shield-alert" size={48} color={SP_RED} />
+                                </View>
+                                <Text style={[styles.modalTitle, { marginBottom: 8 }]}>
+                                    <TranslatedText>Verification Required</TranslatedText>
+                                </Text>
+                                <Text style={[styles.modalSubtitle, { marginBottom: 24 }]}>
+                                    <TranslatedText>You must be a verified member to access and edit posters.</TranslatedText>
+                                </Text>
+
+                                <View style={{ gap: 12 }}>
+                                    <Button
+                                        mode="contained"
+                                        buttonColor={SP_RED}
+                                        onPress={() => {
+                                            setShowVerifyModal(false);
+                                            router.push('/(tabs)/profile');
+                                        }}
+                                        style={{ borderRadius: 8, paddingVertical: 4 }}
+                                        labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+                                    >
+                                        <TranslatedText>Go to Profile</TranslatedText>
+                                    </Button>
+                                    <Button
+                                        mode="outlined"
+                                        textColor="#64748b"
+                                        onPress={() => setShowVerifyModal(false)}
+                                        style={{ borderRadius: 8, borderColor: '#cbd5e1', paddingVertical: 4 }}
+                                    >
+                                        <TranslatedText>Cancel</TranslatedText>
+                                    </Button>
+                                </View>
                             </View>
                         </TouchableWithoutFeedback>
                     </View>

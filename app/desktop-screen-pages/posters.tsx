@@ -20,6 +20,8 @@ export default function DesktopPosters() {
 
 
 
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
+
     useEffect(() => {
         fetchPosters();
     }, []);
@@ -41,15 +43,31 @@ export default function DesktopPosters() {
         }
     };
 
-    const handlePosterPress = (poster: any) => {
-        router.push({
-            pathname: '/desktop-screen-pages/poster-editor',
-            params: {
-                id: poster._id,
-                imageUrl: poster.imageUrl,
-                title: poster.title
+    const handlePosterPress = async (poster: any) => {
+        try {
+            const userInfo = await AsyncStorage.getItem('userInfo');
+            const user = userInfo ? JSON.parse(userInfo) : null;
+
+            if (!user || user.verificationStatus !== 'Verified') {
+                setShowVerifyModal(true);
+                return;
             }
-        } as any);
+
+            router.push({
+                pathname: '/desktop-screen-pages/poster-editor',
+                params: {
+                    id: poster._id,
+                    imageUrl: poster.imageUrl,
+                    title: poster.title
+                }
+            } as any);
+        } catch (error) {
+            console.error('Error checking verification:', error);
+            // Fallback to allow if error? Or fail safe?
+            // Safer to allow or show simple alert.
+            // Let's safe-fail to blocking to trigger re-login if needed.
+            setShowVerifyModal(true);
+        }
     };
 
     const filteredPosters = posters.filter(poster =>
@@ -97,7 +115,42 @@ export default function DesktopPosters() {
                 </View>
             </ScrollView>
 
-
+            {/* Verification Required Modal */}
+            {showVerifyModal && (
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <MaterialCommunityIcons name="shield-alert" size={40} color={SP_RED} />
+                            <Pressable onPress={() => setShowVerifyModal(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+                            </Pressable>
+                        </View>
+                        <Text style={styles.modalTitle}>Verification Required</Text>
+                        <Text style={styles.modalSubtitle}>
+                            You must be a verified member to access and edit posters.
+                        </Text>
+                        <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
+                            <Button
+                                mode="outlined"
+                                textColor="#64748b"
+                                onPress={() => setShowVerifyModal(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                mode="contained"
+                                buttonColor={SP_RED}
+                                onPress={() => {
+                                    setShowVerifyModal(false);
+                                    router.push('/(tabs)/profile');
+                                }}
+                            >
+                                Go to Profile
+                            </Button>
+                        </View>
+                    </View>
+                </View>
+            )}
         </View>
     );
 }

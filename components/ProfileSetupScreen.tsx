@@ -5,6 +5,7 @@ import { Card, Title, Text, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { getApiUrl } from '../utils/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -261,6 +262,33 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
     }
 
     setUploading(true);
+
+    if (!isEditMode) {
+      try {
+        const apiUrl = getApiUrl();
+        const checkRes = await fetch(`${apiUrl}/auth/check-exists`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone })
+        });
+        const checkData = await checkRes.json();
+
+        if (checkData.exists) {
+          setUploading(false);
+          Alert.alert(
+            'Account Exists',
+            'User already exists with this email or phone. Please login instead.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Login', onPress: () => navigation.goBack() }
+            ]
+          );
+          return;
+        }
+      } catch (error) {
+        console.log('Check exists error', error);
+      }
+    }
 
     let uploadedImageUrl = photoUri;
 

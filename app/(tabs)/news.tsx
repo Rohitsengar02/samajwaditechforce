@@ -35,7 +35,7 @@ const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
 
 // News Card Component
-const NewsCard = ({ id, title, description, category, time, image, likes: initialLikes, isLiked: initialIsLiked, comments: commentsCount, commentsData, featured = false, views = 0 }: any) => {
+const NewsCard = ({ id, title, description, category, time, image, likes: initialLikes, isLiked: initialIsLiked, comments: commentsCount, commentsData, featured = false, views = 0, isVerified, onVerify }: any) => {
     const router = useRouter();
     const [liked, setLiked] = useState(initialIsLiked || false);
     const [likes, setLikes] = useState(initialLikes || 0);
@@ -73,6 +73,7 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
     }, [showComments]);
 
     const handleLike = async () => {
+        if (!isVerified) { onVerify(); return; }
         try {
             const userInfoStr = await AsyncStorage.getItem('userInfo');
             if (!userInfoStr) return;
@@ -106,6 +107,7 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
     };
 
     const handleAddComment = async () => {
+        if (!isVerified) { onVerify(); return; }
         if (!commentText.trim()) return;
 
         try {
@@ -133,6 +135,7 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
     const [sharing, setSharing] = useState(false);
 
     const handleShare = () => {
+        if (!isVerified) { onVerify(); return; }
         setShowShareModal(true);
     };
 
@@ -202,6 +205,7 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
     };
 
     const handleCommentsPress = (e: any) => {
+        if (!isVerified) { onVerify(); return; }
         e.stopPropagation();
         setShowComments(true);
     };
@@ -666,12 +670,15 @@ const DesktopHeader = () => {
 
 export default function NewsScreen() {
     const { width } = useWindowDimensions();
+    const router = useRouter();
     const isDesktop = width >= 768;
     const [newsData, setNewsData] = useState<any[]>([]);
     const [trendingNews, setTrendingNews] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [isVerified, setIsVerified] = useState(false);
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -685,10 +692,15 @@ export default function NewsScreen() {
     }, []);
 
     const checkUser = async () => {
-        const userInfoStr = await AsyncStorage.getItem('userInfo');
-        if (userInfoStr) {
-            const userInfo = JSON.parse(userInfoStr);
-            setCurrentUserId(userInfo._id || userInfo.id);
+        try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                setCurrentUserId(userInfo._id || userInfo.id);
+                setIsVerified(userInfo.verificationStatus === 'Verified');
+            }
+        } catch (e) {
+            console.error(e);
         }
     };
 
@@ -831,7 +843,7 @@ export default function NewsScreen() {
 
                                 {newsData.length > 0 ? (
                                     newsData.map((news, index) => (
-                                        <NewsCard key={news.id || index} {...news} />
+                                        <NewsCard key={news.id || index} {...news} isVerified={isVerified} onVerify={() => setShowVerifyModal(true)} />
                                     ))
                                 ) : (
                                     <View style={{ padding: 40, alignItems: 'center' }}>
@@ -859,6 +871,47 @@ export default function NewsScreen() {
                     </View>
                 </Animated.View>
             </ScrollView>
+            {/* Verification Modal */}
+            <Modal
+                visible={showVerifyModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowVerifyModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowVerifyModal(false)}
+                >
+                    <View style={[styles.commentsModal, { height: 'auto', maxHeight: undefined }]}>
+                        <View style={[styles.modalHeader, { borderBottomWidth: 0, paddingBottom: 0, paddingTop: 24, justifyContent: 'center' }]}>
+                            <MaterialCommunityIcons name="shield-alert" size={48} color={SP_RED} />
+                        </View>
+                        <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>Verification Required</Text>
+                        <Text style={{ textAlign: 'center', color: '#64748b', marginBottom: 24, paddingHorizontal: 24 }}>
+                            You must be a verified member to perform this action.
+                        </Text>
+
+                        <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 24, marginBottom: 24 }}>
+                            <TouchableOpacity
+                                onPress={() => setShowVerifyModal(false)}
+                                style={{ flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' }}
+                            >
+                                <Text style={{ color: '#64748b', fontWeight: 'bold' }}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setShowVerifyModal(false);
+                                    router.push('/(tabs)/profile');
+                                }}
+                                style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: SP_RED, alignItems: 'center' }}
+                            >
+                                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Go to Profile</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }
