@@ -436,31 +436,46 @@ export default function DesktopHome() {
 
                 </View>
 
-                {/* Section 7: Our Programs - Dynamic */}
+                {/* Section 7: Our Programs - Dynamic with Enhanced UI */}
                 {programsData.items.length > 0 && (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>{programsData.title}</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.leadersCardsContainer}
-                        >
+                        <View style={styles.programsGrid}>
                             {programsData.items.map((program: any, index: number) => (
-                                <View key={index} style={styles.programCard}>
+                                <Pressable
+                                    key={index}
+                                    style={styles.programCard}
+                                    onPress={() => router.push('/events' as any)}
+                                >
                                     {program.image ? (
-                                        <Image
-                                            source={{ uri: program.image }}
-                                            style={styles.programCardImage}
-                                            resizeMode="contain"
-                                        />
+                                        <View style={styles.programCardImageWrapper}>
+                                            <Image
+                                                source={{ uri: program.image }}
+                                                style={styles.programCardImage}
+                                                resizeMode="cover"
+                                            />
+                                            {/* Gradient Overlay */}
+                                            <LinearGradient
+                                                colors={['transparent', 'rgba(0,0,0,0.7)']}
+                                                style={styles.programCardOverlay}
+                                            />
+                                            {/* Icon Badge */}
+                                            <View style={styles.programCardIconBadge}>
+                                                <MaterialCommunityIcons
+                                                    name={program.icon || 'star'}
+                                                    size={32}
+                                                    color="#fff"
+                                                />
+                                            </View>
+                                        </View>
                                     ) : (
                                         <LinearGradient
-                                            colors={index % 2 === 0 ? [SP_RED, '#991b1b'] : [SP_GREEN, '#166534']}
+                                            colors={index % 2 === 0 ? [SP_RED, '#b91c1c'] : [SP_GREEN, '#15803d']}
                                             style={styles.programCardGradient}
                                         >
                                             <MaterialCommunityIcons
                                                 name={program.icon || 'star'}
-                                                size={48}
+                                                size={56}
                                                 color="#fff"
                                             />
                                         </LinearGradient>
@@ -468,10 +483,16 @@ export default function DesktopHome() {
                                     <View style={styles.programCardContent}>
                                         <Text style={styles.programCardTitle}>{program.title}</Text>
                                         <Text style={styles.programCardDesc} numberOfLines={2}>{program.desc}</Text>
+
+                                        {/* Learn More Link */}
+                                        <View style={styles.programCardFooter}>
+                                            <Text style={styles.programCardLink}>View Events</Text>
+                                            <MaterialCommunityIcons name="arrow-right" size={16} color={SP_RED} />
+                                        </View>
                                     </View>
-                                </View>
+                                </Pressable>
                             ))}
-                        </ScrollView>
+                        </View>
                     </View>
                 )}
 
@@ -1002,7 +1023,7 @@ const styles = StyleSheet.create({
     },
     section: {
         width: '100%',
-        paddingVertical: 80,
+        paddingVertical: 32,
         paddingHorizontal: 60,
     },
     sectionHeader: {
@@ -1451,19 +1472,19 @@ const styles = StyleSheet.create({
     programsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 24,
-        marginTop: 40,
+        gap: 20,
+        marginTop: 32,
     },
     programCard: {
-        width: '23%',
+        width: '23.5%', // 4 cards with gaps
         backgroundColor: '#fff',
-        borderRadius: 12,
+        borderRadius: 16,
         overflow: 'hidden',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowRadius: 8,
+        elevation: 4,
     },
     programImage: {
         width: '100%',
@@ -1752,6 +1773,42 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#64748b',
         lineHeight: 18,
+    },
+    programCardImageWrapper: {
+        position: 'relative',
+        width: '100%',
+        aspectRatio: 1,
+        overflow: 'hidden',
+    },
+    programCardOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 1,
+    },
+    programCardIconBadge: {
+        position: 'absolute',
+        bottom: 12,
+        right: 12,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2,
+    },
+    programCardFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#f1f5f9',
+    },
+    programCardLink: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: SP_RED,
     },
     // Explore Page Card Styles
     explorePageCard: {

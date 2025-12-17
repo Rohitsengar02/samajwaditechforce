@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Samajwadi Tech Force",
+    "name": "STF",
     "slug": "samajwadi-party",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "samajwaditechforce",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.samajwadiparty.app",
+      "bundleIdentifier": "com.stf.app",
       "splash": {
         "image": "./assets/images/splash.png",
         "resizeMode": "contain",
@@ -23,8 +23,8 @@
       }
     },
     "android": {
-      "package": "com.samajwadiparty.app",
-      "versionCode": 2,
+      "package": "com.stf.app",
+      "versionCode": 3,
       "permissions": [
         "android.permission.NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -88,9 +88,8 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ea647e8e-0414-420f-9a13-372daec75459"
+        "projectId": "95593e94-114f-4f82-8f88-c49ddd5dc9f9"
       }
-    },
-    "owner": "gaga4422"
+    }
   }
 }

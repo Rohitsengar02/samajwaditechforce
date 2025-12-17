@@ -7,6 +7,9 @@ import {
     TouchableOpacity,
     Dimensions,
     Animated,
+    Modal,
+    TextInput,
+    Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -32,92 +35,18 @@ interface Event {
     updates?: string[];
 }
 
-const eventsData: Event[] = [
-    {
-        id: '1',
-        title: 'जनसभा - लखनऊ',
-        description: 'महापौर चुनाव के अवसर पर विशाल जनसभा का आयोजन',
-        date: '2025-12-05',
-        time: '4:00 PM',
-        location: 'लोहिया पार्क, लखनऊ',
-        status: 'upcoming',
-        attendees: 5000,
-        type: 'rally',
-        updates: ['Registration open', 'Volunteer sign-up available'],
-    },
-    {
-        id: '2',
-        title: 'Digital Training Workshop',
-        description: 'Social media strategy and digital campaigning workshop',
-        date: '2025-11-28',
-        time: '10:00 AM',
-        location: 'SP Office, Kanpur',
-        status: 'ongoing',
-        attendees: 150,
-        type: 'training',
-        updates: ['Session 1 completed', 'Live streaming available'],
-    },
-    {
-        id: '3',
-        title: 'युवा सम्मेलन',
-        description: 'युवा कार्यकर्ताओं के लिए विशेष सम्मेलन',
-        date: '2025-12-10',
-        time: '11:00 AM',
-        location: 'Lucknow Convention Center',
-        status: 'upcoming',
-        attendees: 2000,
-        type: 'meeting',
-        updates: ['Agenda released', 'Chief guest confirmed'],
-    },
-    {
-        id: '4',
-        title: 'जिला स्तरीय बैठक',
-        description: 'सभी जिला अध्यक्षों की महत्वपूर्ण बैठक',
-        date: '2025-11-25',
-        time: '2:00 PM',
-        location: 'SP Headquarters, Lucknow',
-        status: 'closed',
-        attendees: 75,
-        type: 'meeting',
-        updates: ['Meeting concluded successfully', 'Action points shared'],
-    },
-    {
-        id: '5',
-        title: 'साइकिल यात्रा - Phase 2',
-        description: 'ग्रामीण क्षेत्रों में जनसंपर्क अभियान',
-        date: '2025-12-15',
-        time: '8:00 AM',
-        location: 'Multiple Districts',
-        status: 'upcoming',
-        attendees: 1000,
-        type: 'campaign',
-        updates: ['Route map available', 'Registration starts Dec 1'],
-    },
-    {
-        id: '6',
-        title: 'Tech Force Orientation',
-        description: 'New members orientation and training session',
-        date: '2025-11-27',
-        time: '3:00 PM',
-        location: 'Online via Zoom',
-        status: 'ongoing',
-        attendees: 300,
-        type: 'training',
-        updates: ['Zoom link sent', 'Materials shared'],
-    },
-    {
-        id: '7',
-        title: 'किसान महासभा',
-        description: 'कृषि नीतियों पर चर्चा और किसान संवाद',
-        date: '2025-11-20',
-        time: '10:00 AM',
-        location: 'Meerut',
-        status: 'closed',
-        attendees: 3500,
-        type: 'rally',
-        updates: ['Event completed', 'Resolutions passed'],
-    },
-];
+interface Program {
+    id: string;
+    title: string;
+    description: string;
+    icon: string;
+    category: string;
+    duration: string;
+}
+
+// Data will be fetched from API
+const eventsData: Event[] = [];
+const programsData: Program[] = [];
 
 const EventCard = ({ event, delay }: { event: Event; delay: number }) => {
     const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -281,6 +210,17 @@ export default function EventsPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'ongoing' | 'closed'>('all');
 
+    // Registration Modal States
+    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+    const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        motivation: '',
+    });
+
     const filteredEvents = activeTab === 'all'
         ? eventsData
         : eventsData.filter(event => event.status === activeTab);
@@ -410,7 +350,189 @@ export default function EventsPage() {
                             ))
                         )}
                     </View>
+
+                    {/* Programs Section */}
+                    <View style={styles.programsSection}>
+                        <Text style={styles.programsSectionTitle}>
+                            <TranslatedText>Available Programs</TranslatedText>
+                        </Text>
+                        <Text style={styles.programsSectionSubtitle}>
+                            <TranslatedText>Join our initiatives and make a difference</TranslatedText>
+                        </Text>
+
+                        <View style={styles.programsGrid}>
+                            {programsData.map((program, idx) => (
+                                <View key={program.id} style={styles.programCard}>
+                                    <LinearGradient
+                                        colors={idx % 2 === 0 ? [SP_RED, '#b91c1c'] : [SP_GREEN, '#15803d']}
+                                        style={styles.programCardHeader}
+                                    >
+                                        <MaterialCommunityIcons name={program.icon as any} size={48} color="#fff" />
+                                    </LinearGradient>
+
+                                    <View style={styles.programCardBody}>
+                                        <View style={styles.programCardBadge}>
+                                            <Text style={styles.programCardCategory}>{program.category}</Text>
+                                            <View style={styles.programCardDot} />
+                                            <Text style={styles.programCardDuration}>{program.duration}</Text>
+                                        </View>
+
+                                        <Text style={styles.programCardTitle}>{program.title}</Text>
+                                        <Text style={styles.programCardDesc}>{program.description}</Text>
+
+                                        <TouchableOpacity
+                                            style={styles.registerButton}
+                                            onPress={() => {
+                                                setSelectedProgram(program);
+                                                setShowRegistrationModal(true);
+                                            }}
+                                        >
+                                            <Text style={styles.registerButtonText}>
+                                                <TranslatedText>Register Now</TranslatedText>
+                                            </Text>
+                                            <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
                 </View>
+
+                {/* Registration Modal */}
+                <Modal
+                    visible={showRegistrationModal}
+                    animationType="slide"
+                    transparent={true}
+                    onRequestClose={() => setShowRegistrationModal(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContainer}>
+                            {/* Selected Program Bar */}
+                            {selectedProgram && (
+                                <LinearGradient
+                                    colors={[SP_GREEN, '#15803d']}
+                                    style={styles.modalProgramBar}
+                                >
+                                    <View style={styles.modalProgramIcon}>
+                                        <MaterialCommunityIcons
+                                            name={selectedProgram.icon as any}
+                                            size={32}
+                                            color="#fff"
+                                        />
+                                    </View>
+                                    <View style={styles.modalProgramInfo}>
+                                        <Text style={styles.modalProgramTitle}>{selectedProgram.title}</Text>
+                                        <Text style={styles.modalProgramMeta}>
+                                            {selectedProgram.category} • {selectedProgram.duration}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.modalCloseButton}
+                                        onPress={() => setShowRegistrationModal(false)}
+                                    >
+                                        <MaterialCommunityIcons name="close" size={24} color="#fff" />
+                                    </TouchableOpacity>
+                                </LinearGradient>
+                            )}
+
+                            {/* Registration Form */}
+                            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+                                <Text style={styles.formTitle}>Registration Form</Text>
+                                <Text style={styles.formSubtitle}>Fill in your details to register</Text>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.formLabel}>Full Name *</Text>
+                                    <TextInput
+                                        style={styles.formInput}
+                                        placeholder="Enter your full name"
+                                        value={formData.name}
+                                        onChangeText={(text) => setFormData({ ...formData, name: text })}
+                                    />
+                                </View>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.formLabel}>Email Address *</Text>
+                                    <TextInput
+                                        style={styles.formInput}
+                                        placeholder="your.email@example.com"
+                                        value={formData.email}
+                                        onChangeText={(text) => setFormData({ ...formData, email: text })}
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                    />
+                                </View>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.formLabel}>Phone Number *</Text>
+                                    <TextInput
+                                        style={styles.formInput}
+                                        placeholder="+91 1234567890"
+                                        value={formData.phone}
+                                        onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                                        keyboardType="phone-pad"
+                                    />
+                                </View>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.formLabel}>Address</Text>
+                                    <TextInput
+                                        style={styles.formInput}
+                                        placeholder="Your city, district"
+                                        value={formData.address}
+                                        onChangeText={(text) => setFormData({ ...formData, address: text })}
+                                    />
+                                </View>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={styles.formLabel}>Why do you want to join? *</Text>
+                                    <TextInput
+                                        style={[styles.formInput, styles.formTextArea]}
+                                        placeholder="Tell us about your motivation..."
+                                        value={formData.motivation}
+                                        onChangeText={(text) => setFormData({ ...formData, motivation: text })}
+                                        multiline
+                                        numberOfLines={4}
+                                        textAlignVertical="top"
+                                    />
+                                </View>
+
+                                <TouchableOpacity
+                                    style={styles.submitButton}
+                                    onPress={() => {
+                                        if (!formData.name || !formData.email || !formData.phone || !formData.motivation) {
+                                            Alert.alert('Error', 'Please fill all required fields');
+                                            return;
+                                        }
+                                        Alert.alert(
+                                            'Success',
+                                            `Thank you for registering for ${selectedProgram?.title}! We will contact you soon.`,
+                                            [
+                                                {
+                                                    text: 'OK',
+                                                    onPress: () => {
+                                                        setShowRegistrationModal(false);
+                                                        setFormData({ name: '', email: '', phone: '', address: '', motivation: '' });
+                                                    }
+                                                }
+                                            ]
+                                        );
+                                    }}
+                                >
+                                    <Text style={styles.submitButtonText}>Submit Registration</Text>
+                                    <MaterialCommunityIcons name="check-circle" size={20} color="#fff" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.cancelButton}
+                                    onPress={() => setShowRegistrationModal(false)}
+                                >
+                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                </TouchableOpacity>
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
             </ScrollView>
         </View>
     );
@@ -647,5 +769,212 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#CBD5E1',
         marginTop: 4,
+    },
+    // Programs Section Styles
+    programsSection: {
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+        backgroundColor: '#fff',
+    },
+    programsSectionTitle: {
+        fontSize: 32,
+        fontWeight: '900',
+        color: '#1e293b',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    programsSectionSubtitle: {
+        fontSize: 16,
+        color: '#64748b',
+        textAlign: 'center',
+        marginBottom: 32,
+    },
+    programsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 16,
+    },
+    programCard: {
+        width: '48%',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
+        marginBottom: 16,
+    },
+    programCardHeader: {
+        height: 120,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    programCardBody: {
+        padding: 16,
+    },
+    programCardBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    programCardCategory: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#64748b',
+        textTransform: 'uppercase',
+    },
+    programCardDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#cbd5e1',
+        marginHorizontal: 8,
+    },
+    programCardDuration: {
+        fontSize: 12,
+        color: '#94a3b8',
+    },
+    programCardTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#1e293b',
+        marginBottom: 8,
+    },
+    programCardDesc: {
+        fontSize: 14,
+        color: '#64748b',
+        lineHeight: 20,
+        marginBottom: 16,
+    },
+    registerButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: SP_GREEN,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        gap: 8,
+    },
+    registerButtonText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContainer: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '90%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        elevation: 10,
+    },
+    modalProgramBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 20,
+        gap: 16,
+    },
+    modalProgramIcon: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalProgramInfo: {
+        flex: 1,
+    },
+    modalProgramTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#fff',
+        marginBottom: 4,
+    },
+    modalProgramMeta: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.9)',
+    },
+    modalCloseButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalForm: {
+        padding: 24,
+    },
+    formTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#1e293b',
+        marginBottom: 4,
+    },
+    formSubtitle: {
+        fontSize: 14,
+        color: '#64748b',
+        marginBottom: 24,
+    },
+    formGroup: {
+        marginBottom: 20,
+    },
+    formLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 8,
+    },
+    formInput: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 15,
+        color: '#1e293b',
+        backgroundColor: '#f9fafb',
+    },
+    formTextArea: {
+        height: 100,
+        textAlignVertical: 'top',
+    },
+    submitButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: SP_GREEN,
+        paddingVertical: 16,
+        borderRadius: 12,
+        gap: 8,
+        marginTop: 8,
+    },
+    submitButtonText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    cancelButton: {
+        alignItems: 'center',
+        paddingVertical: 16,
+        marginTop: 12,
+    },
+    cancelButtonText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#64748b',
     },
 });
