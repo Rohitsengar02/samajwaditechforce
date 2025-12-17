@@ -26,7 +26,9 @@ export default function DesktopNews() {
             const res = await fetch(`${url}/news`);
             const data = await res.json();
             if (data.success && Array.isArray(data.data)) {
-                setNews(data.data);
+                // Filter only 'News' type items
+                const newsItems = data.data.filter((item: any) => !item.type || item.type === 'News');
+                setNews(newsItems);
             }
         } catch (error) {
             console.error('Error fetching news:', error);

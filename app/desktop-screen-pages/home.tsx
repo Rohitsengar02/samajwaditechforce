@@ -18,6 +18,7 @@ import { TranslatedText } from '../../components/TranslatedText';
 export default function DesktopHome() {
     const router = useRouter();
     const [news, setNews] = useState<any[]>([]);
+    const [programs, setPrograms] = useState<any[]>([]);
     const [posters, setPosters] = useState<any[]>([]);
     const [tasks, setTasks] = useState<any[]>([]);
     const [pages, setPages] = useState<any[]>([]);
@@ -65,7 +66,11 @@ export default function DesktopHome() {
 
             const newsRes = await fetch(`${url}/news`);
             const newsData = await newsRes.json();
-            if (newsData.success && Array.isArray(newsData.data)) setNews(newsData.data);
+            if (newsData.success && Array.isArray(newsData.data)) {
+                const allItems = newsData.data;
+                setNews(allItems.filter((i: any) => !i.type || i.type === 'News'));
+                setPrograms(allItems.filter((i: any) => i.type && ['Program', 'program', 'Programs', 'programs'].includes(i.type)));
+            }
 
             const postersRes = await fetch(`${url}/posters`);
             const postersData = await postersRes.json();
@@ -157,14 +162,14 @@ export default function DesktopHome() {
 
     // Get Programs data
     const getProgramsData = () => {
-        const programs = homeContent?.programs || {};
+        const programsContent = homeContent?.programs || {};
         return {
-            title: programs.title || 'Our Programs',
-            items: programs.items || [
+            title: programsContent.title || 'Our Programs',
+            items: programs.length > 0 ? programs : (programsContent.items || [
                 { title: 'Youth Employment', desc: 'Creating job opportunities', icon: 'briefcase' },
                 { title: 'Farmer Welfare', desc: 'Supporting agricultural community', icon: 'sprout' },
                 { title: 'Education for All', desc: 'Quality education accessible to everyone', icon: 'school' }
-            ]
+            ])
         };
     };
 
@@ -443,14 +448,20 @@ export default function DesktopHome() {
                         <View style={styles.programsGrid}>
                             {programsData.items.map((program: any, index: number) => (
                                 <Pressable
-                                    key={index}
+                                    key={program._id || index}
                                     style={styles.programCard}
-                                    onPress={() => router.push('/events' as any)}
+                                    onPress={() => {
+                                        if (program._id) {
+                                            router.push(`/news/${program._id}` as any);
+                                        } else {
+                                            router.push('/events' as any);
+                                        }
+                                    }}
                                 >
-                                    {program.image ? (
+                                    {program.coverImage || program.image ? (
                                         <View style={styles.programCardImageWrapper}>
                                             <Image
-                                                source={{ uri: program.image }}
+                                                source={{ uri: program.coverImage || program.image }}
                                                 style={styles.programCardImage}
                                                 resizeMode="cover"
                                             />
@@ -482,11 +493,11 @@ export default function DesktopHome() {
                                     )}
                                     <View style={styles.programCardContent}>
                                         <Text style={styles.programCardTitle}>{program.title}</Text>
-                                        <Text style={styles.programCardDesc} numberOfLines={2}>{program.desc}</Text>
+                                        <Text style={styles.programCardDesc} numberOfLines={2}>{program.excerpt || program.description || program.desc}</Text>
 
                                         {/* Learn More Link */}
                                         <View style={styles.programCardFooter}>
-                                            <Text style={styles.programCardLink}>View Events</Text>
+                                            <Text style={styles.programCardLink}>Read More</Text>
                                             <MaterialCommunityIcons name="arrow-right" size={16} color={SP_RED} />
                                         </View>
                                     </View>

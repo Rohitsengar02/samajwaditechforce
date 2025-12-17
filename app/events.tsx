@@ -10,11 +10,14 @@ import {
     Modal,
     TextInput,
     Alert,
+    Image,
+    Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { TranslatedText } from '../components/TranslatedText';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -23,6 +26,7 @@ const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
 
 interface Event {
+    _id?: string;
     id: string;
     title: string;
     description: string;
@@ -33,6 +37,7 @@ interface Event {
     attendees: number;
     type: 'rally' | 'meeting' | 'training' | 'campaign';
     updates?: string[];
+    image?: string;
 }
 
 interface Program {
@@ -48,7 +53,7 @@ interface Program {
 const eventsData: Event[] = [];
 const programsData: Program[] = [];
 
-const EventCard = ({ event, delay }: { event: Event; delay: number }) => {
+const EventCard = ({ event, delay, onRegister }: { event: Event; delay: number; onRegister?: (event: Event) => void }) => {
     const scaleAnim = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -121,21 +126,19 @@ const EventCard = ({ event, delay }: { event: Event; delay: number }) => {
                 colors={['#fff', '#f8fafc']}
                 style={styles.eventCardGradient}
             >
-                {/* Status Badge */}
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
-                    {event.status === 'ongoing' && (
-                        <View style={styles.liveDot} />
-                    )}
-                    <Text style={styles.statusText}>
-                        <TranslatedText>{getStatusLabel()}</TranslatedText>
-                    </Text>
-                </View>
-
                 {/* Event Header */}
                 <View style={styles.eventHeader}>
-                    <View style={[styles.typeIcon, { backgroundColor: getStatusColor() + '20' }]}>
-                        <MaterialCommunityIcons name={getTypeIcon()} size={28} color={getStatusColor()} />
-                    </View>
+                    {event.image ? (
+                        <Image
+                            source={{ uri: event.image }}
+                            style={styles.eventImage}
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <View style={[styles.typeIcon, { backgroundColor: SP_GREEN + '20' }]}>
+                            <MaterialCommunityIcons name={getTypeIcon()} size={28} color={SP_GREEN} />
+                        </View>
+                    )}
                     <View style={styles.eventHeaderText}>
                         <Text style={styles.eventTitle} numberOfLines={2}>
                             <TranslatedText>{event.title}</TranslatedText>
@@ -151,7 +154,7 @@ const EventCard = ({ event, delay }: { event: Event; delay: number }) => {
                     <View style={styles.detailRow}>
                         <MaterialCommunityIcons name="calendar" size={16} color="#64748b" />
                         <Text style={styles.detailText}>
-                            <TranslatedText>{new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</TranslatedText>
+                            <TranslatedText>{event.date}</TranslatedText>
                         </Text>
                     </View>
                     <View style={styles.detailRow}>
@@ -191,15 +194,20 @@ const EventCard = ({ event, delay }: { event: Event; delay: number }) => {
                     </View>
                 )}
 
-                {/* Action Button */}
+                {/* Register Button */}
                 <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: getStatusColor() }]}
+                    style={styles.actionButton}
                     activeOpacity={0.8}
+                    onPress={() => {
+                        if (onRegister) {
+                            onRegister(event);
+                        }
+                    }}
                 >
                     <Text style={styles.actionButtonText}>
-                        <TranslatedText>{event.status === 'upcoming' ? 'Register Now' : event.status === 'ongoing' ? 'Join Live' : 'View Details'}</TranslatedText>
+                        <TranslatedText>Register Now</TranslatedText>
                     </Text>
-                    <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+                    <MaterialCommunityIcons name="account-plus" size={20} color="#fff" />
                 </TouchableOpacity>
             </LinearGradient>
         </Animated.View>
@@ -209,17 +217,179 @@ const EventCard = ({ event, delay }: { event: Event; delay: number }) => {
 export default function EventsPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'ongoing' | 'closed'>('all');
+    const [eventsData, setEventsData] = useState<Event[]>([]);
+    const [loading, setLoading] = useState(true);
 
     // Registration Modal States
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
-    const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
+    const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         phone: '',
-        address: '',
-        motivation: '',
+        address: ''
     });
+    const [userData, setUserData] = useState<any>(null);
+
+    // API URL from environment
+    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001/api';
+
+    // Platform-aware alert function
+    const showAlert = (title: string, message: string, onOk?: () => void) => {
+        if (Platform.OS === 'web') {
+            window.alert(`${title}\n\n${message}`);
+            if (onOk) onOk();
+        } else {
+            Alert.alert(title, message, [
+                {
+                    text: 'OK',
+                    onPress: onOk,
+                }
+            ]);
+        }
+    };
+
+    // Helper to format address from various formats (string, array, object)
+    const formatAddress = (addr: any) => {
+        if (!addr) return '';
+        if (typeof addr === 'string') return addr;
+        if (Array.isArray(addr)) return addr.join(', ');
+        if (typeof addr === 'object') {
+            const parts = [addr.street, addr.city, addr.state, addr.postalCode, addr.country].filter(Boolean);
+            return parts.length > 0 ? parts.join(', ') : '';
+        }
+        return '';
+    };
+
+    // Fetch events and profile from API
+    useEffect(() => {
+        fetchEvents();
+        fetchUserProfile();
+    }, []);
+
+    const fetchUserProfile = async () => {
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) return;
+
+            console.log('Fetching user profile with token...');
+            const response = await fetch(`${API_URL}/auth/profile`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            console.log('User profile data:', data);
+
+            if (response.ok) {
+                setUserData(data);
+                // Pre-fill form data if available
+                const formattedAddress = formatAddress(data.address);
+
+                setFormData(prev => ({
+                    ...prev,
+                    name: data.name || '',
+                    email: data.email || '',
+                    phone: data.phone || '',
+                    address: formattedAddress
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+        }
+    };
+
+    const fetchEvents = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`${API_URL}/events`);
+            const data = await response.json();
+
+            if (data.success && data.data) {
+                setEventsData(data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching events:', error);
+            showAlert('Error', 'Failed to load events');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRegister = (event: Event) => {
+        setSelectedEvent(event);
+        // Refresh user data if available before showing modal
+        if (userData) {
+            setFormData(prev => ({
+                ...prev,
+                name: userData.name || prev.name,
+                email: userData.email || prev.email,
+                phone: userData.phone || prev.phone,
+                address: formatAddress(userData.address) || prev.address
+            }));
+        }
+        setShowRegistrationModal(true);
+    };
+
+    const submitRegistration = async () => {
+        // Validation: All fields required including Address
+        if (!formData.name || !formData.email || !formData.phone || !formData.address) {
+            showAlert('Error', 'Please fill in all required fields');
+            return;
+        }
+
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) {
+                showAlert('Error', 'You must be logged in to register');
+                return;
+            }
+
+            const eventId = selectedEvent?._id || selectedEvent?.id;
+
+            // Submit Registration (updates address via backend if needed)
+            const response = await fetch(`${API_URL}/events/${eventId}/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: formData.name,
+                    email: formData.email,
+                    phone: formData.phone,
+                    address: formData.address
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Update local user data since backend updates address
+                if (userData) {
+                    setUserData((prev: any) => ({ ...prev, address: formData.address }));
+                }
+
+                // Success Message
+                showAlert(
+                    'Registration Successful! 🎉',
+                    `You have registered for "${selectedEvent?.title}".\n\nYour address has been saved for future events.`,
+                    () => {
+                        setShowRegistrationModal(false);
+                        setSelectedEvent(null);
+                        fetchEvents(); // Refresh counts
+                    }
+                );
+            } else {
+                throw new Error(data.message || 'Registration failed');
+            }
+
+        } catch (error: any) {
+            console.error('Registration failed', error);
+            showAlert('Error', error.message || 'Something went wrong. Please try again.');
+        }
+    };
 
     const filteredEvents = activeTab === 'all'
         ? eventsData
@@ -250,26 +420,9 @@ export default function EventsPage() {
 
                     {/* Stats Row */}
                     <View style={styles.statsRow}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statNumber}>{upcomingCount}</Text>
-                            <Text style={styles.statLabel}>
-                                <TranslatedText>Upcoming</TranslatedText>
-                            </Text>
-                        </View>
+
                         <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statNumber}>{ongoingCount}</Text>
-                            <Text style={styles.statLabel}>
-                                <TranslatedText>Live Now</TranslatedText>
-                            </Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statNumber}>{closedCount}</Text>
-                            <Text style={styles.statLabel}>
-                                <TranslatedText>Completed</TranslatedText>
-                            </Text>
-                        </View>
+
                     </View>
                 </LinearGradient>
 
@@ -289,47 +442,11 @@ export default function EventsPage() {
                             </Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[styles.tab, activeTab === 'upcoming' && styles.tabActive]}
-                            onPress={() => setActiveTab('upcoming')}
-                        >
-                            <MaterialCommunityIcons
-                                name="calendar-clock"
-                                size={16}
-                                color={activeTab === 'upcoming' ? '#fff' : '#64748b'}
-                            />
-                            <Text style={[styles.tabText, activeTab === 'upcoming' && styles.tabTextActive]}>
-                                <TranslatedText>{`Upcoming (${upcomingCount})`}</TranslatedText>
-                            </Text>
-                        </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[styles.tab, activeTab === 'ongoing' && styles.tabActive]}
-                            onPress={() => setActiveTab('ongoing')}
-                        >
-                            <MaterialCommunityIcons
-                                name="play-circle"
-                                size={16}
-                                color={activeTab === 'ongoing' ? '#fff' : '#64748b'}
-                            />
-                            <Text style={[styles.tabText, activeTab === 'ongoing' && styles.tabTextActive]}>
-                                <TranslatedText>{`Live (${ongoingCount})`}</TranslatedText>
-                            </Text>
-                        </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[styles.tab, activeTab === 'closed' && styles.tabActive]}
-                            onPress={() => setActiveTab('closed')}
-                        >
-                            <MaterialCommunityIcons
-                                name="check-circle"
-                                size={16}
-                                color={activeTab === 'closed' ? '#fff' : '#64748b'}
-                            />
-                            <Text style={[styles.tabText, activeTab === 'closed' && styles.tabTextActive]}>
-                                <TranslatedText>{`Past (${closedCount})`}</TranslatedText>
-                            </Text>
-                        </TouchableOpacity>
+
+
+
                     </ScrollView>
 
                     {/* Events List */}
@@ -346,57 +463,17 @@ export default function EventsPage() {
                             </View>
                         ) : (
                             filteredEvents.map((event, idx) => (
-                                <EventCard key={event.id} event={event} delay={idx * 100} />
+                                <EventCard
+                                    key={event._id || event.id}
+                                    event={event}
+                                    delay={idx * 100}
+                                    onRegister={handleRegister}
+                                />
                             ))
                         )}
                     </View>
 
-                    {/* Programs Section */}
-                    <View style={styles.programsSection}>
-                        <Text style={styles.programsSectionTitle}>
-                            <TranslatedText>Available Programs</TranslatedText>
-                        </Text>
-                        <Text style={styles.programsSectionSubtitle}>
-                            <TranslatedText>Join our initiatives and make a difference</TranslatedText>
-                        </Text>
 
-                        <View style={styles.programsGrid}>
-                            {programsData.map((program, idx) => (
-                                <View key={program.id} style={styles.programCard}>
-                                    <LinearGradient
-                                        colors={idx % 2 === 0 ? [SP_RED, '#b91c1c'] : [SP_GREEN, '#15803d']}
-                                        style={styles.programCardHeader}
-                                    >
-                                        <MaterialCommunityIcons name={program.icon as any} size={48} color="#fff" />
-                                    </LinearGradient>
-
-                                    <View style={styles.programCardBody}>
-                                        <View style={styles.programCardBadge}>
-                                            <Text style={styles.programCardCategory}>{program.category}</Text>
-                                            <View style={styles.programCardDot} />
-                                            <Text style={styles.programCardDuration}>{program.duration}</Text>
-                                        </View>
-
-                                        <Text style={styles.programCardTitle}>{program.title}</Text>
-                                        <Text style={styles.programCardDesc}>{program.description}</Text>
-
-                                        <TouchableOpacity
-                                            style={styles.registerButton}
-                                            onPress={() => {
-                                                setSelectedProgram(program);
-                                                setShowRegistrationModal(true);
-                                            }}
-                                        >
-                                            <Text style={styles.registerButtonText}>
-                                                <TranslatedText>Register Now</TranslatedText>
-                                            </Text>
-                                            <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            ))}
-                        </View>
-                    </View>
                 </View>
 
                 {/* Registration Modal */}
@@ -408,23 +485,23 @@ export default function EventsPage() {
                 >
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContainer}>
-                            {/* Selected Program Bar */}
-                            {selectedProgram && (
+                            {/* Selected Event Bar */}
+                            {selectedEvent && (
                                 <LinearGradient
                                     colors={[SP_GREEN, '#15803d']}
                                     style={styles.modalProgramBar}
                                 >
                                     <View style={styles.modalProgramIcon}>
                                         <MaterialCommunityIcons
-                                            name={selectedProgram.icon as any}
+                                            name="calendar-star"
                                             size={32}
                                             color="#fff"
                                         />
                                     </View>
                                     <View style={styles.modalProgramInfo}>
-                                        <Text style={styles.modalProgramTitle}>{selectedProgram.title}</Text>
+                                        <Text style={styles.modalProgramTitle}>{selectedEvent.title}</Text>
                                         <Text style={styles.modalProgramMeta}>
-                                            {selectedProgram.category} • {selectedProgram.duration}
+                                            {selectedEvent.location} • {selectedEvent.time}
                                         </Text>
                                     </View>
                                     <TouchableOpacity
@@ -484,40 +561,9 @@ export default function EventsPage() {
                                     />
                                 </View>
 
-                                <View style={styles.formGroup}>
-                                    <Text style={styles.formLabel}>Why do you want to join? *</Text>
-                                    <TextInput
-                                        style={[styles.formInput, styles.formTextArea]}
-                                        placeholder="Tell us about your motivation..."
-                                        value={formData.motivation}
-                                        onChangeText={(text) => setFormData({ ...formData, motivation: text })}
-                                        multiline
-                                        numberOfLines={4}
-                                        textAlignVertical="top"
-                                    />
-                                </View>
-
                                 <TouchableOpacity
                                     style={styles.submitButton}
-                                    onPress={() => {
-                                        if (!formData.name || !formData.email || !formData.phone || !formData.motivation) {
-                                            Alert.alert('Error', 'Please fill all required fields');
-                                            return;
-                                        }
-                                        Alert.alert(
-                                            'Success',
-                                            `Thank you for registering for ${selectedProgram?.title}! We will contact you soon.`,
-                                            [
-                                                {
-                                                    text: 'OK',
-                                                    onPress: () => {
-                                                        setShowRegistrationModal(false);
-                                                        setFormData({ name: '', email: '', phone: '', address: '', motivation: '' });
-                                                    }
-                                                }
-                                            ]
-                                        );
-                                    }}
+                                    onPress={submitRegistration}
                                 >
                                     <Text style={styles.submitButtonText}>Submit Registration</Text>
                                     <MaterialCommunityIcons name="check-circle" size={20} color="#fff" />
@@ -685,6 +731,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    eventImage: {
+        width: 56,
+        height: 56,
+        borderRadius: 16,
+    },
     eventHeaderText: {
         flex: 1,
     },
@@ -749,6 +800,7 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         borderRadius: 12,
         gap: 8,
+        backgroundColor: SP_GREEN,
     },
     actionButtonText: {
         fontSize: 15,

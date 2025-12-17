@@ -78,15 +78,23 @@ export default function EditProfileScreen() {
 
     const uploadImageToCloudinary = async (uri: string) => {
         const data = new FormData();
-        data.append('file', {
-            uri,
-            type: 'image/jpeg',
-            name: 'profile_image.jpg',
-        } as any);
-        data.append('upload_preset', UPLOAD_PRESET);
-        data.append('cloud_name', 'dssmutzly');
 
         try {
+            if (Platform.OS === 'web') {
+                const response = await fetch(uri);
+                const blob = await response.blob();
+                data.append('file', blob, 'profile_image.jpg');
+            } else {
+                data.append('file', {
+                    uri,
+                    type: 'image/jpeg',
+                    name: 'profile_image.jpg',
+                } as any);
+            }
+
+            data.append('upload_preset', UPLOAD_PRESET);
+            data.append('cloud_name', 'dssmutzly');
+
             const res = await fetch(CLOUDINARY_URL, {
                 method: 'POST',
                 body: data,
@@ -95,6 +103,7 @@ export default function EditProfileScreen() {
             if (result.secure_url) {
                 return result.secure_url;
             } else {
+                console.error('Cloudinary Error:', result);
                 throw new Error('Image upload failed');
             }
         } catch (error) {

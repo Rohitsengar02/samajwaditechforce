@@ -728,11 +728,14 @@ export default function NewsScreen() {
             const response = await newsAPI.getAllNews();
 
             if (response.success && response.data) {
-                const transformedNews = response.data.map((item: any) => ({
+                // Filter only 'News' type items
+                const newsItems = response.data.filter((item: any) => !item.type || item.type === 'News');
+
+                const transformedNews = newsItems.map((item: any) => ({
                     id: item._id,
                     title: item.title,
                     description: item.excerpt,
-                    category: 'News', // You might want to add category to your backend model
+                    category: item.type || 'News',
                     time: getTimeAgo(item.createdAt),
                     image: item.coverImage && item.coverImage !== 'no-photo.jpg'
                         ? item.coverImage

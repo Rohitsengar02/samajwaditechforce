@@ -47,6 +47,11 @@ export default function DesktopNewsDetail() {
         }
     }, [news, currentUserId]);
 
+    // Theme Logic
+    const isProgram = news && (news.type === 'Program' || news.type === 'program' || news.type === 'Programs' || news.type === 'programs');
+    const themeColor = isProgram ? SP_GREEN : SP_RED;
+    const themeBgLight = isProgram ? '#f0fdf4' : '#fef2f2'; // Green tint vs Red tint
+
     const checkUser = async () => {
         try {
             const userInfoStr = await AsyncStorage.getItem('userInfo');
@@ -64,9 +69,17 @@ export default function DesktopNewsDetail() {
         try {
             // Use newsAPI service ideally, or match existing fetch
             const response = await newsAPI.getNewsById(id as string);
-            if (response.success) {
-                setNews(response.data);
-                setLikesCount(response.data.likes ? response.data.likes.length : 0);
+            if (response.success && response.data) {
+                // Ensure we only show 'News' type items
+                const item = response.data;
+                if (!item.type || item.type === 'News' || ['Program', 'program', 'Programs', 'programs'].includes(item.type)) {
+                    setNews(item);
+                    setLikesCount(item.likes ? item.likes.length : 0);
+                } else {
+                    // It is a Program or other type, treat as not found for this page
+                    console.log('Item found but is not News:', item.type);
+                    setNews(null);
+                }
             } else {
                 // Fallback if API fail
                 console.error('Failed to fetch news via service');
@@ -164,11 +177,11 @@ export default function DesktopNewsDetail() {
                 <Button
                     mode="text"
                     icon="arrow-left"
-                    textColor={SP_RED}
+                    textColor={themeColor}
                     style={styles.backButton}
                     onPress={() => router.back()}
                 >
-                    Back to News
+                    Back to {isProgram ? 'Programs' : 'News'}
                 </Button>
 
                 <View style={styles.articleContainer}>
@@ -203,10 +216,10 @@ export default function DesktopNewsDetail() {
                                 <MaterialCommunityIcons
                                     name={liked ? 'heart' : 'heart-outline'}
                                     size={24}
-                                    color={liked ? SP_RED : '#64748b'}
+                                    color={liked ? themeColor : '#64748b'}
                                 />
                             </Animated.View>
-                            <Text style={[styles.actionText, liked && { color: SP_RED }]}>{likesCount} Likes</Text>
+                            <Text style={[styles.actionText, liked && { color: themeColor }]}>{likesCount} Likes</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.actionButton} onPress={() => setShowCommentsModal(true)}>
@@ -295,8 +308,8 @@ export default function DesktopNewsDetail() {
                         <ScrollView style={styles.commentsList}>
                             {news?.comments && news.comments.map((comment: any, idx: number) => (
                                 <View key={comment._id || idx} style={styles.commentItem}>
-                                    <View style={styles.commentAvatar}>
-                                        <Text style={{ color: SP_RED, fontWeight: 'bold' }}>{comment.name?.charAt(0) || 'U'}</Text>
+                                    <View style={[styles.commentAvatar, { backgroundColor: themeBgLight }]}>
+                                        <Text style={{ color: themeColor, fontWeight: 'bold' }}>{comment.name?.charAt(0) || 'U'}</Text>
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         <View style={styles.commentMeta}>
@@ -318,7 +331,7 @@ export default function DesktopNewsDetail() {
                                 onChangeText={setCommentText}
                             />
                             <TouchableOpacity onPress={handlePostComment} disabled={!commentText.trim()}>
-                                <MaterialCommunityIcons name="send" size={24} color={commentText.trim() ? SP_RED : '#ccc'} />
+                                <MaterialCommunityIcons name="send" size={24} color={commentText.trim() ? themeColor : '#ccc'} />
                             </TouchableOpacity>
                         </View>
                     </View>

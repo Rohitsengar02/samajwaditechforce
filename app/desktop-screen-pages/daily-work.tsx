@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator, Modal, Image, TextInput, Alert, Platform, TouchableOpacity, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator, Modal, Image, TextInput, Alert, Platform, TouchableOpacity, Dimensions, Linking } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -49,7 +49,7 @@ export default function DesktopDailyWork() {
     // Tasks State
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loadingTasks, setLoadingTasks] = useState(true);
-    const [filter, setFilter] = useState('all'); // all, pending, completed
+    const [filter, setFilter] = useState('pending'); // all, pending, completed
 
     // Leaderboard State
     const [leaderboardData, setLeaderboardData] = useState<LeaderboardUser[]>([]);
@@ -79,21 +79,32 @@ export default function DesktopDailyWork() {
         try {
             const token = await AsyncStorage.getItem('userToken');
             const url = getApiUrl();
-            const res = await fetch(`${url}/tasks`, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
-            });
-            const data = await res.json();
-            if (data.success && Array.isArray(data.data)) {
-                setTasks(data.data);
+
+            // Parallel fetch for Tasks and Completed Ids
+            const [tasksRes, completedRes] = await Promise.all([
+                fetch(`${url}/tasks`, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                }),
+                fetch(`${url}/tasks/my-completed`, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                })
+            ]);
+
+            const tasksData = await tasksRes.json();
+            const completedData = await completedRes.json();
+
+            const completedIds = completedData.data || [];
+
+            if (tasksData.success && Array.isArray(tasksData.data)) {
+                // Merge completion status
+                const mergedTasks = tasksData.data.map((t: Task) => ({
+                    ...t,
+                    completed: completedIds.includes(t._id),
+                }));
+                setTasks(mergedTasks);
             }
         } catch (error) {
             console.error('Error fetching tasks:', error);
-            // Keeping partial demo data for fallback/dev
-            setTasks([
-                { _id: '1', title: 'समाजवादी पोस्ट शेयर करें', description: 'आज का पार्टी अपडेट सोशल मीडिया पर शेयर करें', points: 10, status: 'pending', deadline: '2024-12-03', type: 'Social Media' },
-                { _id: '2', title: 'सर्वे फॉर्म भरें', description: 'अपने क्षेत्र का जन सर्वे फॉर्म कम्प्लीट करें', points: 25, status: 'pending', deadline: '2024-12-04', type: 'Field Work' },
-                { _id: '3', title: 'व्हाट्सएप ग्रुप मैसेज फॉरवर्ड', description: 'पार्टी का आधिकारिक मैसेज 5 ग्रुप में फॉरवर्ड करें', points: 5, status: 'Completed', deadline: '2024-12-02', type: 'Social Media' },
-            ]);
         } finally {
             setLoadingTasks(false);
         }
@@ -468,16 +479,48 @@ export default function DesktopDailyWork() {
                         </View>
 
                         <ScrollView contentContainerStyle={styles.modalBody}>
-                            <View style={styles.modalTaskInfo}>
-                                <Text style={styles.modalTaskTitle}>{selectedTask?.title}</Text>
-                                <View style={styles.modalPointsTag}>
-                                    <MaterialCommunityIcons name="star" size={14} color="#B45309" />
-                                    <Text style={styles.modalPointsText}>{selectedTask?.points} Points</Text>
+                            {/* Task Info matched with Mobile Page */}
+                            <View style={styles.iconRow}>
+                                <View style={[styles.iconContainer, { backgroundColor: '#fee2e2' }]}>
+                                    <MaterialCommunityIcons
+                                        name={selectedTask?.type === 'Social Media' ? 'share-variant' : 'checkbox-marked-circle-outline'}
+                                        size={32}
+                                        color={SP_RED}
+                                    />
+                                </View>
+                                <View style={styles.pointsBadgeLarge}>
+                                    <MaterialCommunityIcons name="star" size={18} color="#b45309" />
+                                    <Text style={styles.pointsTextLarge}>{selectedTask?.points} Points</Text>
                                 </View>
                             </View>
+
+                            <Text style={styles.modalTaskTitle}>{selectedTask?.title}</Text>
                             <Text style={styles.modalTaskDesc}>{selectedTask?.description}</Text>
 
-                            <Text style={styles.sectionTitle}>Proof of Work</Text>
+                            {selectedTask?.linkToShare && (
+                                <TouchableOpacity
+                                    style={styles.linkButton}
+                                    onPress={() => Linking.openURL(selectedTask.linkToShare!)}
+                                >
+                                    <Text style={styles.linkButtonText}>Open Link / Link खोलें</Text>
+                                    <MaterialCommunityIcons name="open-in-new" size={16} color="#fff" />
+                                </TouchableOpacity>
+                            )}
+
+                            <View style={styles.metaContainer}>
+                                <View style={styles.metaItem}>
+                                    <MaterialCommunityIcons name="clock-outline" size={16} color="#64748b" />
+                                    <Text style={styles.metaText}>Deadline: {selectedTask?.deadline ? new Date(selectedTask.deadline).toLocaleDateString() : 'No Deadline'}</Text>
+                                </View>
+                                <View style={styles.metaItem}>
+                                    <MaterialCommunityIcons name="tag-outline" size={16} color="#64748b" />
+                                    <Text style={styles.metaText}>{selectedTask?.type}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.divider} />
+
+                            <Text style={styles.sectionTitle}>Submit Proof / कार्य का प्रमाण</Text>
 
                             {/* Image Upload */}
                             <TouchableOpacity style={styles.uploadArea} onPress={pickImage}>
@@ -495,7 +538,7 @@ export default function DesktopDailyWork() {
                             </TouchableOpacity>
 
                             {/* Description Input */}
-                            <Text style={styles.label}>Add a Note</Text>
+                            <Text style={styles.label}>Add a Note / टिप्पणी लिखें</Text>
                             <TextInput
                                 style={styles.input}
                                 placeholder="Describe what you did..."
@@ -645,4 +688,16 @@ const styles = StyleSheet.create({
     emptyState: { alignItems: 'center', padding: 40 },
     emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1e293b', marginTop: 16 },
     emptyText: { fontSize: 15, color: '#64748b' },
+
+    // New styles for Updated Modal
+    iconRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+    iconContainer: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    pointsBadgeLarge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fffbeb', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 4, borderWidth: 1, borderColor: '#fcd34d' },
+    pointsTextLarge: { fontSize: 14, fontWeight: '700', color: '#b45309' },
+    linkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: SP_RED, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, marginBottom: 20, gap: 8, alignSelf: 'flex-start' },
+    linkButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+    metaContainer: { flexDirection: 'row', gap: 24, paddingBottom: 24 },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    metaText: { color: '#64748b', fontWeight: '600', fontSize: 14 },
+    divider: { height: 1, backgroundColor: '#e2e8f0', marginBottom: 24 },
 });

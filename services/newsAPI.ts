@@ -21,6 +21,7 @@ export interface News {
     createdAt: string;
     likes: string[];
     comments: Comment[];
+    type?: 'News' | 'Program';
 }
 
 export interface NewsResponse {

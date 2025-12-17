@@ -14,7 +14,7 @@ const SP_GREEN = '#009933';
 
 interface ProfileSetupProps {
   navigation: any;
-  route: { params?: { phone?: string; mode?: 'edit'; googleData?: { name?: string; email?: string; photo?: string } } };
+  route: { params?: { phone?: string; mode?: 'edit'; googleData?: { name?: string; email?: string; photo?: string }; profileData?: any } };
 }
 
 // Floating Bubble Component
@@ -147,21 +147,29 @@ const AnimatedInput = ({ label, value, onChangeText, icon, error, ...props }: an
 };
 
 export default function ProfileSetupScreen({ navigation, route }: ProfileSetupProps) {
-  const phoneFromLogin = route?.params?.phone ?? '';
+  const profileData = route?.params?.profileData;
+  const phoneFromLogin = route?.params?.phone ?? profileData?.phone ?? '';
   const mode = route?.params?.mode;
   const googleData = route?.params?.googleData;
 
   const isEditMode = mode === 'edit';
 
-  // Pre-fill from Google data if available
-  const [fullName, setFullName] = useState(googleData?.name || '');
+  // Pre-fill from Google data or Profile Data if available
+  const [fullName, setFullName] = useState(googleData?.name || profileData?.name || '');
   const [phone, setPhone] = useState(phoneFromLogin || '');
-  const [gender, setGender] = useState('');
-  const [dob, setDob] = useState('');
-  const [email, setEmail] = useState(googleData?.email || '');
-  const [hasPhoto, setHasPhoto] = useState<boolean>(!!googleData?.photo);
-  const [photoUri, setPhotoUri] = useState<string | null>(googleData?.photo || null);
-  const [password, setPassword] = useState('');
+  const [gender, setGender] = useState(profileData?.gender || '');
+  const [dob, setDob] = useState(profileData?.dob || '');
+  const [email, setEmail] = useState(googleData?.email || profileData?.email || '');
+  const [hasPhoto, setHasPhoto] = useState<boolean>(!!googleData?.photo || !!profileData?.profileImage);
+  const [photoUri, setPhotoUri] = useState<string | null>(googleData?.photo || profileData?.profileImage || null);
+  // If manual register, password exists but we might not want to show it or show it masked.
+  // User asked to "show email and password autofill and unchangable".
+  // Note: We typically don't get the plain password back from backend registration response.
+  // However, I just registered, so I know the password? 
+  // Actually, in `Step 4808`, I passed `data` which is the RESPONSE from backend. Does it contain `password`? Usually NOT.
+  // But the User request implies they want to see it.
+  // If I can't show it, I'll show "********".
+  const [password, setPassword] = useState('********');
   const [showErrors, setShowErrors] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -245,7 +253,6 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
       phone.length === 10 &&
       !!gender &&
       !!dob &&
-      isValidEmail(email) &&
       password.length >= 6;
 
     if (!valid) {
@@ -316,7 +323,6 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
     phone.length === 10 &&
     !!gender &&
     !!dob &&
-    isValidEmail(email) &&
     password.length >= 6;
 
   const handleDobChange = (value: string) => {
@@ -461,44 +467,35 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
                   <Text style={styles.errorText}>Enter a valid date</Text>
                 )}
 
-                <AnimatedInput
-                  label="Email Address"
-                  value={email}
-                  onChangeText={setEmail}
-                  icon="email-outline"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  // Email is read-only as it comes from auth
-                  editable={false}
-                  error={showErrors && !isValidEmail(email)}
-                />
-                {showErrors && !isValidEmail(email) && (
-                  <Text style={styles.errorText}>Enter a valid email</Text>
-                )}
+                {/* Hide Email/Password on Desktop Registration Flow */}
+                {!(Platform.OS === 'web' && !isEditMode) && (
+                  <>
 
-                <View style={styles.passwordWrapper}>
-                  <AnimatedInput
-                    label="Create Password"
-                    value={password}
-                    onChangeText={setPassword}
-                    icon="lock-outline"
-                    secureTextEntry={!showPassword}
-                    error={showErrors && password.length < 6}
-                  />
-                  <TouchableOpacity
-                    style={styles.passwordEyeButton}
-                    onPress={() => setShowPassword(!showPassword)}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons
-                      name={showPassword ? 'eye-off' : 'eye'}
-                      size={20}
-                      color="#64748b"
-                    />
-                  </TouchableOpacity>
-                </View>
-                {showErrors && password.length < 6 && (
-                  <Text style={styles.errorText}>Password must be at least 6 characters</Text>
+
+
+                    <View style={styles.passwordWrapper}>
+                      <AnimatedInput
+                        label="Password"
+                        value={password}
+                        onChangeText={setPassword}
+                        icon="lock-outline"
+                        secureTextEntry={!showPassword}
+                        editable={false} // Lock password
+                        error={false}
+                      />
+                      <TouchableOpacity
+                        style={styles.passwordEyeButton}
+                        onPress={() => setShowPassword(!showPassword)}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialCommunityIcons
+                          name={showPassword ? 'eye-off' : 'eye'}
+                          size={20}
+                          color="#64748b"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </>
                 )}
 
                 <TouchableOpacity

@@ -205,6 +205,7 @@ function DesktopRegisterScreen() {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // New State
 
   // Google OAuth Hook
   // For Web, we need to explicitly set the redirect URI using window.location to capture the exact origin
@@ -277,12 +278,9 @@ function DesktopRegisterScreen() {
       // 4. Check if new user
       // We check explicit flag OR status 201
       if (backendData.isNewUser || backendResponse.status === 201) {
-        // Redirect to Profile Setup flow
-        console.log('🔹 New User Detected - Going to Profile Setup');
-
-        // Merge Google info with backend info
-        const mergedData = { ...userInfo, ...backendData };
-        handleGoToProfileSetup(mergedData);
+        // Redirect to Dashboard directly, skipping Profile Setup as requested
+        console.log('🔹 New User Detected - Skipping Profile Setup, Going to Tabs');
+        router.replace('/(tabs)');
       } else {
         // Existing user, go to tabs
         console.log('🔹 Existing User - Going to Tabs');
@@ -399,16 +397,40 @@ function DesktopRegisterScreen() {
     setLoading(true);
 
     try {
-      // Simulate API call
-      setTimeout(() => {
-        setLoading(false);
-        Alert.alert('Success', 'Account created successfully!', [
-          { text: 'OK', onPress: () => router.push('/(tabs)') }
-        ]);
-      }, 1500);
+      const apiUrl = getApiUrl();
+      const response = await fetch(`${apiUrl}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: fullName,
+          email,
+          password,
+          phone: `+91${phone}`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Save Token
+        await AsyncStorage.setItem('userToken', data.token);
+        if (data && data._id) {
+          await AsyncStorage.setItem('userInfo', JSON.stringify(data));
+          // Set profile data for next steps
+          setProfileData(data);
+        }
+
+        // Proceed to Dashboard directly (Skip Profile Setup)
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Registration Failed', data.message || 'Something went wrong');
+      }
     } catch (error) {
       console.error('Registration Error:', error);
       Alert.alert('Error', 'Network error. Please check your internet connection.');
+    } finally {
       setLoading(false);
     }
   };
@@ -506,7 +528,7 @@ function DesktopRegisterScreen() {
                 <Text style={styles.label}>Full Name</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Akhilesh Yadav"
+                  placeholder="Enter Your name ...."
                   value={fullName}
                   onChangeText={setFullName}
                 />
@@ -525,24 +547,34 @@ function DesktopRegisterScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Mobile Number</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="+91 98765 43210"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                />
+                <View style={styles.phoneContainer}>
+                  <Text style={styles.prefixText}>+91</Text>
+                  <TextInput
+                    style={styles.phoneInput}
+                    placeholder="00000 00000"
+                    placeholderTextColor="#9ca3af"
+                    value={phone}
+                    onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, ''))}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                  />
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="••••••••"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                    <MaterialCommunityIcons name={showPassword ? "eye-off" : "eye"} size={20} color="#64748b" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <TouchableOpacity
@@ -852,7 +884,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    color: '#1a1a1a',
+    color: '#4a4a4aff',
   },
   submitButton: {
     height: 56,
@@ -986,5 +1018,54 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 14,
     fontWeight: '600',
+  },
+  phoneContainer: {
+    backgroundColor: '#fff',
+    height: 50,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  prefixText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    borderRightWidth: 1,
+    borderRightColor: '#e5e7eb',
+    paddingRight: 8,
+    height: '60%',
+    verticalAlign: 'middle',
+    textAlignVertical: 'center',
+    paddingTop: 4, // Visual alignment
+  },
+  phoneInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#4a4a4aff',
+    height: '100%',
+  },
+  passwordContainer: {
+    backgroundColor: '#fff',
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#4a4a4aff',
+  },
+  eyeIcon: {
+    padding: 4,
   },
 });
