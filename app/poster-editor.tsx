@@ -13,7 +13,8 @@ import {
     Modal,
     ActivityIndicator,
     PanResponder,
-    Animated
+    Animated,
+    PixelRatio
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -190,6 +191,7 @@ export default function PosterEditor() {
 
     // Preview Modal State (desktop-like preview with download)
     const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isRemovingBg, setIsRemovingBg] = useState(false);
 
@@ -669,85 +671,111 @@ export default function PosterEditor() {
 
     const handleSave = async (action: 'download' | 'share' = 'download') => {
         try {
-            setSelectedElementId(null); // Deselect before saving to hide border
-            // Wait a tick for state to update
-            setTimeout(async () => {
-                try {
-                    let uri: string;
+            setSelectedElementId(null); //  Deselect before saving to hide border
+            setIsSaving(true);
 
-                    if (Platform.OS === 'web') {
-                        // For web, use canvas.toDataURL instead of captureRef
-                        const canvasElement = canvasRef.current as any;
-                        if (!canvasElement) {
-                            throw new Error('Canvas ref not found');
-                        }
+            // Wait for state updates and images to fully load
+            await new Promise(resolve => setTimeout(resolve, 800));
 
-                        // Try using html2canvas if available, otherwise use a manual canvas approach
-                        if (typeof window !== 'undefined' && (window as any).html2canvas) {
-                            const html2canvas = (window as any).html2canvas;
-                            const canvas = await html2canvas(canvasElement, {
-                                useCORS: true,
-                                allowTaint: true,
-                                backgroundColor: null,
-                            });
-                            uri = canvas.toDataURL('image/png');
-                        } else {
-                            // Fallback: create a manual download link
-                            // This is a simpler approach that just saves the current view
-                            const link = document.createElement('a');
-                            link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}.png`;
+            try {
+                let uri: string;
 
-                            // Try to get the image from the canvas if it's a simple image view
-                            const imgElement = canvasElement.querySelector('img');
-                            if (imgElement) {
-                                const canvas = document.createElement('canvas');
-                                canvas.width = canvasSize.w;
-                                canvas.height = canvasSize.h;
-                                const ctx = canvas.getContext('2d');
-                                if (ctx) {
-                                    ctx.drawImage(imgElement, 0, 0, canvasSize.w, canvasSize.h);
-                                    uri = canvas.toDataURL('image/png');
-                                } else {
-                                    throw new Error('Could not get canvas context');
-                                }
-                            } else {
-                                Alert.alert('Info', 'Please use the desktop version for better download support on web');
-                                return;
-                            }
-                        }
+                if (Platform.OS === 'web') {
+                    // For web, we need to use html2canvas
+                    const canvasElement = canvasRef.current as any;
+                    if (!canvasElement) {
+                        throw new Error('Canvas ref not found');
+                    }
 
+                    // Dynamically load html2canvas if not available
+                    if (typeof window !== 'undefined' && !(window as any).html2canvas) {
+                        console.log('Loading html2canvas from CDN...');
+                        await new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                            script.onload = resolve;
+                            script.onerror = reject;
+                            document.head.appendChild(script);
+                        });
+                    }
+
+                    if ((window as any).html2canvas) {
+                        const html2canvas = (window as any).html2canvas;
+
+                        // Capture the canvas with CORS support
+                        const canvas = await html2canvas(canvasElement, {
+                            useCORS: true,
+                            allowTaint: false,
+                            backgroundColor: '#E30512',
+                            scale: 2, // Higher quality
+                            logging: false,
+                        });
+
+                        uri = canvas.toDataURL('image/png');
+
+                        // Download the image
                         const link = document.createElement('a');
                         link.href = uri;
                         link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}.png`;
+                        document.body.appendChild(link);
                         link.click();
-                    } else {
-                        // For mobile, use captureRef
-                        uri = await captureRef(canvasRef, {
-                            format: 'png',
-                            quality: 1.0,
-                        });
+                        document.body.removeChild(link);
 
-                        if (action === 'share') {
-                            await Sharing.shareAsync(uri);
+                        Alert.alert('Success', 'Poster downloaded successfully!');
+                    } else {
+                        throw new Error('html2canvas failed to load');
+                    }
+                } else {
+                    // For mobile, use captureRef
+                    uri = await captureRef(canvasRef, {
+                        format: 'png',
+                        quality: 1.0,
+                    });
+
+                    if (action === 'share') {
+                        await Sharing.shareAsync(uri);
+                    } else {
+                        // Save to Gallery
+                        const { status } = await MediaLibrary.requestPermissionsAsync(true);
+                        if (status === 'granted') {
+                            await MediaLibrary.saveToLibraryAsync(uri);
+                            Alert.alert('Success', 'Poster saved to gallery!');
                         } else {
-                            // Download / Save to Gallery
-                            const { status } = await MediaLibrary.requestPermissionsAsync(true);
-                            if (status === 'granted') {
-                                await MediaLibrary.saveToLibraryAsync(uri);
-                                Alert.alert('Success', 'Poster saved to gallery!');
-                            } else {
-                                Alert.alert('Permission Required', 'Please grant permission to save photos to your gallery.');
-                            }
+                            Alert.alert('Permission Required', 'Please grant permission to save photos to your gallery.');
                         }
                     }
-                } catch (innerError) {
-                    console.error('Capture error:', innerError);
-                    Alert.alert('Error', 'Failed to capture poster. Please try using the desktop editor for web downloads.');
                 }
-            }, 100);
+            } catch (innerError: any) {
+                console.error('Capture error:', innerError);
+
+                // Provide helpful error message
+                const errorMsg = innerError?.message || '';
+                if (errorMsg.includes('tainted') || errorMsg.includes('CORS') || errorMsg.includes('cross-origin')) {
+                    Alert.alert(
+                        'Download Error - CORS Issue',
+                        'The images cannot be downloaded due to browser security restrictions.\n\n' +
+                        'Solutions:\n' +
+                        '1. Hard refresh the page (Ctrl+Shift+R or Cmd+Shift+R)\n' +
+                        '2. Clear browser cache and reload\n' +
+                        '3. Use a different browser\n' +
+                        '4. Use the mobile app instead\n\n' +
+                        'Technical: Images must be served with CORS headers.'
+                    );
+                } else if (errorMsg.includes('html2canvas')) {
+                    Alert.alert(
+                        'Download Error',
+                        'Failed to load the download library. Please check your internet connection and try again.'
+                    );
+                } else {
+                    Alert.alert('Error', `Failed to download poster: ${errorMsg.substring(0, 100)}`);
+                }
+            } finally {
+                setIsSaving(false);
+            }
         } catch (error) {
             console.error('Save error:', error);
             Alert.alert('Error', 'Failed to save poster');
+            setIsSaving(false);
         }
     };
 
@@ -888,6 +916,7 @@ export default function PosterEditor() {
                                         borderColor: element.borderColor || '#ffffff',
                                         borderRadius: element.borderRadius || 0,
                                     }}
+                                    {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
                                 />
                             )}
                         </View>
@@ -909,7 +938,63 @@ export default function PosterEditor() {
                     <Ionicons name="close" size={24} color="#1e293b" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{posterName}</Text>
-                <TouchableOpacity onPress={() => setShowPreviewModal(true)} style={styles.saveButton}>
+                <TouchableOpacity
+                    onPress={async () => {
+                        try {
+                            setSelectedElementId(null); // Deselect before capturing
+                            await new Promise(resolve => setTimeout(resolve, 100));
+
+                            if (Platform.OS === 'web') {
+                                // Web: Use html2canvas for HD quality
+                                const canvasElement = canvasRef.current as any;
+                                if (!canvasElement) {
+                                    Alert.alert('Error', 'Canvas not found');
+                                    return;
+                                }
+
+                                // Dynamically load html2canvas if not available
+                                if (typeof window !== 'undefined' && !(window as any).html2canvas) {
+                                    const script = document.createElement('script');
+                                    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                                    await new Promise((resolve, reject) => {
+                                        script.onload = resolve;
+                                        script.onerror = reject;
+                                        document.head.appendChild(script);
+                                    });
+                                }
+
+                                const html2canvas = (window as any).html2canvas;
+                                const canvas = await html2canvas(canvasElement, {
+                                    useCORS: true,
+                                    allowTaint: false,
+                                    backgroundColor: '#ffffff',
+                                    scale: 4, // HD Quality - 4x resolution
+                                    logging: false,
+                                });
+
+                                const uri = canvas.toDataURL('image/png');
+                                setPreviewImageUri(uri);
+                                setShowPreviewModal(true);
+                            } else {
+                                // Mobile: Use captureRef with HIGH QUALITY settings
+                                const uri = await captureRef(canvasRef, {
+                                    format: 'png',                    // PNG for maximum quality
+                                    quality: 1,                       // No compression
+                                    result: 'tmpfile',                // Better performance
+                                    width: canvasSize.w,              // Original width
+                                    height: canvasSize.h,             // Original height  
+                                    pixelRatio: PixelRatio.get() * 2, // 🔥 Retina quality (2x device pixel ratio)
+                                } as any);
+                                setPreviewImageUri(uri);
+                                setShowPreviewModal(true);
+                            }
+                        } catch (error) {
+                            console.error('Preview generation error:', error);
+                            Alert.alert('Error', 'Failed to generate preview');
+                        }
+                    }}
+                    style={styles.saveButton}
+                >
                     <MaterialCommunityIcons name="eye" size={18} color="#fff" style={{ marginRight: 4 }} />
                     <Text style={styles.saveButtonText}>Preview</Text>
                 </TouchableOpacity>
@@ -951,6 +1036,7 @@ export default function PosterEditor() {
                                     { height: canvasSize.h }
                                 ]}
                                 resizeMode="contain"
+                                {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
                             />
 
                             {/* Filter Overlay */}
@@ -2107,6 +2193,7 @@ export default function PosterEditor() {
                                             source={{ uri: currentImage }}
                                             style={styles.filterPreviewImage}
                                             resizeMode="cover"
+                                            {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
                                         />
                                         <View style={[
                                             styles.filterPreviewOverlay,
@@ -2133,7 +2220,7 @@ export default function PosterEditor() {
             </Modal >
 
             {/* Preview Modal - Desktop-like preview with download */}
-            < Modal
+            <Modal
                 visible={showPreviewModal}
                 animationType="fade"
                 transparent={true}
@@ -2170,10 +2257,10 @@ export default function PosterEditor() {
                         marginBottom: 16,
                         textAlign: 'center',
                     }}>
-                        Poster Preview
+                        Poster Preview (HD Quality)
                     </Text>
 
-                    {/* Preview Canvas */}
+                    {/* Preview Image */}
                     <View style={{
                         backgroundColor: '#fff',
                         borderRadius: 12,
@@ -2186,84 +2273,28 @@ export default function PosterEditor() {
                         maxWidth: width * 0.9,
                         maxHeight: height * 0.6,
                     }}>
-                        <View
-                            style={{
-                                width: canvasSize.w * 0.9,
-                                height: canvasSize.h * 0.9,
-                                backgroundColor: '#fff',
-                                overflow: 'hidden',
-                            }}
-                            collapsable={false}
-                        >
-                            {/* Poster Image with Filter */}
+                        {previewImageUri ? (
                             <Image
-                                source={{ uri: currentImage }}
-                                style={{ width: '100%', height: '100%' }}
-                                resizeMode="cover"
+                                source={{ uri: previewImageUri }}
+                                style={{
+                                    width: canvasSize.w * 0.8,
+                                    height: canvasSize.h * 0.8,
+                                    maxWidth: width * 0.85,
+                                    maxHeight: height * 0.55,
+                                }}
+                                resizeMode="contain"
                             />
-                            {/* Filter Overlay */}
-                            {selectedFilter !== 'none' && (
-                                <View
-                                    style={{
-                                        ...StyleSheet.absoluteFillObject,
-                                        backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
-                                    }}
-                                />
-                            )}
-                            {/* Elements */}
-                            {elements.map((el) => (
-                                <View
-                                    key={el.id}
-                                    style={{
-                                        position: 'absolute',
-                                        left: el.x * 0.9,
-                                        top: el.y * 0.9,
-                                        transform: [
-                                            { scale: el.scale * 0.9 },
-                                            { rotate: `${el.rotation}deg` },
-                                            { scaleX: el.isFlipped ? -1 : 1 },
-                                        ],
-                                    }}
-                                >
-                                    {el.type === 'text' ? (
-                                        <Text style={{
-                                            color: el.color || '#000',
-                                            fontSize: (el.fontSize || 24) * 0.9,
-                                            fontFamily: el.fontFamily,
-                                        }}>
-                                            {el.content}
-                                        </Text>
-                                    ) : (
-                                        <Image
-                                            source={{ uri: el.content }}
-                                            style={{
-                                                width: (el.imageWidth || 100) * 0.9,
-                                                height: (el.imageHeight || 100) * 0.9,
-                                                borderWidth: (el.borderWidth || 0),
-                                                borderColor: el.borderColor || '#ffffff',
-                                                borderRadius: (el.borderRadius || 0) * 0.9
-                                            }}
-                                            resizeMode="contain"
-                                        />
-                                    )}
-                                </View>
-                            ))}
-                            {/* Bottom Bar */}
+                        ) : (
                             <View style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                minHeight: canvasSize.h * 0.12 * 0.9,
+                                width: canvasSize.w * 0.8,
+                                height: canvasSize.h * 0.8,
+                                justifyContent: 'center',
+                                alignItems: 'center',
                             }}>
-                                <RenderBottomBar
-                                    template={selectedBottomBarTemplate}
-                                    details={bottomBarDetails}
-                                    width={canvasSize.w * 0.9}
-                                    customization={frameCustomization}
-                                />
+                                <ActivityIndicator size="large" color={SP_RED} />
+                                <Text style={{ marginTop: 10, color: '#64748b' }}>Generating HD Preview...</Text>
                             </View>
-                        </View>
+                        )}
                     </View>
 
                     {/* Action Buttons */}
@@ -2272,7 +2303,7 @@ export default function PosterEditor() {
                         gap: 16,
                         marginTop: 24,
                     }}>
-                        {/* Download Button */}
+                        {/* Download Button - Direct HD Download */}
                         <TouchableOpacity
                             style={{
                                 flexDirection: 'row',
@@ -2284,45 +2315,78 @@ export default function PosterEditor() {
                                 gap: 8,
                             }}
                             onPress={() => {
-                                setShowPreviewModal(false);
-                                handleSave('download');
+                                if (previewImageUri) {
+                                    if (Platform.OS === 'web') {
+                                        // Web: Direct download of HD image
+                                        const link = document.createElement('a');
+                                        link.href = previewImageUri;
+                                        link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}-hd.png`;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        Alert.alert('Success', 'HD Poster downloaded successfully!');
+                                        setShowPreviewModal(false);
+                                    } else {
+                                        // Mobile: Save HD image
+                                        (async () => {
+                                            try {
+                                                const { status } = await MediaLibrary.requestPermissionsAsync(true);
+                                                if (status === 'granted') {
+                                                    await MediaLibrary.saveToLibraryAsync(previewImageUri);
+                                                    Alert.alert('Success', 'HD Poster saved to gallery!');
+                                                    setShowPreviewModal(false);
+                                                } else {
+                                                    Alert.alert('Permission Required', 'Please grant permission to save photos.');
+                                                }
+                                            } catch (error) {
+                                                console.error('Save error:', error);
+                                                Alert.alert('Error', 'Failed to save poster');
+                                            }
+                                        })();
+                                    }
+                                }
                             }}
-                            disabled={isSaving}
+                            disabled={!previewImageUri}
                         >
-                            {isSaving ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <MaterialCommunityIcons name="download" size={20} color="#fff" />
-                            )}
+                            <MaterialCommunityIcons name="download" size={20} color="#fff" />
                             <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-                                {isSaving ? 'Saving...' : 'Download'}
+                                Download HD
                             </Text>
                         </TouchableOpacity>
 
                         {/* Share Button */}
-                        <TouchableOpacity
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                backgroundColor: 'rgba(255,255,255,0.2)',
-                                borderRadius: 25,
-                                paddingVertical: 14,
-                                paddingHorizontal: 28,
-                                gap: 8,
-                                borderWidth: 1,
-                                borderColor: 'rgba(255,255,255,0.3)',
-                            }}
-                            onPress={() => {
-                                setShowPreviewModal(false);
-                                handleSave('share');
-                            }}
-                        >
-                            <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
-                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Share</Text>
-                        </TouchableOpacity>
+                        {Platform.OS !== 'web' && (
+                            <TouchableOpacity
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    backgroundColor: 'rgba(255,255,255,0.2)',
+                                    borderRadius: 25,
+                                    paddingVertical: 14,
+                                    paddingHorizontal: 28,
+                                    gap: 8,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(255,255,255,0.3)',
+                                }}
+                                onPress={async () => {
+                                    if (previewImageUri) {
+                                        try {
+                                            await Sharing.shareAsync(previewImageUri);
+                                        } catch (error) {
+                                            console.error('Share error:', error);
+                                            Alert.alert('Error', 'Failed to share poster');
+                                        }
+                                    }
+                                }}
+                                disabled={!previewImageUri}
+                            >
+                                <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
+                                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Share</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
-            </Modal >
+            </Modal>
 
             {/* Frame Customization Modal */}
             <Modal

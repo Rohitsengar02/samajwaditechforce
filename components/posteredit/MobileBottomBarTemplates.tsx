@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -18,6 +18,10 @@ const getSocialIcon = (platform?: string): string => {
         default: return 'twitter';
     }
 };
+
+// Helper to get cross-origin props for web images (fixes CORS canvas taint)
+const getWebImageProps = () => Platform.OS === 'web' ? { crossOrigin: 'anonymous' as any } : {};
+
 
 export const TEMPLATES = [
     { id: 'default', name: '🎯 Classic Frame' },
@@ -129,7 +133,7 @@ const DefaultBar = ({ details, width, customization }: TemplateProps) => {
                         borderWidth: customization?.imageBorderWidth || 2,
                     }]}>
                         {details?.photo ? (
-                            <Image source={{ uri: details.photo }} style={styles.photo} />
+                            <Image source={{ uri: details.photo }} style={styles.photo} {...getWebImageProps()} />
                         ) : (
                             <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                         )}
@@ -163,7 +167,7 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
                     elevation: 3,
                 }]}>
                     {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={styles.photo} />
+                        <Image source={{ uri: details.photo }} style={styles.photo} {...getWebImageProps()} />
                     ) : (
                         <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                     )}
@@ -243,7 +247,7 @@ const MinimalWhiteBar = ({ details, width, customization }: TemplateProps) => {
                     borderWidth: customization?.imageBorderWidth || 2,
                 }]}>
                     {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={[styles.photo, { borderRadius: 6 }]} />
+                        <Image source={{ uri: details.photo }} style={[styles.photo, { borderRadius: 6 }]} {...getWebImageProps()} />
                     ) : (
                         <Image source={require('../../assets/images/icon.png')} style={[styles.photo, { borderRadius: 6 }]} />
                     )}
@@ -355,7 +359,7 @@ const RedAccentBar = ({ details, width, customization }: TemplateProps) => {
                             borderWidth: 1.5,
                         }]}>
                             {details?.photo ? (
-                                <Image source={{ uri: details.photo }} style={styles.photo} />
+                                <Image source={{ uri: details.photo }} style={styles.photo} {...getWebImageProps()} />
                             ) : (
                                 <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                             )}
@@ -415,7 +419,7 @@ const YellowThemeBar = ({ details, width, customization }: TemplateProps) => {
                         borderWidth: 2,
                     }]}>
                         {details?.photo ? (
-                            <Image source={{ uri: details.photo }} style={styles.photo} />
+                            <Image source={{ uri: details.photo }} style={styles.photo} {...getWebImageProps()} />
                         ) : (
                             <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                         )}
@@ -518,7 +522,7 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
                             borderWidth: 2,
                         }]}>
                             {details?.photo ? (
-                                <Image source={{ uri: details.photo }} style={styles.photo} />
+                                <Image source={{ uri: details.photo }} style={styles.photo} {...getWebImageProps()} />
                             ) : (
                                 <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                             )}
