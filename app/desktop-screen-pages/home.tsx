@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     heroMainImage: {
-        width: '100%',
+        width: 800,
         height: 500,
         borderRadius: 20,
     },
