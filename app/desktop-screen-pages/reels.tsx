@@ -1,26 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Image, Modal, TouchableOpacity, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, ScrollView, StyleSheet, Pressable, Image, TouchableOpacity, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
-
 import { getApiUrl } from '../../utils/api';
-import { Linking } from 'react-native';
 
 export default function DesktopReels() {
     const router = useRouter();
     const [reels, setReels] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedReel, setSelectedReel] = useState<any>(null);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [isMuted, setIsMuted] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(true);
+    const videoRef = useRef<Video>(null);
+    const containerRef = useRef<any>(null);
 
     useEffect(() => {
         fetchReels();
     }, []);
+
+    useEffect(() => {
+        // Auto-play when reel changes
+        setIsPlaying(true);
+        if (videoRef.current) {
+            videoRef.current.playAsync();
+        }
+    }, [currentIndex]);
 
     const fetchReels = async () => {
         try {
@@ -28,7 +39,9 @@ export default function DesktopReels() {
             const res = await fetch(`${url}/reels`);
             const data = await res.json();
             if (data.success && Array.isArray(data.data)) {
-                setReels(data.data);
+                // Create infinite scroll by tripling
+                const tripled = [...data.data, ...data.data, ...data.data];
+                setReels(tripled);
             }
         } catch (err) {
             console.error(err);
@@ -37,158 +50,276 @@ export default function DesktopReels() {
         }
     };
 
-    const handlePlayReel = (reel: any) => {
-        if (reel?.videoUrl) {
-            setSelectedReel(reel);
+    const handleNext = () => {
+        if (currentIndex < reels.length - 1) {
+            setCurrentIndex(currentIndex + 1);
+        } else {
+            setCurrentIndex(0);
         }
     };
 
-    const renderVideoContent = (url: string) => {
-        if (!url) return null;
-
-        // YouTube
-        const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/);
-        if (ytMatch && ytMatch[1]) {
-            // @ts-ignore
-            return <iframe
-                src={`https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&rel=0`}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowFullScreen
-            />;
+    const handlePrevious = () => {
+        if (currentIndex > 0) {
+            setCurrentIndex(currentIndex - 1);
+        } else {
+            setCurrentIndex(reels.length - 1);
         }
-
-        // Google Drive
-        if (url.includes('drive.google.com')) {
-            // @ts-ignore
-            return <iframe
-                src={url.replace('/view', '/preview')}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                allow="autoplay"
-                allowFullScreen
-            />;
-        }
-
-        // Generic Video
-        // @ts-ignore
-        return <video
-            src={url}
-            controls
-            autoPlay
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-        />;
     };
+
+    const togglePlayPause = () => {
+        if (isPlaying) {
+            videoRef.current?.pauseAsync();
+        } else {
+            videoRef.current?.playAsync();
+        }
+        setIsPlaying(!isPlaying);
+    };
+
+    const toggleMute = () => {
+        setIsMuted(!isMuted);
+    };
+
+    const currentReel = reels[currentIndex];
+
+    if (loading) {
+        return (
+            <View style={styles.container}>
+                <DesktopHeader />
+                <View style={styles.loadingContainer}>
+                    <Text>Loading Reels...</Text>
+                </View>
+            </View>
+        );
+    }
+
+    if (!currentReel) {
+        return (
+            <View style={styles.container}>
+                <DesktopHeader />
+                <View style={styles.loadingContainer}>
+                    <Text>No Reels Available</Text>
+                </View>
+            </View>
+        );
+    }
+
+    const isYoutube = currentReel.videoUrl?.includes('youtu');
+    const isDrive = currentReel.videoUrl?.includes('drive.google.com');
 
     return (
         <View style={styles.container}>
             <DesktopHeader />
-            <ScrollView>
-                <View style={styles.hero}>
-                    <View style={styles.badge}><MaterialCommunityIcons name="play-box-multiple" size={18} color={SP_RED} /><Text style={styles.badgeText}>Video Reels</Text></View>
-                    <Text style={styles.heroTitle}>Watch & Share</Text>
-                    <Text style={styles.heroSubtitle}>Short clips from our rallies, events, and community work</Text>
-                </View>
 
-                <View style={styles.reelsSection}>
-                    <View style={styles.reelsGrid}>
-                        {reels.map((reel) => (
-                            <Pressable
-                                key={reel._id}
-                                style={styles.reelCard}
-                                onPress={() => handlePlayReel(reel)}
-                            >
-                                <Image
-                                    source={{ uri: reel.thumbnailUrl || 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400' }}
-                                    style={styles.reelThumbnail}
-                                    resizeMode="cover"
-                                />
-                                <View style={styles.playOverlay}>
-                                    <View style={styles.playButton}>
-                                        <MaterialCommunityIcons name="play" size={32} color="#fff" />
-                                    </View>
-                                </View>
-                                <View style={styles.reelInfo}>
-                                    <Text style={styles.reelTitle} numberOfLines={2}>{reel.title}</Text>
-                                    <View style={styles.reelStats}>
-                                        <View style={styles.reelStat}>
-                                            <MaterialCommunityIcons name="eye" size={14} color="#fff" />
-                                            <Text style={styles.reelStatText}>2k+</Text>
-                                        </View>
-                                        <View style={styles.reelStat}>
-                                            <MaterialCommunityIcons name="open-in-new" size={14} color="#fff" />
-                                            <Text style={styles.reelStatText}>{reel.platform || 'Link'}</Text>
-                                        </View>
-                                    </View>
-                                </View>
-                            </Pressable>
-                        ))}
-                        {reels.length === 0 && !loading && (
-                            <Text style={{ fontSize: 18, color: '#64748b' }}>No reels available at the moment.</Text>
-                        )}
-                    </View>
-                </View>
-                {selectedReel && (
-                    <Modal
-                        visible={true}
-                        transparent={true}
-                        animationType="fade"
-                        onRequestClose={() => setSelectedReel(null)}
-                    >
-                        <View style={styles.modalOverlay}>
-                            <TouchableOpacity
-                                style={styles.modalBackdrop}
-                                activeOpacity={1}
-                                onPress={() => setSelectedReel(null)}
+            <View style={styles.mainContent}>
+                {/* Left Arrow */}
+                <TouchableOpacity
+                    style={styles.arrowButton}
+                    onPress={handlePrevious}
+                    activeOpacity={0.7}
+                >
+                    <MaterialCommunityIcons name="chevron-left" size={32} color="#fff" />
+                </TouchableOpacity>
+
+                {/* Center Video Player */}
+                <View style={styles.videoWrapper}>
+                    <View style={styles.videoPlayerContainer}>
+                        {isYoutube || isDrive ? (
+                            // @ts-ignore
+                            <iframe
+                                src={
+                                    isYoutube
+                                        ? `https://www.youtube.com/embed/${currentReel.videoUrl.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/)?.[1]}?autoplay=1&controls=0&mute=${isMuted ? 1 : 0}`
+                                        : currentReel.videoUrl.replace('/view', '/preview')
+                                }
+                                style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 }}
+                                allow="autoplay; encrypted-media"
+                                allowFullScreen
                             />
-                            <View style={styles.modalContent}>
-                                <TouchableOpacity
-                                    style={styles.closeButton}
-                                    onPress={() => setSelectedReel(null)}
-                                >
-                                    <MaterialCommunityIcons name="close" size={24} color="#fff" />
-                                </TouchableOpacity>
-                                <View style={styles.videoContainer}>
-                                    {renderVideoContent(selectedReel.videoUrl)}
+                        ) : (
+                            <Video
+                                ref={videoRef}
+                                source={{ uri: currentReel.videoUrl }}
+                                style={styles.video}
+                                resizeMode={ResizeMode.COVER}
+                                shouldPlay={isPlaying}
+                                isLooping
+                                isMuted={isMuted}
+                                useNativeControls={false}
+                                volume={1.0}
+                            />
+                        )}
+
+                        {/* Profile Info Overlay */}
+                        <View style={styles.profileOverlay}>
+                            <View style={styles.profileSection}>
+                                <Image
+                                    source={require('../../assets/images/icon.png')}
+                                    style={styles.profilePic}
+                                />
+                                <View style={styles.profileText}>
+                                    <Text style={styles.username}>Samajwadi Tech Force</Text>
+                                    <Text style={styles.subscribers}>Official Channel</Text>
                                 </View>
                             </View>
+                            <Text style={styles.videoTitle} numberOfLines={2}>
+                                {currentReel.title}
+                            </Text>
                         </View>
-                    </Modal>
-                )}
-            </ScrollView>
+
+                        {/* Video Controls */}
+                        <View style={styles.controls}>
+                            <TouchableOpacity
+                                style={styles.controlButton}
+                                onPress={togglePlayPause}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons
+                                    name={isPlaying ? "pause" : "play"}
+                                    size={24}
+                                    color="#fff"
+                                />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.controlButton}
+                                onPress={toggleMute}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialCommunityIcons
+                                    name={isMuted ? "volume-off" : "volume-high"}
+                                    size={24}
+                                    color="#fff"
+                                />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Right Arrow */}
+                <TouchableOpacity
+                    style={styles.arrowButton}
+                    onPress={handleNext}
+                    activeOpacity={0.7}
+                >
+                    <MaterialCommunityIcons name="chevron-right" size={32} color="#fff" />
+                </TouchableOpacity>
+            </View>
+
+            {/* Bottom Down Arrow */}
+            <TouchableOpacity
+                style={styles.downArrow}
+                onPress={handleNext}
+                activeOpacity={0.7}
+            >
+                <MaterialCommunityIcons name="chevron-down" size={32} color="#fff" />
+            </TouchableOpacity>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8f9fa' },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 60, paddingVertical: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', zIndex: 100 },
-    headerLogo: { fontSize: 24, fontWeight: '900', color: SP_RED },
-    navMenu: { flexDirection: 'row', alignItems: 'center', gap: 32 },
-    navItem: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    langSwitch: { fontSize: 14, fontWeight: '600', color: '#64748b', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#f1f5f9' },
-    loginBtn: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
-    signupBtn: { backgroundColor: SP_RED, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
-    signupBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    hero: { backgroundColor: '#fef2f2', paddingHorizontal: 60, paddingVertical: 80 },
-    badge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 20 },
-    badgeText: { fontSize: 14, color: SP_RED, fontWeight: '600' },
-    heroTitle: { fontSize: 48, fontWeight: '900', color: '#1e293b', marginBottom: 16 },
-    heroSubtitle: { fontSize: 18, color: '#64748b' },
-    reelsSection: { padding: 60 },
-    reelsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 24 },
-    reelCard: { width: '31%', height: 400, borderRadius: 16, overflow: 'hidden', backgroundColor: '#000' },
-    reelThumbnail: { width: '100%', height: '100%' },
-    playOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-    playButton: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(227,5,18,0.9)', justifyContent: 'center', alignItems: 'center' },
-    reelInfo: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16 },
-    reelTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 8 },
-    reelStats: { flexDirection: 'row', gap: 16 },
-    reelStat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    reelStatText: { fontSize: 12, color: '#fff', fontWeight: '600' },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
-    modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-    modalContent: { width: '85%', height: '85%', backgroundColor: '#000', borderRadius: 16, overflow: 'hidden', maxWidth: 1200, elevation: 5 },
-    closeButton: { position: 'absolute', top: 20, right: 20, zIndex: 50, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20 },
-    videoContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+    container: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    mainContent: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 40,
+        paddingVertical: 20,
+    },
+    arrowButton: {
+        padding: 16,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 50,
+    } as any,
+    videoWrapper: {
+        flex: 1,
+        maxWidth: 400,
+        height: 700,
+        marginHorizontal: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    videoPlayerContainer: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#1a1a1a',
+        borderRadius: 12,
+        overflow: 'hidden',
+        position: 'relative',
+    } as any,
+    video: {
+        width: '100%',
+        height: '100%',
+    },
+    profileOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 20,
+        backgroundColor: 'transparent',
+    } as any,
+    profileSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    } as any,
+    profilePic: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        marginRight: 12,
+    },
+    profileText: {
+        flex: 1,
+    } as any,
+    username: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
+    } as any,
+    subscribers: {
+        fontSize: 13,
+        color: '#e0e0e0',
+        marginTop: 2,
+    } as any,
+    videoTitle: {
+        fontSize: 14,
+        color: '#fff',
+        fontWeight: '500',
+        lineHeight: 18,
+    } as any,
+    controls: {
+        position: 'absolute',
+        bottom: 80,
+        right: 16,
+        flexDirection: 'column',
+        gap: 12,
+    } as any,
+    controlButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    } as any,
+    downArrow: {
+        position: 'absolute',
+        bottom: 40,
+        right: '50%',
+        transform: [{ translateX: 16 }] as any,
+        padding: 12,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 50,
+    } as any,
 });

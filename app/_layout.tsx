@@ -5,10 +5,36 @@ import { Stack, useSegments, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-import { View, TouchableOpacity, StyleSheet, Linking, Image } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Linking, Image, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { Provider as PaperProvider } from 'react-native-paper';
+
+// Google Analytics Configuration
+const GA_MEASUREMENT_ID = 'G-7T9VMCWJYH';
+
+// Initialize Google Analytics for Web
+const initGoogleAnalytics = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // Create and inject gtag script
+    const script1 = document.createElement('script');
+    script1.async = true;
+    script1.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+    document.head.appendChild(script1);
+
+    // Initialize dataLayer and gtag function
+    const script2 = document.createElement('script');
+    script2.innerHTML = `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${GA_MEASUREMENT_ID}');
+    `;
+    document.head.appendChild(script2);
+
+    console.log('✅ Google Analytics initialized');
+  }
+};
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -37,6 +63,9 @@ export default function RootLayout() {
   useEffect(() => {
     const prepareApp = async () => {
       try {
+        // Initialize Google Analytics
+        initGoogleAnalytics();
+
         const userToken = await AsyncStorage.getItem('userToken');
         const inAuthGroup = ['signin', 'register', 'onboarding'].includes(currentRoute as string);
 

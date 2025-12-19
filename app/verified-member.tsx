@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../utils/api';
+import { Dropdown } from 'react-native-element-dropdown';
 
 const SP_RED = '#E30512';
 
@@ -24,6 +25,13 @@ export default function VerifiedMemberScreen() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [user, setUser] = useState<any>(null);
+    const [loadingDistricts, setLoadingDistricts] = useState(false);
+    const [loadingVidhansabhas, setLoadingVidhansabhas] = useState(false);
+
+    // Dropdown data
+    const [districts, setDistricts] = useState<string[]>([]);
+    const [vidhansabhas, setVidhansabhas] = useState<any[]>([]);
+    const [filteredVidhansabhas, setFilteredVidhansabhas] = useState<any[]>([]);
 
     // Form State
     const [district, setDistrict] = useState('');
@@ -38,7 +46,56 @@ export default function VerifiedMemberScreen() {
 
     useEffect(() => {
         loadUserData();
+        fetchDistricts();
+        fetchVidhansabhas();
     }, []);
+
+    // Filter vidhansabhas when district changes
+    useEffect(() => {
+        if (district) {
+            const filtered = vidhansabhas.filter(v =>
+                v.district && v.district.toLowerCase() === district.toLowerCase()
+            );
+            setFilteredVidhansabhas(filtered);
+        } else {
+            setFilteredVidhansabhas(vidhansabhas);
+        }
+    }, [district, vidhansabhas]);
+
+    const fetchDistricts = async () => {
+        try {
+            setLoadingDistricts(true);
+            const url = getApiUrl();
+            const response = await fetch(`${url}/vidhansabha/districts`);
+            const data = await response.json();
+
+            if (data.success) {
+                setDistricts(data.data || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch districts:', error);
+        } finally {
+            setLoadingDistricts(false);
+        }
+    };
+
+    const fetchVidhansabhas = async () => {
+        try {
+            setLoadingVidhansabhas(true);
+            const url = getApiUrl();
+            const response = await fetch(`${url}/vidhansabha`);
+            const data = await response.json();
+
+            if (data.success) {
+                setVidhansabhas(data.data || []);
+                setFilteredVidhansabhas(data.data || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch vidhansabhas:', error);
+        } finally {
+            setLoadingVidhansabhas(false);
+        }
+    };
 
     const loadUserData = async () => {
         try {
@@ -67,6 +124,33 @@ export default function VerifiedMemberScreen() {
             setSocialMedia(socialMedia.filter(p => p !== platform));
         } else {
             setSocialMedia([...socialMedia, platform]);
+        }
+    };
+
+    const handleDateChange = (text: string) => {
+        // Remove all non-numeric characters
+        const cleaned = text.replace(/[^0-9]/g, '');
+
+        let formatted = '';
+
+        // Add "/" after day (2 digits)
+        if (cleaned.length >= 1) {
+            formatted = cleaned.substring(0, 2);
+        }
+
+        // Add "/" after month (4 digits total: DD/MM)
+        if (cleaned.length >= 3) {
+            formatted += '/' + cleaned.substring(2, 4);
+        }
+
+        // Add year (YYYY)
+        if (cleaned.length >= 5) {
+            formatted += '/' + cleaned.substring(4, 8);
+        }
+
+        // Limit to 10 characters (DD/MM/YYYY)
+        if (formatted.length <= 10) {
+            setPartyJoiningDate(formatted);
         }
     };
 
@@ -151,6 +235,7 @@ export default function VerifiedMemberScreen() {
                                 <Text style={styles.sectionTitle}>Basic Details</Text>
                             </View>
 
+
                             <TextInput
                                 label="Email ID"
                                 value={email}
@@ -161,27 +246,79 @@ export default function VerifiedMemberScreen() {
                                 textColor="#334155"
                             />
 
-                            <TextInput
-                                label="District (जिला) *"
-                                value={district}
-                                onChangeText={setDistrict}
-                                mode="outlined"
-                                style={styles.input}
-                                placeholder="Ex: Lucknow, Kanpur"
-                                theme={inputTheme}
-                                textColor="#1e293b"
-                            />
+                            {/* District Dropdown */}
+                            <View style={styles.dropdownContainer}>
+                                <Text style={styles.dropdownLabel}>District (जिला) *</Text>
+                                <Dropdown
+                                    style={styles.dropdown}
+                                    placeholderStyle={styles.placeholderStyle}
+                                    selectedTextStyle={styles.selectedTextStyle}
+                                    inputSearchStyle={styles.inputSearchStyle}
+                                    iconStyle={styles.iconStyle}
+                                    data={districts.map(d => ({ label: d, value: d }))}
+                                    search
+                                    maxHeight={300}
+                                    labelField="label"
+                                    valueField="value"
+                                    placeholder="Select District"
+                                    searchPlaceholder="Search district..."
+                                    value={district}
+                                    onChange={item => {
+                                        setDistrict(item.value);
+                                        setVidhanSabha(''); // Reset vidhan sabha when district changes
+                                    }}
+                                    renderLeftIcon={() => (
+                                        <MaterialCommunityIcons
+                                            name="map-marker"
+                                            size={20}
+                                            color={SP_RED}
+                                            style={{ marginRight: 8 }}
+                                        />
+                                    )}
+                                    disable={loadingDistricts}
+                                />
+                                {loadingDistricts && (
+                                    <ActivityIndicator size="small" color={SP_RED} style={{ position: 'absolute', right: 10, top: 40 }} />
+                                )}
+                            </View>
 
-                            <TextInput
-                                label="Vidhan Sabha (विधानसभा) *"
-                                value={vidhanSabha}
-                                onChangeText={setVidhanSabha}
-                                mode="outlined"
-                                style={styles.input}
-                                placeholder="Ex: Lucknow Central"
-                                theme={inputTheme}
-                                textColor="#1e293b"
-                            />
+                            {/* Vidhan Sabha Dropdown */}
+                            <View style={styles.dropdownContainer}>
+                                <Text style={styles.dropdownLabel}>Vidhan Sabha (विधानसभा) *</Text>
+                                <Dropdown
+                                    style={styles.dropdown}
+                                    placeholderStyle={styles.placeholderStyle}
+                                    selectedTextStyle={styles.selectedTextStyle}
+                                    inputSearchStyle={styles.inputSearchStyle}
+                                    iconStyle={styles.iconStyle}
+                                    data={filteredVidhansabhas.map(v => ({
+                                        label: `${v.constituencyNumber}. ${v.constituencyName}`,
+                                        value: v.constituencyName
+                                    }))}
+                                    search
+                                    maxHeight={300}
+                                    labelField="label"
+                                    valueField="value"
+                                    placeholder={district ? "Select Vidhan Sabha" : "First select a district"}
+                                    searchPlaceholder="Search vidhan sabha..."
+                                    value={vidhanSabha}
+                                    onChange={item => {
+                                        setVidhanSabha(item.value);
+                                    }}
+                                    renderLeftIcon={() => (
+                                        <MaterialCommunityIcons
+                                            name="office-building"
+                                            size={20}
+                                            color={SP_RED}
+                                            style={{ marginRight: 8 }}
+                                        />
+                                    )}
+                                    disable={!district || loadingVidhansabhas}
+                                />
+                                {loadingVidhansabhas && (
+                                    <ActivityIndicator size="small" color={SP_RED} style={{ position: 'absolute', right: 10, top: 40 }} />
+                                )}
+                            </View>
 
                             <TextInput
                                 label="Qualification (क्वालिफिकेशन) *"
@@ -219,27 +356,61 @@ export default function VerifiedMemberScreen() {
 
                             {isPartyMember === 'Yes' && (
                                 <>
-                                    <TextInput
-                                        label="Party Role (पार्टी से आपका संबंध क्या है?)"
-                                        value={partyRole}
-                                        onChangeText={setPartyRole}
-                                        mode="outlined"
-                                        style={styles.input}
-                                        placeholder="Ex: Karyakarta, Booth Adhyaksh"
-                                        theme={inputTheme}
-                                        textColor="#1e293b"
-                                    />
+                                    {/* Party Role Dropdown */}
+                                    <View style={styles.dropdownContainer}>
+                                        <Text style={styles.dropdownLabel}>Party Role (पार्टी से आपका संबंध क्या है?)</Text>
+                                        <Dropdown
+                                            style={styles.dropdown}
+                                            placeholderStyle={styles.placeholderStyle}
+                                            selectedTextStyle={styles.selectedTextStyle}
+                                            inputSearchStyle={styles.inputSearchStyle}
+                                            iconStyle={styles.iconStyle}
+                                            data={[
+                                                { label: 'Karyakarta (कार्यकर्ता)', value: 'Karyakarta' },
+                                                { label: 'Booth Adhyaksh (बूथ अध्यक्ष)', value: 'Booth Adhyaksh' },
+                                                { label: 'Ward Adhyaksh (वार्ड अध्यक्ष)', value: 'Ward Adhyaksh' },
+                                                { label: 'Block Adhyaksh (ब्लॉक अध्यक्ष)', value: 'Block Adhyaksh' },
+                                                { label: 'Mandal Adhyaksh (मंडल अध्यक्ष)', value: 'Mandal Adhyaksh' },
+                                                { label: 'District Adhyaksh (जिला अध्यक्ष)', value: 'District Adhyaksh' },
+                                                { label: 'State Secretary (राज्य सचिव)', value: 'State Secretary' },
+                                                { label: 'General Secretary (महासचिव)', value: 'General Secretary' },
+                                                { label: 'MLA (विधायक)', value: 'MLA' },
+                                                { label: 'MP (सांसद)', value: 'MP' },
+                                                { label: 'Minister (मंत्री)', value: 'Minister' },
+                                                { label: 'Other (अन्य)', value: 'Other' },
+                                            ]}
+                                            search
+                                            maxHeight={300}
+                                            labelField="label"
+                                            valueField="value"
+                                            placeholder="Select Party Role"
+                                            searchPlaceholder="Search role..."
+                                            value={partyRole}
+                                            onChange={item => {
+                                                setPartyRole(item.value);
+                                            }}
+                                            renderLeftIcon={() => (
+                                                <MaterialCommunityIcons
+                                                    name="account-star"
+                                                    size={20}
+                                                    color={SP_RED}
+                                                    style={{ marginRight: 8 }}
+                                                />
+                                            )}
+                                        />
+                                    </View>
 
                                     <TextInput
                                         label="Party Joining Date (पार्टी में कब से हैं?)"
                                         value={partyJoiningDate}
-                                        onChangeText={setPartyJoiningDate}
+                                        onChangeText={handleDateChange}
                                         mode="outlined"
                                         style={styles.input}
-                                        placeholder="Ex: 2020, Jan 2019, 5 years"
-                                        keyboardType="default"
+                                        placeholder="DD/MM/YYYY"
+                                        keyboardType="numeric"
                                         theme={inputTheme}
                                         textColor="#1e293b"
+                                        maxLength={10}
                                     />
                                 </>
                             )}
@@ -410,5 +581,40 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '700',
+    },
+    // Dropdown styles
+    dropdownContainer: {
+        marginBottom: 16,
+    },
+    dropdownLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#64748b',
+        marginBottom: 8,
+    },
+    dropdown: {
+        height: 56,
+        borderColor: '#94a3b8',
+        borderWidth: 1,
+        borderRadius: 4,
+        paddingHorizontal: 12,
+        backgroundColor: '#fff',
+    },
+    placeholderStyle: {
+        fontSize: 16,
+        color: '#94a3b8',
+    },
+    selectedTextStyle: {
+        fontSize: 16,
+        color: '#1e293b',
+    },
+    inputSearchStyle: {
+        height: 40,
+        fontSize: 16,
+        borderColor: '#94a3b8',
+    },
+    iconStyle: {
+        width: 20,
+        height: 20,
     },
 });

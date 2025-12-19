@@ -9,6 +9,7 @@ import {
     StatusBar,
     Platform,
     ActivityIndicator,
+    Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,10 +21,10 @@ import { getApiUrl } from '../utils/api';
 
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
+const SP_GREEN = '#009933';
 
-const ReelVideoCard = ({ item, index, activeIndex, onLike }: any) => {
+const ReelVideoCard = ({ item, index, activeIndex }: any) => {
     const videoRef = useRef<Video>(null);
-    const [isLiked, setIsLiked] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const shouldPlay = index === activeIndex;
@@ -37,11 +38,6 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike }: any) => {
             setIsPlaying(false);
         }
     }, [shouldPlay]);
-
-    const handleLike = () => {
-        setIsLiked(!isLiked);
-        onLike?.(item.id, !isLiked);
-    };
 
     const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
         if (status.isLoaded) {
@@ -58,7 +54,6 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike }: any) => {
         if (isYoutube) {
             const id = uri.match(/(?:youtu\.be\/|youtube\.com\/.*v=)([^&]+)/)?.[1];
             if (id) {
-                // Remove controls, hide YouTube logo, disable related videos
                 uri = `https://www.youtube.com/embed/${id}?autoplay=${shouldPlay ? 1 : 0}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=${id}&mute=0&disablekb=1&fs=0&iv_load_policy=3`;
             }
         } else if (isDrive) {
@@ -88,30 +83,33 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike }: any) => {
                     )}
                 </View>
 
-                {/* Video Overlay Info */}
+                {/* Bottom Info Overlay */}
                 <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
-                    style={styles.gradientOverlay}
+                    colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.85)']}
+                    style={styles.bottomOverlay}
+                    locations={[0, 0.5, 1]}
                 >
-                    <View style={styles.videoInfo}>
+                    <View style={styles.bottomInfo}>
+                        {/* Profile Section */}
+                        <View style={styles.profileSection}>
+                            <View style={styles.profilePicContainer}>
+                                <Image
+                                    source={require('../assets/images/icon.png')}
+                                    style={styles.profilePic}
+                                />
+                            </View>
+                            <View style={styles.profileText}>
+                                <Text style={styles.username}>Samajwadi Tech Force</Text>
+                                <Text style={styles.subtitle}>Official</Text>
+                            </View>
+                        </View>
+
+                        {/* Video Title */}
                         <Text style={styles.videoTitle} numberOfLines={2}>
                             {item.description || item.title}
                         </Text>
                     </View>
                 </LinearGradient>
-
-                {/* Like Button */}
-                <TouchableOpacity
-                    style={styles.likeButton}
-                    onPress={handleLike}
-                    activeOpacity={0.7}
-                >
-                    <MaterialCommunityIcons
-                        name={isLiked ? "heart" : "heart-outline"}
-                        size={32}
-                        color={isLiked ? SP_RED : "#fff"}
-                    />
-                </TouchableOpacity>
             </View>
         );
     }
@@ -124,12 +122,13 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike }: any) => {
                     ref={videoRef}
                     source={{ uri: item.videoUrl }}
                     style={styles.video}
-                    resizeMode={ResizeMode.CONTAIN}
+                    resizeMode={ResizeMode.COVER}
                     shouldPlay={shouldPlay}
                     isLooping
                     isMuted={false}
                     useNativeControls={false}
                     onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+                    volume={1.0}
                 />
 
                 {isLoading && (
@@ -139,30 +138,33 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike }: any) => {
                 )}
             </View>
 
-            {/* Video Overlay Info */}
+            {/* Bottom Info Overlay */}
             <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
-                style={styles.gradientOverlay}
+                colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.85)']}
+                style={styles.bottomOverlay}
+                locations={[0, 0.5, 1]}
             >
-                <View style={styles.videoInfo}>
+                <View style={styles.bottomInfo}>
+                    {/* Profile Section */}
+                    <View style={styles.profileSection}>
+                        <View style={styles.profilePicContainer}>
+                            <Image
+                                source={require('../assets/images/icon.png')}
+                                style={styles.profilePic}
+                            />
+                        </View>
+                        <View style={styles.profileText}>
+                            <Text style={styles.username}>Samajwadi Tech Force</Text>
+                            <Text style={styles.subtitle}>Official</Text>
+                        </View>
+                    </View>
+
+                    {/* Video Title */}
                     <Text style={styles.videoTitle} numberOfLines={2}>
                         {item.description || item.title}
                     </Text>
                 </View>
             </LinearGradient>
-
-            {/* Like Button */}
-            <TouchableOpacity
-                style={styles.likeButton}
-                onPress={handleLike}
-                activeOpacity={0.7}
-            >
-                <MaterialCommunityIcons
-                    name={isLiked ? "heart" : "heart-outline"}
-                    size={32}
-                    color={isLiked ? SP_RED : "#fff"}
-                />
-            </TouchableOpacity>
 
             {/* Play/Pause Indicator */}
             {!isPlaying && !isLoading && (
@@ -179,6 +181,7 @@ export default function ReelsPage() {
     const [activeIndex, setActiveIndex] = useState(0);
     const [reels, setReels] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
         fetchReels();
@@ -191,13 +194,17 @@ export default function ReelsPage() {
             const res = await fetch(`${url}/reels`);
             const data = await res.json();
             if (data.success && Array.isArray(data.data)) {
-                setReels(data.data.map((item: any) => ({
+                const mappedReels = data.data.map((item: any) => ({
                     id: item._id,
                     videoUrl: item.videoUrl,
                     title: item.title,
                     description: item.description,
                     thumbnailUrl: item.thumbnailUrl,
-                })));
+                }));
+
+                // Create infinite scroll by duplicating reels
+                const infiniteReels = [...mappedReels, ...mappedReels, ...mappedReels];
+                setReels(infiniteReels);
             }
         } catch (err) {
             console.error('Failed to fetch reels:', err);
@@ -208,18 +215,36 @@ export default function ReelsPage() {
 
     const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
         if (viewableItems.length > 0) {
-            setActiveIndex(viewableItems[0].index);
+            const newIndex = viewableItems[0].index;
+            setActiveIndex(newIndex);
+
+            // Infinite scroll logic - when reaching end, jump back to middle set
+            if (reels.length > 0) {
+                const originalLength = reels.length / 3;
+                if (newIndex >= reels.length - 2) {
+                    // Near end, jump to middle set
+                    setTimeout(() => {
+                        flatListRef.current?.scrollToIndex({
+                            index: originalLength,
+                            animated: false,
+                        });
+                    }, 100);
+                } else if (newIndex <= 1) {
+                    // Near start, jump to middle set
+                    setTimeout(() => {
+                        flatListRef.current?.scrollToIndex({
+                            index: originalLength + newIndex,
+                            animated: false,
+                        });
+                    }, 100);
+                }
+            }
         }
     }).current;
 
     const viewabilityConfig = useRef({
         itemVisiblePercentThreshold: 50
     }).current;
-
-    const handleLike = (reelId: string, liked: boolean) => {
-        console.log(`Reel ${reelId} ${liked ? 'liked' : 'unliked'}`);
-        // Add API call to save like status
-    };
 
     if (loading) {
         return (
@@ -248,13 +273,13 @@ export default function ReelsPage() {
             </View>
 
             <FlatList
+                ref={flatListRef}
                 data={reels}
                 renderItem={({ item, index }) => (
                     <ReelVideoCard
                         item={item}
                         index={index}
                         activeIndex={activeIndex}
-                        onLike={handleLike}
                     />
                 )}
                 keyExtractor={item => item.id}
@@ -316,10 +341,9 @@ const styles = StyleSheet.create({
         width: width,
         height: height,
         backgroundColor: '#000',
-        justifyContent: 'center',
-        alignItems: 'center',
     },
     videoContainer: {
+        position: 'absolute',
         width: '100%',
         height: '100%',
         backgroundColor: '#000',
@@ -351,35 +375,65 @@ const styles = StyleSheet.create({
         left: '50%',
         transform: [{ translateX: -40 }, { translateY: -40 }],
     },
-    gradientOverlay: {
+    bottomOverlay: {
         position: 'absolute',
         left: 0,
         right: 0,
         bottom: 0,
-        height: '30%',
+        height: '40%',
         justifyContent: 'flex-end',
-        paddingBottom: 20,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
         paddingHorizontal: 16,
     },
-    videoInfo: {
+    bottomInfo: {
         marginBottom: 10,
     },
-    videoTitle: {
+    profileSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    profilePicContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        borderWidth: 2,
+        borderColor: '#fff',
+        overflow: 'hidden',
+    },
+    profilePic: {
+        width: '100%',
+        height: '100%',
+    },
+    profileText: {
+        marginLeft: 12,
+        flex: 1,
+    },
+    username: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: '600',
-        lineHeight: 22,
+        fontWeight: '700',
         textShadowColor: 'rgba(0, 0, 0, 0.75)',
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 3,
     },
-    likeButton: {
-        position: 'absolute',
-        right: 16,
-        bottom: 100,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        padding: 12,
-        borderRadius: 30,
+    subtitle: {
+        color: '#e0e0e0',
+        fontSize: 13,
+        marginTop: 2,
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    videoTitle: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '500',
+        lineHeight: 20,
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+        marginTop: 4,
     },
     loadingScreen: {
         flex: 1,

@@ -111,7 +111,7 @@ export default function DesktopPosterEditor() {
         // Background
         backgroundType: 'gradient' as 'solid' | 'gradient',
         backgroundColor: SP_RED,
-        backgroundGradient: [SP_RED, SP_RED],
+        backgroundGradient: [SP_RED, SP_GREEN],
         backgroundOpacity: 1,
 
         // Image
@@ -1260,29 +1260,54 @@ export default function DesktopPosterEditor() {
             </View>
 
             <View style={styles.workspace}>
-                {/* Left Toolbar */}
-                <View style={styles.leftToolbar}>
-                    {tools.map((tool) => (
+                {/* Left Toolbar - Enhanced Scrollable */}
+                <ScrollView
+                    style={styles.leftToolbar}
+                    contentContainerStyle={styles.leftToolbarContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.toolbarHeader}>
+                        <View style={styles.toolbarHeaderGradient}>
+                            <MaterialCommunityIcons name="palette" size={20} color="#fff" />
+                        </View>
+                        <Text style={styles.toolbarHeaderText}>Tools</Text>
+                    </View>
+
+                    {tools.map((tool, index) => (
                         <TouchableOpacity
                             key={tool.id}
                             style={[
                                 styles.toolItem,
-                                selectedTool === tool.id && styles.selectedTool
+                                selectedTool === tool.id && styles.selectedTool,
+                                { animationDelay: `${index * 50}ms` }
                             ]}
                             onPress={() => handleToolPress(tool.id)}
                         >
-                            <MaterialCommunityIcons
-                                name={tool.icon as any}
-                                size={24}
-                                color={selectedTool === tool.id ? SP_RED : '#64748b'}
-                            />
+                            <View style={[
+                                styles.toolIconContainer,
+                                selectedTool === tool.id && styles.selectedToolIconContainer
+                            ]}>
+                                <MaterialCommunityIcons
+                                    name={tool.icon as any}
+                                    size={24}
+                                    color={selectedTool === tool.id ? '#fff' : '#64748b'}
+                                />
+                            </View>
                             <Text style={[
                                 styles.toolName,
                                 selectedTool === tool.id && styles.selectedToolText
                             ]}>{tool.name}</Text>
+                            {selectedTool === tool.id && (
+                                <View style={styles.selectedToolIndicator} />
+                            )}
                         </TouchableOpacity>
                     ))}
-                </View>
+
+                    <View style={styles.toolbarFooter}>
+                        <View style={styles.toolbarDivider} />
+                        <Text style={styles.toolbarFooterText}>v1.0</Text>
+                    </View>
+                </ScrollView>
 
                 {/* Main Canvas */}
                 <ScrollView
@@ -2396,22 +2421,7 @@ export default function DesktopPosterEditor() {
                                 />
                             </View>
 
-                            <TouchableOpacity
-                                style={[styles.toolActionButton, { backgroundColor: '#16a34a' }]}
-                                onPress={handleRemoveBackground}
-                                disabled={isProcessing}
-                            >
-                                {isProcessing ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <>
-                                        <MaterialCommunityIcons name="image-filter-center-focus" size={24} color="#fff" />
-                                        <Text style={styles.toolActionText}>
-                                            {processedImageUri ? 'Background Removed!' : 'Remove Background'}
-                                        </Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
+
 
                             <TouchableOpacity
                                 style={[styles.toolActionButton, { marginTop: 12 }]}
@@ -2627,34 +2637,122 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     leftToolbar: {
-        width: 80,
-        backgroundColor: '#fff',
+        flex: 0.15,
+        minWidth: 70,
+        maxWidth: 150,
+        backgroundColor: '#f8fafc',
         borderRightWidth: 1,
         borderRightColor: '#e2e8f0',
-        paddingVertical: 20,
+    },
+    leftToolbarContent: {
+        paddingVertical: 16,
+        paddingHorizontal: 8,
+        gap: 8,
         alignItems: 'center',
-        gap: 20,
+    },
+    toolbarHeader: {
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    toolbarHeaderGradient: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: SP_RED,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+        shadowColor: SP_RED,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 5,
+    },
+    toolbarHeaderText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: '#1e293b',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     toolItem: {
         alignItems: 'center',
-        gap: 4,
-        padding: 8,
-        borderRadius: 8,
-        width: 70,
+        gap: 5,
+        paddingVertical: 10,
+        paddingHorizontal: 6,
+        borderRadius: 12,
+        width: '100%',
+        position: 'relative',
+    },
+    toolIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
     },
     selectedTool: {
-        backgroundColor: '#fee2e2',
+        backgroundColor: 'rgba(227, 5, 18, 0.05)',
+    },
+    selectedToolIconContainer: {
+        backgroundColor: SP_RED,
+        borderColor: SP_RED,
+        shadowColor: SP_RED,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+        transform: [{ scale: 1.05 }],
+    },
+    selectedToolIndicator: {
+        position: 'absolute',
+        left: -8,
+        top: '50%',
+        marginTop: -12,
+        width: 4,
+        height: 24,
+        backgroundColor: SP_RED,
+        borderTopRightRadius: 4,
+        borderBottomRightRadius: 4,
     },
     toolName: {
-        fontSize: 10,
+        fontSize: 9,
         color: '#64748b',
+        fontWeight: '500',
+        textAlign: 'center',
     },
     selectedToolText: {
         color: SP_RED,
-        fontWeight: '600',
+        fontWeight: '700',
+    },
+    toolbarFooter: {
+        width: '100%',
+        alignItems: 'center',
+        marginTop: 16,
+        paddingTop: 16,
+    },
+    toolbarDivider: {
+        width: '60%',
+        height: 1,
+        backgroundColor: '#e2e8f0',
+        marginBottom: 8,
+    },
+    toolbarFooterText: {
+        fontSize: 9,
+        color: '#94a3b8',
+        fontWeight: '500',
     },
     canvasArea: {
-        flex: 1,
+        flex: 0.55,
         backgroundColor: '#e2e8f0',
     },
     canvasScrollContent: {
@@ -2700,7 +2798,9 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     rightPanel: {
-        width: 360,
+        flex: 0.30,
+        minWidth: 280,
+        maxWidth: 400,
         backgroundColor: '#fff',
         borderLeftWidth: 1,
         borderLeftColor: '#e2e8f0',

@@ -102,7 +102,7 @@ export default function DesktopHeader() {
                                 {user ? (
                                     <View style={styles.sidebarProfile}>
                                         <Image
-                                            source={user.photo ? { uri: user.photo } : require('../assets/images/icon.png')}
+                                            source={(user.photo || user.profileImage) ? { uri: user.photo || user.profileImage } : require('../assets/images/icon.png')}
                                             style={styles.sidebarAvatar}
                                         />
                                         <View>
@@ -357,7 +357,7 @@ export default function DesktopHeader() {
                 {user ? (
                     <Pressable style={styles.profileBtn} onPress={() => router.push('/(tabs)/profile' as any)}>
                         <Image
-                            source={user.photo ? { uri: user.photo } : require('../assets/images/icon.png')}
+                            source={(user.photo || user.profileImage) ? { uri: user.photo || user.profileImage } : require('../assets/images/icon.png')}
                             style={styles.avatar}
                         />
                         <Text style={styles.profileName}>{user.name?.split(' ')[0] || 'User'}</Text>
