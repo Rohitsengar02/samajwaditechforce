@@ -38,6 +38,36 @@ const FRAME_PREVIEWS = [
         colors: ['#6366f1', '#d946ef'],
         description: 'Purple gradient with wave effects',
     },
+    {
+        id: 'curved_tech',
+        name: '🚀 STF Special',
+        colors: [SP_RED, SP_GREEN],
+        description: 'Circular badge with tech styling',
+    },
+    {
+        id: 'stf_bold',
+        name: '🟥 STF Bold',
+        colors: [SP_RED, SP_GREEN],
+        description: 'Sharp, professional block design',
+    },
+    {
+        id: 'stf_rounded',
+        name: '💊 STF Rounded',
+        colors: [SP_RED, SP_GREEN],
+        description: 'Modern rounded pillar layout',
+    },
+    {
+        id: 'stf_tabbed',
+        name: '📑 STF Tabbed',
+        colors: [SP_RED, SP_GREEN],
+        description: 'Interlocking tab design',
+    },
+    {
+        id: 'stf_minimal',
+        name: '✨ STF Minimal',
+        colors: [SP_RED, SP_GREEN],
+        description: 'Clean floating elements',
+    },
 ];
 
 interface FrameSelectorProps {

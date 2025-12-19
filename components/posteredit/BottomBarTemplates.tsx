@@ -25,6 +25,11 @@ export const TEMPLATES = [
     { id: 'minimal_white', name: '✨ Modern Minimal' },
     { id: 'red_accent', name: '🔴 Red Power' },
     { id: 'gradient_wave', name: '🌊 Vibrant Wave' },
+    { id: 'curved_tech', name: '🚀 STF Special' },
+    { id: 'stf_bold', name: '🟥 STF Bold' },
+    { id: 'stf_rounded', name: '💊 STF Rounded' },
+    { id: 'stf_tabbed', name: '📑 STF Tabbed' },
+    { id: 'stf_minimal', name: '✨ STF Minimal' },
 ];
 
 interface TemplateCustomization {
@@ -52,6 +57,8 @@ interface TemplateCustomization {
     socialFontSize?: number;
     socialColor?: string;
     socialBackgroundColor?: string;
+    customColor1?: string;
+    customColor2?: string;
 }
 
 interface TemplateProps {
@@ -511,6 +518,298 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
     );
 };
 
+// Template 7: Curved Tech Frame - STF Special
+const CurvedTechFrame = ({ details, width, customization }: TemplateProps) => {
+    const bgColors = customization?.backgroundGradient || [SP_RED, SP_RED];
+    const bottomColor = customization?.customColor2 || SP_GREEN;
+    const badgeSize = customization?.imageSize || 100;
+
+    return (
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
+
+            {/* Main Content Container - Split into Red and Green strips */}
+            <View style={{ flex: 1, height: '100%', flexDirection: 'column', borderRadius: 12, overflow: 'hidden' }}>
+
+                {/* Top Red Strip - Contains Name & Designation */}
+                <LinearGradient
+                    colors={bgColors as any}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{
+                        flex: 6, // 60% height
+                        justifyContent: 'center',
+                        paddingLeft: badgeSize + 45, // Clear badge completely
+                        paddingRight: 10,
+                        paddingVertical: 5
+                    }}
+                >
+                    <View>
+                        <Text style={[styles.textBold, {
+                            fontSize: customization?.nameFontSize || 20,
+                            color: customization?.nameColor || '#fff',
+                            textShadowColor: 'rgba(0,0,0,0.3)',
+                            textShadowOffset: { width: 1, height: 1 },
+                            textShadowRadius: 3,
+                        }]}>{details?.name || 'Your Name'}</Text>
+                        <Text style={[styles.textRegular, {
+                            fontSize: customization?.designationFontSize || 12,
+                            color: customization?.designationColor || '#e2e8f0',
+                            marginTop: 2
+                        }]}>{details?.designation || 'Designation'}</Text>
+                    </View>
+                </LinearGradient>
+
+                {/* Bottom Green Strip - Contains Contact Info */}
+                <View style={{
+                    flex: 4, // 40% height
+                    backgroundColor: bottomColor,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingLeft: badgeSize + 45, // Clear badge completely
+                    paddingRight: 10,
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    paddingVertical: 5
+                }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 20 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name="phone" size={customization?.mobileFontSize || 12} color={customization?.mobileColor || '#fff'} />
+                            <Text style={{ fontSize: customization?.mobileFontSize || 11, color: customization?.mobileColor || '#fff', fontWeight: '600' }}>{details?.mobile || '+91...'}</Text>
+                        </View>
+                        <View style={{ width: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.4)' }} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={customization?.socialFontSize || 12} color={customization?.socialColor || '#fff'} />
+                            <Text style={{ fontSize: customization?.socialFontSize || 11, color: customization?.socialColor || '#fff', fontWeight: '600' }}>{details?.socialHandle || '@handle'}</Text>
+                        </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <MaterialCommunityIcons name="map-marker" size={customization?.addressFontSize || 12} color={customization?.addressColor || '#fff'} />
+                        <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#fff' }} numberOfLines={1}>{details?.address || 'Address'}</Text>
+                    </View>
+                </View>
+
+            </View>
+
+            {/* Badge Area (Left Overhanging) - Floating on top */}
+            <View style={{
+                position: 'absolute',
+                top: -5,
+                bottom: -5,
+                left: 5,
+                width: badgeSize + 20,
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 20
+            }}>
+                {/* Badge Rings */}
+                <View style={{
+                    width: badgeSize + 16,
+                    height: badgeSize + 16,
+                    borderRadius: (badgeSize + 16) / 2,
+                    backgroundColor: '#fff',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4.65,
+                    elevation: 8,
+                }}>
+                    <View style={{
+                        width: badgeSize + 8,
+                        height: badgeSize + 8,
+                        borderRadius: (badgeSize + 8) / 2,
+                        backgroundColor: SP_GREEN, // Green Ring
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                    }}>
+                        <View style={{
+                            width: badgeSize,
+                            height: badgeSize,
+                            borderRadius: badgeSize / 2,
+                            backgroundColor: '#fff',
+                            overflow: 'hidden',
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        }}>
+                            {details?.photo ? (
+                                <Image source={{ uri: details.photo }} style={styles.photo} />
+                            ) : (
+                                <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
+                            )}
+                        </View>
+
+
+                    </View>
+                    {/* Red Label S.T.F. */}
+                    <View style={{
+                        position: 'absolute',
+                        bottom: -5,
+                        backgroundColor: SP_RED,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: '#fff'
+                    }}>
+                        <Text style={{ fontSize: 10, color: '#fff', fontWeight: 'bold' }}>S.T.F.</Text>
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+};
+
+
+
+
+// Template 8: Bold STF - Sharp, Professional
+const StfBoldFrame = ({ details, width, customization }: TemplateProps) => {
+    const bgColors = customization?.backgroundGradient || [SP_RED, SP_RED];
+    const bottomColor = customization?.customColor2 || SP_GREEN;
+    const badgeSize = customization?.imageSize || 100;
+
+    return (
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
+            <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 0, overflow: 'hidden', flexDirection: 'column' }}>
+                {/* Red Strip - Sharp */}
+                <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 6, paddingLeft: badgeSize + 40, paddingRight: 10, justifyContent: 'center' }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 22, color: customization?.nameColor || '#fff', textTransform: 'uppercase' }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#e2e8f0', marginTop: 2 }]}>{details?.designation || 'Designation'}</Text>
+                </LinearGradient>
+                {/* Green Strip - Sharp */}
+                <View style={{ flex: 4, backgroundColor: bottomColor, flexDirection: 'row', alignItems: 'center', paddingLeft: badgeSize + 40, paddingRight: 10, justifyContent: 'space-between', paddingVertical: 5 }}>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                        <Text style={{ fontSize: customization?.mobileFontSize || 12, color: '#fff', fontWeight: 'bold' }}>{details?.mobile || '+91...'}</Text>
+                        <Text style={{ fontSize: customization?.socialFontSize || 12, color: '#fff' }}>{details?.socialHandle || '@handle'}</Text>
+                    </View>
+                    <Text style={{ fontSize: customization?.addressFontSize || 11, color: '#fff' }}>{details?.address || 'Address'}</Text>
+                </View>
+            </View>
+            {/* Square Badge */}
+            <View style={{ position: 'absolute', top: 0, bottom: 0, left: 10, width: badgeSize + 10, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}>
+                <View style={{ width: badgeSize + 10, height: badgeSize + 10, backgroundColor: '#fff', padding: 3, shadowColor: "#000", shadowOffset: { width: 2, height: 2 }, shadowOpacity: 0.3, elevation: 5 }}>
+                    <Image source={{ uri: details.photo || undefined }} style={{ width: '100%', height: '100%', backgroundColor: '#eee' }} />
+                    <View style={{ position: 'absolute', bottom: -5, right: -5, backgroundColor: SP_RED, padding: 4 }}>
+                        <Text style={{ fontSize: 10, color: '#fff', fontWeight: 'bold' }}>STF</Text>
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+};
+
+// Template 9: Rounded STF - Floating Pills
+const StfRoundedFrame = ({ details, width, customization }: TemplateProps) => {
+    const bgColors = customization?.backgroundGradient || [SP_RED, SP_RED];
+    const bottomColor = customization?.customColor2 || SP_GREEN;
+    const badgeSize = customization?.imageSize || 100;
+
+    return (
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
+            <View style={{ flex: 1, flexDirection: 'column', gap: 4, padding: 5 }}>
+                {/* Red Pill */}
+                <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 6, borderRadius: 30, paddingLeft: badgeSize + 30, paddingRight: 20, justifyContent: 'center' }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 20, color: customization?.nameColor || '#fff' }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#e2e8f0' }]}>{details?.designation || 'Designation'}</Text>
+                </LinearGradient>
+                {/* Green Pill */}
+                <View style={{ flex: 4, backgroundColor: bottomColor, borderRadius: 20, flexDirection: 'row', alignItems: 'center', paddingLeft: badgeSize + 30, paddingRight: 20, justifyContent: 'space-between', paddingVertical: 5 }}>
+                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                        <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><MaterialCommunityIcons name="phone" size={12} color="#fff" /><Text style={{ fontSize: 11, color: '#fff' }}>{details?.mobile || '+91...'}</Text></View>
+                        <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><MaterialCommunityIcons name="web" size={12} color="#fff" /><Text style={{ fontSize: 11, color: '#fff' }}>{details?.socialHandle || '@handle'}</Text></View>
+                    </View>
+                </View>
+            </View>
+            {/* Circular Badge - Floating */}
+            <View style={{ position: 'absolute', top: -5, bottom: -5, left: 10, width: badgeSize + 10, justifyContent: 'center', zIndex: 20 }}>
+                <View style={{ width: badgeSize + 10, height: badgeSize + 10, borderRadius: (badgeSize + 10) / 2, backgroundColor: '#fff', borderWidth: 3, borderColor: bottomColor, overflow: 'hidden', elevation: 5 }}>
+                    <Image source={{ uri: details.photo || undefined }} style={{ width: '100%', height: '100%' }} />
+                </View>
+            </View>
+        </View>
+    );
+};
+
+// Template 10: Tabbed STF - Interlocking
+const StfTabbedFrame = ({ details, width, customization }: TemplateProps) => {
+    const bgColors = customization?.backgroundGradient || [SP_RED, SP_RED];
+    const bottomColor = customization?.customColor2 || SP_GREEN;
+    const badgeSize = customization?.imageSize || 100;
+
+    return (
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
+            <View style={{ flex: 1, flexDirection: 'column' }}>
+                {/* Top: Red with rounded bottom-right */}
+                <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 6, borderBottomRightRadius: 40, marginRight: 20, paddingLeft: badgeSize + 35, paddingRight: 10, justifyContent: 'center', zIndex: 2 }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 20, color: customization?.nameColor || '#fff' }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#e2e8f0' }]}>{details?.designation || 'Designation'}</Text>
+                </LinearGradient>
+                {/* Bottom: Green full width */}
+                <View style={{ flex: 4, backgroundColor: bottomColor, marginTop: -15, paddingTop: 15, flexDirection: 'row', alignItems: 'center', paddingLeft: badgeSize + 35, paddingRight: 10, justifyContent: 'space-between', zIndex: 1 }}>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 5 }}>
+                        <Text style={{ fontSize: 11, color: '#fff' }}>{details?.mobile || '+91...'}</Text>
+                        <View style={{ width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.5)' }} />
+                        <Text style={{ fontSize: 11, color: '#fff' }}>{details?.address || 'Location'}</Text>
+                    </View>
+                </View>
+            </View>
+            {/* Hexagon-ish Badge (Square with radius) */}
+            <View style={{ position: 'absolute', top: 5, bottom: 5, left: 5, zIndex: 20 }}>
+                <View style={{ width: badgeSize, height: badgeSize, borderRadius: 15, backgroundColor: '#fff', padding: 2, transform: [{ rotate: '3deg' }], shadowColor: '#000', shadowOpacity: 0.3, elevation: 5 }}>
+                    <Image source={{ uri: details.photo || undefined }} style={{ width: '100%', height: '100%', borderRadius: 13 }} />
+                </View>
+            </View>
+        </View>
+    );
+};
+
+// Template 11: Minimal STF - Clean Lines
+const StfMinimalFrame = ({ details, width, customization }: TemplateProps) => {
+    const bgColors = customization?.backgroundGradient || [SP_RED, SP_RED];
+    const bottomColor = customization?.customColor2 || SP_GREEN;
+    const badgeSize = customization?.imageSize || 100;
+
+    return (
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
+            <View style={{ flex: 1, flexDirection: 'column' }}>
+                {/* Red Line Top */}
+                <View style={{ height: 4, backgroundColor: SP_RED, width: '100%' }} />
+
+                <View style={{ flex: 1, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center' }}>
+                    {/* Badge Left */}
+                    <View style={{ width: badgeSize + 20, alignItems: 'center', justifyContent: 'center' }}>
+                        <View style={{ width: badgeSize, height: badgeSize, borderRadius: badgeSize / 2, overflow: 'hidden', borderWidth: 3, borderColor: SP_RED }}>
+                            <Image source={{ uri: details.photo || undefined }} style={{ width: '100%', height: '100%' }} />
+                        </View>
+                    </View>
+
+                    {/* Content Right */}
+                    <View style={{ flex: 1, paddingVertical: 5, gap: 2 }}>
+                        <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start' }}>
+                            <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: '#fff' }]}>{details?.name || 'Your Name'}</Text>
+                        </LinearGradient>
+                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: '#333', paddingHorizontal: 10 }]}>{details?.designation || 'Designation'}</Text>
+
+                        <View style={{ flexDirection: 'row', gap: 5, marginTop: 2, paddingHorizontal: 10 }}>
+                            <View style={{ backgroundColor: bottomColor, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                                <Text style={{ fontSize: 10, color: '#fff' }}>{details?.mobile || 'Mobile'}</Text>
+                            </View>
+                            <View style={{ backgroundColor: bottomColor, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                                <Text style={{ fontSize: 10, color: '#fff' }}>{details?.socialHandle || 'Social'}</Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+                {/* Green Line Bottom */}
+                <View style={{ height: 6, backgroundColor: bottomColor, width: '100%' }} />
+            </View>
+        </View>
+    );
+};
+
+
+
 export const renderTemplate = (templateIdOrProps: string | { template?: string; templateId?: string; details: any; width: number; customization?: TemplateCustomization }, details?: any, width?: number, customization?: TemplateCustomization) => {
     // Handle both old and new API
     let templateId: string;
@@ -541,6 +840,16 @@ export const renderTemplate = (templateIdOrProps: string | { template?: string; 
             return <RedAccentBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
         case 'gradient_wave':
             return <GradientWaveBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'curved_tech':
+            return <CurvedTechFrame details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'stf_bold':
+            return <StfBoldFrame details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'stf_rounded':
+            return <StfRoundedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'stf_tabbed':
+            return <StfTabbedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'stf_minimal':
+            return <StfMinimalFrame details={finalDetails} width={finalWidth} customization={finalCustomization} />;
         default:
             return <DefaultBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
     }

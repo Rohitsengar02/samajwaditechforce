@@ -111,7 +111,7 @@ export default function DesktopPosterEditor() {
         // Background
         backgroundType: 'gradient' as 'solid' | 'gradient',
         backgroundColor: SP_RED,
-        backgroundGradient: [SP_RED, '#16a34a'],
+        backgroundGradient: [SP_RED, SP_RED],
         backgroundOpacity: 1,
 
         // Image
@@ -143,6 +143,10 @@ export default function DesktopPosterEditor() {
         socialFontSize: 15,
         socialColor: '#ffffff',
         socialBackgroundColor: 'transparent',
+
+        // Custom Colors
+        customColor1: '#000000',
+        customColor2: '#009933',
     });
 
     // Image Enhancer State
@@ -1869,6 +1873,30 @@ export default function DesktopPosterEditor() {
                                     {/* Element-Specific Customization */}
                                     {selectedCustomElement && (
                                         <View style={styles.customizationPanel}>
+                                            {/* Global Custom Colors Config */}
+                                            <View style={{ marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingBottom: 16 }}>
+                                                <Text style={[styles.customizeLabel, { marginBottom: 8 }]}>My Custom Colors (Quick Access)</Text>
+                                                <View style={{ flexDirection: 'row', gap: 16 }}>
+                                                    <View style={{ alignItems: 'center', gap: 4 }}>
+                                                        <Text style={{ fontSize: 10, color: '#64748b' }}>Color 1</Text>
+                                                        <input
+                                                            type="color"
+                                                            value={frameCustomization.customColor1 || '#000000'}
+                                                            onChange={(e) => setFrameCustomization(prev => ({ ...prev, customColor1: e.target.value }))}
+                                                            style={{ width: 60, height: 34, borderRadius: 6, cursor: 'pointer', border: '1px solid #cbd5e1', padding: 0 }}
+                                                        />
+                                                    </View>
+                                                    <View style={{ alignItems: 'center', gap: 4 }}>
+                                                        <Text style={{ fontSize: 10, color: '#64748b' }}>Color 2</Text>
+                                                        <input
+                                                            type="color"
+                                                            value={frameCustomization.customColor2 || '#ffffff'}
+                                                            onChange={(e) => setFrameCustomization(prev => ({ ...prev, customColor2: e.target.value }))}
+                                                            style={{ width: 60, height: 34, borderRadius: 6, cursor: 'pointer', border: '1px solid #cbd5e1', padding: 0 }}
+                                                        />
+                                                    </View>
+                                                </View>
+                                            </View>
                                             {selectedCustomElement === 'Background' && (
                                                 <>
                                                     <View style={styles.customSection}>
@@ -2042,9 +2070,9 @@ export default function DesktopPosterEditor() {
                                                     <View style={styles.customSection}>
                                                         <Text style={styles.customizeLabel}>Border Color</Text>
                                                         <View style={styles.colorGrid}>
-                                                            {[SP_RED, SP_GREEN, '#FFD700', '#000000', '#ffffff', 'transparent'].map(c => (
+                                                            {[SP_RED, SP_GREEN, '#FFD700', '#000000', '#ffffff', frameCustomization.customColor1 || '#000000', frameCustomization.customColor2 || '#ffffff', 'transparent'].map((c, idx) => (
                                                                 <TouchableOpacity
-                                                                    key={c}
+                                                                    key={`${c}-${idx}`}
                                                                     style={[
                                                                         styles.colorDot,
                                                                         { backgroundColor: c === 'transparent' ? '#fff' : c },
@@ -2088,9 +2116,9 @@ export default function DesktopPosterEditor() {
                                                         <View style={styles.customSection}>
                                                             <Text style={styles.customizeLabel}>Text Color</Text>
                                                             <View style={styles.colorGrid}>
-                                                                {['#0f172a', '#64748b', SP_RED, SP_GREEN, '#FFD700', '#ffffff', 'transparent'].map(c => (
+                                                                {['#0f172a', '#64748b', SP_RED, SP_GREEN, '#FFD700', '#ffffff', frameCustomization.customColor1 || '#000000', frameCustomization.customColor2 || '#ffffff', 'transparent'].map((c, idx) => (
                                                                     <TouchableOpacity
-                                                                        key={c}
+                                                                        key={`${c}-${idx}`}
                                                                         style={[
                                                                             styles.colorDot,
                                                                             { backgroundColor: c === 'transparent' ? '#fff' : c },
@@ -2108,9 +2136,9 @@ export default function DesktopPosterEditor() {
                                                         <View style={styles.customSection}>
                                                             <Text style={styles.customizeLabel}>Background Color</Text>
                                                             <View style={styles.colorGrid}>
-                                                                {['transparent', '#ffffff', '#f8fafc', SP_RED, SP_GREEN, '#FFD700', '#000000'].map(c => (
+                                                                {['transparent', '#ffffff', '#f8fafc', SP_RED, SP_GREEN, '#FFD700', '#000000', frameCustomization.customColor1 || '#000000', frameCustomization.customColor2 || '#ffffff'].map((c, idx) => (
                                                                     <TouchableOpacity
-                                                                        key={c}
+                                                                        key={`${c}-${idx}`}
                                                                         style={[
                                                                             styles.colorDot,
                                                                             { backgroundColor: c === 'transparent' ? '#fff' : c },

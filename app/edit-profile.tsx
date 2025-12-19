@@ -36,6 +36,7 @@ export default function EditProfileScreen() {
     const [gender, setGender] = useState('');
     const [dob, setDob] = useState('');
     const [profileImage, setProfileImage] = useState<string | null>(null);
+    const [bgRemovedProfileImage, setBgRemovedProfileImage] = useState<string | null>(null);
 
     useEffect(() => {
         loadUserData();
@@ -53,6 +54,7 @@ export default function EditProfileScreen() {
                 setGender(parsedUser.gender || '');
                 setDob(parsedUser.dob || '');
                 setProfileImage(parsedUser.profileImage || null);
+                setBgRemovedProfileImage(parsedUser.bgremovedprofile || null);
             }
         } catch (error) {
             console.error('Failed to load user data', error);
@@ -69,6 +71,19 @@ export default function EditProfileScreen() {
 
         if (!result.canceled) {
             setProfileImage(result.assets[0].uri);
+        }
+    };
+
+    const pickBgRemovedImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+        });
+
+        if (!result.canceled) {
+            setBgRemovedProfileImage(result.assets[0].uri);
         }
     };
 
@@ -132,6 +147,19 @@ export default function EditProfileScreen() {
                 setUploading(false);
             }
 
+            let bgRemovedUrl = bgRemovedProfileImage;
+            if (bgRemovedProfileImage && !bgRemovedProfileImage.startsWith('http')) {
+                setUploading(true);
+                const uploadedUrl = await uploadImageToCloudinary(bgRemovedProfileImage);
+                if (uploadedUrl) {
+                    bgRemovedUrl = uploadedUrl;
+                } else {
+                    // Fail silently or alert? Alerting is safer.
+                    console.log('Failed to upload BG removed image');
+                }
+                setUploading(false);
+            }
+
             const token = await AsyncStorage.getItem('userToken');
             if (!token) {
                 Alert.alert('Error', 'Not authenticated');
@@ -155,6 +183,7 @@ export default function EditProfileScreen() {
                     gender,
                     dob,
                     profileImage: imageUrl,
+                    bgremovedprofile: bgRemovedUrl, // As requested
                 }),
             });
 
@@ -236,6 +265,31 @@ export default function EditProfileScreen() {
                             </View>
                         </TouchableOpacity>
                         <Text style={styles.changePhotoText}>Change Profile Photo</Text>
+                    </View>
+
+                    {/* BG Removed Image */}
+                    <View style={styles.imageContainer}>
+                        <TouchableOpacity onPress={pickBgRemovedImage} style={styles.imageWrapper}>
+                            {bgRemovedProfileImage ? (
+                                <Image source={{ uri: bgRemovedProfileImage }} style={styles.image} />
+                            ) : (
+                                <View style={[styles.placeholderImage, { backgroundColor: '#e2e8f0', borderColor: '#cbd5e1' }]}>
+                                    <MaterialCommunityIcons name="image-off-outline" size={40} color="#94a3b8" />
+                                </View>
+                            )}
+                            <View style={[styles.cameraIcon, { backgroundColor: SP_GREEN }]}>
+                                <MaterialCommunityIcons name="upload" size={20} color="#fff" />
+                            </View>
+                        </TouchableOpacity>
+                        <Text style={[styles.changePhotoText, { color: SP_GREEN }]}>Upload BG-Removed Image</Text>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 5 }}>
+                            <Text style={{ fontSize: 12, color: '#64748b' }}>Don't have one?</Text>
+                            <TouchableOpacity onPress={() => router.push('/bg-remover')} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                <MaterialCommunityIcons name="magic-staff" size={14} color={SP_RED} />
+                                <Text style={{ fontSize: 12, color: SP_RED, fontWeight: 'bold' }}>Use AI Remover Tool</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     {/* Form Fields */}

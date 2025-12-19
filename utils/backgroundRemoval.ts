@@ -14,7 +14,11 @@ export const removeBackground = async (imageSource: string | Blob): Promise<Blob
             const imgly = await import('@imgly/background-removal');
 
             // Remove background
-            const blob = await imgly.removeBackground(imageSource);
+            // We configured publicPath to CDN to avoid local WASM loading issues in Expo Web
+            const blob = await imgly.removeBackground(imageSource, {
+                publicPath: 'https://static.imgly.com/lib/background-removal/data/',
+                debug: true // Helpful for troubleshooting
+            });
             return blob;
         } catch (error) {
             console.error('Error removing background on Web:', error);
