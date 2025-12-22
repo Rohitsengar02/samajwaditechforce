@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getApiUrl } from '../utils/api';
 
 const SP_RED = '#E30512';
 
@@ -12,6 +13,40 @@ export default function ContactUsScreen() {
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [settings, setSettings] = useState<any>({
+        pageTitle: 'Get in Touch',
+        pageSubtitle: 'We\'d love to hear from you. Send us a message and we\'ll respond as soon as possible.',
+        address: '19, Vikramaditya Marg, Lucknow, Uttar Pradesh 226001',
+        email: 'contact@samajwadiparty.in',
+        phone: '',
+        nameLabel: 'Full Name',
+        emailLabel: 'Email Address',
+        messageLabel: 'Message',
+        submitButtonText: 'Send Message',
+        successMessage: 'Your message has been sent!',
+        officeHours: '',
+        socialMedia: []
+    });
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            const url = getApiUrl();
+            const res = await fetch(`${url}/contact-settings`);
+            const data = await res.json();
+            if (data.success) {
+                setSettings(data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching contact settings:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async () => {
         if (!name || !email || !message) {
@@ -20,14 +55,43 @@ export default function ContactUsScreen() {
         }
 
         setSubmitting(true);
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            const url = getApiUrl();
+            const res = await fetch(`${url}/contact-settings/submit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, message })
+            });
+
+            const data = await res.json();
             setSubmitting(false);
-            Alert.alert('Success', 'Your message has been sent!', [
-                { text: 'OK', onPress: () => router.back() }
-            ]);
-        }, 1500);
+
+            if (data.success) {
+                Alert.alert('Success', settings.successMessage, [
+                    {
+                        text: 'OK', onPress: () => {
+                            setName('');
+                            setEmail('');
+                            setMessage('');
+                        }
+                    }
+                ]);
+            } else {
+                Alert.alert('Error', data.message || 'Failed to send message');
+            }
+        } catch (error) {
+            setSubmitting(false);
+            Alert.alert('Error', 'Failed to send message. Please try again.');
+        }
     };
+
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={SP_RED} />
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -42,31 +106,31 @@ export default function ContactUsScreen() {
 
             <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
                 <View style={styles.headerSection}>
-                    <Text style={styles.title}>Get in Touch</Text>
+                    <Text style={styles.title}>{settings.pageTitle}</Text>
                     <Text style={styles.subtitle}>
-                        We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+                        {settings.pageSubtitle}
                     </Text>
                 </View>
 
                 <View style={styles.form}>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Full Name</Text>
+                        <Text style={styles.label}>{settings.nameLabel}</Text>
                         <TextInput
                             style={styles.input}
                             value={name}
                             onChangeText={setName}
-                            placeholder="Enter your name"
+                            placeholder={`Enter your ${settings.nameLabel.toLowerCase()}`}
                             placeholderTextColor="#94a3b8"
                         />
                     </View>
 
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Email Address</Text>
+                        <Text style={styles.label}>{settings.emailLabel}</Text>
                         <TextInput
                             style={styles.input}
                             value={email}
                             onChangeText={setEmail}
-                            placeholder="Enter your email"
+                            placeholder={`Enter your ${settings.emailLabel.toLowerCase()}`}
                             placeholderTextColor="#94a3b8"
                             keyboardType="email-address"
                             autoCapitalize="none"
@@ -74,7 +138,7 @@ export default function ContactUsScreen() {
                     </View>
 
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Message</Text>
+                        <Text style={styles.label}>{settings.messageLabel}</Text>
                         <TextInput
                             style={[styles.input, styles.textArea]}
                             value={message}
@@ -99,21 +163,37 @@ export default function ContactUsScreen() {
                             {submitting ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.submitText}>Send Message</Text>
+                                <Text style={styles.submitText}>{settings.submitButtonText}</Text>
                             )}
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.infoSection}>
-                    <View style={styles.infoItem}>
-                        <MaterialCommunityIcons name="map-marker" size={24} color={SP_RED} />
-                        <Text style={styles.infoText}>19, Vikramaditya Marg, Lucknow, Uttar Pradesh 226001</Text>
-                    </View>
-                    <View style={styles.infoItem}>
-                        <MaterialCommunityIcons name="email" size={24} color={SP_RED} />
-                        <Text style={styles.infoText}>contact@samajwadiparty.in</Text>
-                    </View>
+                    {settings.address && (
+                        <View style={styles.infoItem}>
+                            <MaterialCommunityIcons name="map-marker" size={24} color={SP_RED} />
+                            <Text style={styles.infoText}>{settings.address}</Text>
+                        </View>
+                    )}
+                    {settings.email && (
+                        <View style={styles.infoItem}>
+                            <MaterialCommunityIcons name="email" size={24} color={SP_RED} />
+                            <Text style={styles.infoText}>{settings.email}</Text>
+                        </View>
+                    )}
+                    {settings.phone && (
+                        <View style={styles.infoItem}>
+                            <MaterialCommunityIcons name="phone" size={24} color={SP_RED} />
+                            <Text style={styles.infoText}>{settings.phone}</Text>
+                        </View>
+                    )}
+                    {settings.officeHours && (
+                        <View style={styles.infoItem}>
+                            <MaterialCommunityIcons name="clock-outline" size={24} color={SP_RED} />
+                            <Text style={styles.infoText}>{settings.officeHours}</Text>
+                        </View>
+                    )}
                 </View>
             </ScrollView>
         </View>

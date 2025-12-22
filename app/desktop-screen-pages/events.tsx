@@ -49,6 +49,17 @@ export default function DesktopEvents() {
         <View style={styles.container}>
             <DesktopHeader />
             <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Back Button */}
+                <View style={styles.backButtonContainer}>
+                    <Pressable
+                        style={styles.backButton}
+                        onPress={() => router.push('/')}
+                    >
+                        <MaterialCommunityIcons name="arrow-left" size={20} color={SP_RED} />
+                        <Text style={styles.backButtonText}>Back to Home</Text>
+                    </Pressable>
+                </View>
+
                 {/* Hero Banner */}
                 <View style={styles.heroBanner}>
                     <View style={styles.heroBannerContent}>
@@ -186,6 +197,29 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f8f9fa',
+    },
+    backButtonContainer: {
+        paddingHorizontal: 60,
+        paddingTop: 24,
+        paddingBottom: 12,
+        backgroundColor: '#fff',
+    },
+    backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        alignSelf: 'flex-start',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 8,
+        backgroundColor: '#fef2f2',
+        borderWidth: 1,
+        borderColor: '#fee2e2',
+    },
+    backButtonText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: SP_RED,
     },
     // Header Styles
     header: {

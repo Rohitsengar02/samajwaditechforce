@@ -55,14 +55,14 @@ export const newsAPI = {
         }
     },
 
-    async toggleLike(id: string, userId: string): Promise<{ success: boolean; data: string[] }> {
+    async toggleLike(id: string, userId: string, username: string): Promise<{ success: boolean; data: string[]; points?: number; firstLike?: boolean }> {
         try {
             const response = await fetch(`${API_BASE_URL}/news/${id}/like`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ userId }),
+                body: JSON.stringify({ userId, username }),
             });
             if (!response.ok) throw new Error('Failed to toggle like');
             return await response.json();
@@ -72,19 +72,36 @@ export const newsAPI = {
         }
     },
 
-    async addComment(id: string, text: string, userId: string, name: string): Promise<{ success: boolean; data: Comment[] }> {
+    async addComment(id: string, text: string, userId: string, name: string, username: string): Promise<{ success: boolean; data: Comment[]; points?: number; firstComment?: boolean }> {
         try {
             const response = await fetch(`${API_BASE_URL}/news/${id}/comment`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ text, userId, name }),
+                body: JSON.stringify({ text, userId, name, username }),
             });
             if (!response.ok) throw new Error('Failed to add comment');
             return await response.json();
         } catch (error) {
             console.error('Error adding comment:', error);
+            throw error;
+        }
+    },
+
+    async shareNews(id: string, userId: string, username: string): Promise<{ success: boolean; points?: number; firstShare?: boolean }> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/news/${id}/share`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ userId, username }),
+            });
+            if (!response.ok) throw new Error('Failed to track share');
+            return await response.json();
+        } catch (error) {
+            console.error('Error tracking share:', error);
             throw error;
         }
     },

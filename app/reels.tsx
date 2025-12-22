@@ -10,6 +10,11 @@ import {
     Platform,
     ActivityIndicator,
     Image,
+    Modal,
+    TextInput,
+    KeyboardAvoidingView,
+    ScrollView,
+    Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,7 +28,7 @@ const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
-const ReelVideoCard = ({ item, index, activeIndex }: any) => {
+const ReelVideoCard = ({ item, index, activeIndex, onLike, onComment, onShare, onDownload }: any) => {
     const videoRef = useRef<Video>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -47,6 +52,20 @@ const ReelVideoCard = ({ item, index, activeIndex }: any) => {
 
     const isYoutube = item.videoUrl?.includes('youtu');
     const isDrive = item.videoUrl?.includes('drive.google.com');
+
+    // Interaction Button Component
+    const InteractionButton = ({ icon, label, count, onPress, active }: any) => (
+        <TouchableOpacity style={styles.interactionButton} onPress={onPress} activeOpacity={0.7}>
+            <MaterialCommunityIcons
+                name={icon}
+                size={32}
+                color={active ? SP_RED : '#fff'}
+            />
+            {count > 0 && (
+                <Text style={styles.interactionCount}>{count}</Text>
+            )}
+        </TouchableOpacity>
+    );
 
     // Render YouTube or Google Drive videos
     if (isYoutube || isDrive) {
@@ -81,6 +100,31 @@ const ReelVideoCard = ({ item, index, activeIndex }: any) => {
                             <MaterialCommunityIcons name="play-circle-outline" size={80} color="rgba(255,255,255,0.7)" />
                         </View>
                     )}
+                </View>
+
+                {/* Right Interaction Sidebar */}
+                <View style={styles.interactionSidebar}>
+                    <InteractionButton
+                        icon={item.isLiked ? "heart" : "heart-outline"}
+                        count={item.likesCount || 0}
+                        onPress={() => onLike(item)}
+                        active={item.isLiked}
+                    />
+                    <InteractionButton
+                        icon="comment-outline"
+                        count={item.commentsCount || 0}
+                        onPress={() => onComment(item)}
+                    />
+                    <InteractionButton
+                        icon="share-outline"
+                        count={item.sharesCount || 0}
+                        onPress={() => onShare(item)}
+                    />
+                    <InteractionButton
+                        icon="download-outline"
+                        count={item.downloadsCount || 0}
+                        onPress={() => onDownload(item)}
+                    />
                 </View>
 
                 {/* Bottom Info Overlay */}
@@ -138,6 +182,31 @@ const ReelVideoCard = ({ item, index, activeIndex }: any) => {
                 )}
             </View>
 
+            {/* Right Interaction Sidebar */}
+            <View style={styles.interactionSidebar}>
+                <InteractionButton
+                    icon={item.isLiked ? "heart" : "heart-outline"}
+                    count={item.likesCount || 0}
+                    onPress={() => onLike(item)}
+                    active={item.isLiked}
+                />
+                <InteractionButton
+                    icon="comment-outline"
+                    count={item.commentsCount || 0}
+                    onPress={() => onComment(item)}
+                />
+                <InteractionButton
+                    icon="share-outline"
+                    count={item.sharesCount || 0}
+                    onPress={() => onShare(item)}
+                />
+                <InteractionButton
+                    icon="download-outline"
+                    count={item.downloadsCount || 0}
+                    onPress={() => onDownload(item)}
+                />
+            </View>
+
             {/* Bottom Info Overlay */}
             <LinearGradient
                 colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.85)']}
@@ -176,12 +245,68 @@ const ReelVideoCard = ({ item, index, activeIndex }: any) => {
     );
 };
 
+// Toast Notification Component
+const Toast = ({ visible, message, onHide }: any) => {
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (visible) {
+            Animated.sequence([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+                Animated.delay(2000),
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => onHide());
+        }
+    }, [visible]);
+
+    if (!visible) return null;
+
+    return (
+        <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }]}>
+            <LinearGradient
+                colors={['#8b5cf6', '#7c3aed']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.toastGradient}
+            >
+                <MaterialCommunityIcons name="star-circle" size={24} color="#fff" />
+                <Text style={styles.toastText}>{message}</Text>
+            </LinearGradient>
+        </Animated.View>
+    );
+};
+
 export default function ReelsPage() {
     const router = useRouter();
     const [activeIndex, setActiveIndex] = useState(0);
     const [reels, setReels] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const flatListRef = useRef<FlatList>(null);
+
+    // Comment Modal State
+    const [showCommentModal, setShowCommentModal] = useState(false);
+    const [selectedReel, setSelectedReel] = useState<any>(null);
+    const [commentText, setCommentText] = useState('');
+    const [submittingComment, setSubmittingComment] = useState(false);
+    const [comments, setComments] = useState<any[]>([]);
+    const [loadingComments, setLoadingComments] = useState(false);
+
+    // Toast State
+    const [toastVisible, setToastVisible] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        setToastVisible(true);
+    };
 
     useEffect(() => {
         fetchReels();
@@ -193,6 +318,13 @@ export default function ReelsPage() {
             const url = getApiUrl();
             const res = await fetch(`${url}/reels`);
             const data = await res.json();
+
+            // Get user info
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            const userInfo = userInfoStr ? JSON.parse(userInfoStr) : null;
+            const userId = userInfo?._id || userInfo?.id;
+
             if (data.success && Array.isArray(data.data)) {
                 const mappedReels = data.data.map((item: any) => ({
                     id: item._id,
@@ -200,16 +332,220 @@ export default function ReelsPage() {
                     title: item.title,
                     description: item.description,
                     thumbnailUrl: item.thumbnailUrl,
+                    likesCount: item.likes?.length || 0,
+                    commentsCount: item.comments?.length || 0,
+                    sharesCount: item.shares?.length || 0,
+                    downloadsCount: item.downloads?.length || 0,
+                    isLiked: userId ? item.likes?.some((l: any) => l.user?.toString() === userId) : false,
                 }));
 
-                // Create infinite scroll by duplicating reels
-                const infiniteReels = [...mappedReels, ...mappedReels, ...mappedReels];
+                // Create infinite scroll by duplicating reels with unique keys
+                const infiniteReels = [
+                    ...mappedReels.map((r: any, i: number) => ({ ...r, uniqueKey: `set1-${r.id}-${i}` })),
+                    ...mappedReels.map((r: any, i: number) => ({ ...r, uniqueKey: `set2-${r.id}-${i}` })),
+                    ...mappedReels.map((r: any, i: number) => ({ ...r, uniqueKey: `set3-${r.id}-${i}` })),
+                ];
                 setReels(infiniteReels);
             }
         } catch (err) {
             console.error('Failed to fetch reels:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleLike = async (reel: any) => {
+        try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (!userInfoStr) {
+                showToast('❌ Please login to like reels');
+                return;
+            }
+            const userInfo = JSON.parse(userInfoStr);
+            const userId = userInfo._id || userInfo.id;
+            const username = userInfo.username || userInfo.phone || userInfo.email;
+
+            const wasLiked = reel.isLiked;
+
+            // Update UI optimistically
+            setReels(prev => prev.map(r => r.id === reel.id ? {
+                ...r,
+                isLiked: !r.isLiked,
+                likesCount: r.isLiked ? r.likesCount - 1 : r.likesCount + 1
+            } : r));
+
+            const url = getApiUrl();
+            const res = await fetch(`${url}/reels/${reel.id}/like`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, userId })
+            });
+            const data = await res.json();
+
+            if (data.success && data.likesCount !== undefined) {
+                setReels(prev => prev.map(r => r.id === reel.id ? {
+                    ...r,
+                    likesCount: data.likesCount
+                } : r));
+
+                // Show points toast only when liking (not unliking)
+                if (!wasLiked) {
+                    showToast('🎉 +5 points for liking!');
+                }
+            }
+        } catch (error) {
+            console.error('Like error:', error);
+        }
+    };
+
+    const handleComment = async (reel: any) => {
+        setSelectedReel(reel);
+        setShowCommentModal(true);
+        setComments([]);
+        setLoadingComments(true);
+
+        try {
+            const url = getApiUrl();
+            const res = await fetch(`${url}/reels/${reel.id}`);
+            const data = await res.json();
+
+            if (data.success && data.data) {
+                const sortedComments = (data.data.comments || []).sort((a: any, b: any) =>
+                    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+                );
+                setComments(sortedComments);
+            }
+        } catch (error) {
+            console.error('Failed to fetch comments:', error);
+            showToast('❌ Failed to load comments');
+        } finally {
+            setLoadingComments(false);
+        }
+    };
+
+    const handleShare = async (reel: any) => {
+        try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (!userInfoStr) {
+                showToast('❌ Please login to share');
+                return;
+            }
+            const userInfo = JSON.parse(userInfoStr);
+            const userId = userInfo._id || userInfo.id;
+            const username = userInfo.username || userInfo.phone || userInfo.email;
+
+            const url = getApiUrl();
+            const res = await fetch(`${url}/reels/${reel.id}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, userId })
+            });
+            const data = await res.json();
+
+            if (data.firstShare && data.points) {
+                showToast(`📤 +${data.points} points for sharing!`);
+            }
+
+            // Share using native share
+            const Share = require('react-native').Share;
+            await Share.share({
+                message: `Check out this reel: ${reel.title}`,
+                title: reel.title
+            });
+        } catch (error: any) {
+            if (error.message !== 'User did not share') {
+                console.error('Share error:', error);
+            }
+        }
+    };
+
+    const handleDownload = async (reel: any) => {
+        try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (!userInfoStr) {
+                showToast('❌ Please login to download');
+                return;
+            }
+            const userInfo = JSON.parse(userInfoStr);
+            const userId = userInfo._id || userInfo.id;
+            const username = userInfo.username || userInfo.phone || userInfo.email;
+
+            const url = getApiUrl();
+            const res = await fetch(`${url}/reels/${reel.id}/download`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, userId })
+            });
+            const data = await res.json();
+
+            if (data.firstDownload && data.points) {
+                showToast(`⬇️ +${data.points} points for downloading!`);
+            } else {
+                showToast('⬇️ Download tracked!');
+            }
+
+            // Download logic here
+            alert('Download tracked! Video saved.');
+        } catch (error) {
+            console.error('Download error:', error);
+        }
+    };
+
+    const submitComment = async () => {
+        if (!commentText.trim() || !selectedReel) return;
+
+        try {
+            setSubmittingComment(true);
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (!userInfoStr) {
+                showToast('❌ Please login to comment');
+                return;
+            }
+            const userInfo = JSON.parse(userInfoStr);
+            const userId = userInfo._id || userInfo.id;
+            const username = userInfo.username || userInfo.phone || userInfo.email;
+
+            const url = getApiUrl();
+            const res = await fetch(`${url}/reels/${selectedReel.id}/comment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, userId, text: commentText })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Update comments count for all duplicates of this reel
+                setReels(prev => prev.map(r => r.id === selectedReel.id ? {
+                    ...r,
+                    commentsCount: data.comments.length
+                } : r));
+
+                if (data.firstComment && data.points) {
+                    showToast(`💬 +${data.points} points for commenting!`);
+                }
+
+                // Add to local comments list
+                const newComment = {
+                    _id: 'temp-' + Date.now(),
+                    text: commentText,
+                    username: username || 'User',
+                    timestamp: new Date().toISOString(),
+                    user: userId
+                };
+                setComments(prev => [newComment, ...prev]);
+
+                setCommentText('');
+                // Keep modal open to show the new comment
+            }
+        } catch (error) {
+            console.error('Comment error:', error);
+            showToast('❌ Failed to post comment');
+        } finally {
+            setSubmittingComment(false);
         }
     };
 
@@ -280,9 +616,13 @@ export default function ReelsPage() {
                         item={item}
                         index={index}
                         activeIndex={activeIndex}
+                        onLike={handleLike}
+                        onComment={handleComment}
+                        onShare={handleShare}
+                        onDownload={handleDownload}
                     />
                 )}
-                keyExtractor={item => item.id}
+                keyExtractor={item => item.uniqueKey || item.id}
                 pagingEnabled
                 showsVerticalScrollIndicator={false}
                 snapToInterval={height}
@@ -303,6 +643,99 @@ export default function ReelsPage() {
                         </Text>
                     </View>
                 }
+            />
+
+
+            {/* Comment Modal */}
+            <Modal
+                visible={showCommentModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowCommentModal(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.commentModalContainer}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setShowCommentModal(false)}
+                    />
+                    <View style={[styles.commentModal, { height: height * 0.7 }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.commentModalTitle}>Comments {comments.length > 0 ? `(${comments.length})` : ''}</Text>
+                            <TouchableOpacity onPress={() => setShowCommentModal(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color="#000" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {loadingComments ? (
+                            <View style={styles.commentsLoading}>
+                                <ActivityIndicator size="small" color={SP_RED} />
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={comments}
+                                keyExtractor={(item) => item._id || Math.random().toString()}
+                                renderItem={({ item }) => (
+                                    <View style={styles.commentItem}>
+                                        <View style={styles.commentAvatar}>
+                                            <Text style={styles.commentAvatarText}>
+                                                {item.username ? item.username.charAt(0).toUpperCase() : 'U'}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.commentContent}>
+                                            <View style={styles.commentHeader}>
+                                                <Text style={styles.commentUsername}>{item.username || 'User'}</Text>
+                                                <Text style={styles.commentTime}>
+                                                    {new Date(item.timestamp).toLocaleDateString()}
+                                                </Text>
+                                            </View>
+                                            <Text style={styles.commentText}>{item.text}</Text>
+                                        </View>
+                                    </View>
+                                )}
+                                contentContainerStyle={styles.commentsList}
+                                ListEmptyComponent={
+                                    <View style={styles.noCommentsContainer}>
+                                        <Text style={styles.noCommentsText}>No comments yet. Be the first!</Text>
+                                    </View>
+                                }
+                            />
+                        )}
+
+                        <View style={styles.inputContainer}>
+                            <TextInput
+                                style={styles.commentInput}
+                                value={commentText}
+                                onChangeText={setCommentText}
+                                placeholder="Write your thoughts..."
+                                placeholderTextColor="#666"
+                                multiline
+                                maxLength={500}
+                            />
+                            <TouchableOpacity
+                                style={[styles.sendButton, !commentText.trim() && styles.sendButtonDisabled]}
+                                onPress={submitComment}
+                                disabled={!commentText.trim() || submittingComment}
+                            >
+                                {submittingComment ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <MaterialCommunityIcons name="send" size={24} color="#fff" />
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
+
+            {/* Toast Notification */}
+            <Toast
+                visible={toastVisible}
+                message={toastMessage}
+                onHide={() => setToastVisible(false)}
             />
         </View>
     );
@@ -456,5 +889,167 @@ const styles = StyleSheet.create({
         color: '#666',
         fontSize: 18,
         marginTop: 16,
+    },
+    // Interaction Sidebar Styles
+    interactionSidebar: {
+        position: 'absolute',
+        right: 16,
+        bottom: 150,
+        gap: 24,
+        zIndex: 10,
+    },
+    interactionButton: {
+        alignItems: 'center',
+        gap: 4,
+    },
+    interactionCount: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    // Toast Styles
+    toastContainer: {
+        position: 'absolute',
+        top: 100,
+        left: 20,
+        right: 20,
+        zIndex: 1000,
+    },
+    toastGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 12,
+        gap: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    toastText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        flex: 1,
+    },
+    // Comment Modal Styles
+    commentModalContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        zIndex: 100,
+    },
+    modalOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    commentModal: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+        minHeight: 200,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    commentModalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#000',
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 12,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 25,
+        padding: 8,
+        paddingHorizontal: 16,
+    },
+    commentInput: {
+        flex: 1,
+        minHeight: 40,
+        maxHeight: 100,
+        fontSize: 16,
+        color: '#000',
+        paddingTop: 8,
+        paddingBottom: 8,
+    },
+    sendButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: SP_RED,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    sendButtonDisabled: {
+        backgroundColor: '#ccc',
+    },
+    commentsLoading: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    commentsList: {
+        paddingBottom: 20,
+    },
+    commentItem: {
+        flexDirection: 'row',
+        marginBottom: 16,
+    },
+    commentAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#e0e0e0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    commentAvatarText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#555',
+    },
+    commentContent: {
+        flex: 1,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
+        padding: 10,
+    },
+    commentHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 4,
+    },
+    commentUsername: {
+        fontWeight: 'bold',
+        fontSize: 14,
+        color: '#000',
+    },
+    commentTime: {
+        fontSize: 12,
+        color: '#888',
+    },
+    commentText: {
+        fontSize: 14,
+        color: '#333',
+        lineHeight: 20,
+    },
+    noCommentsContainer: {
+        padding: 40,
+        alignItems: 'center',
+    },
+    noCommentsText: {
+        color: '#888',
+        fontStyle: 'italic',
     },
 });

@@ -154,7 +154,10 @@ export default function AddressFormScreen({ navigation, route }: AddressFormProp
             {/* Map Background */}
             <View style={styles.mapContainer}>
                 {region ? (
-                    <Map location={{ lat: region.latitude, lng: region.longitude }} />
+                    <Map
+                        location={{ lat: region.latitude, lng: region.longitude }}
+                        onRegionChangeComplete={onRegionChangeComplete}
+                    />
                 ) : (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={SP_RED} />

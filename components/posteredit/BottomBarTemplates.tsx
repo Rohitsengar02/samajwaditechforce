@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -683,46 +683,14 @@ const CurvedTechFrame = ({ details, width, customization }: TemplateProps) => {
 
 // Template 8: Bold STF - Sharp, Professional
 const StfBoldFrame = ({ details, width, customization }: TemplateProps) => {
-    const topColor = customization?.backgroundGradient?.[0] || SP_RED;
-    const bottomColor = customization?.customColor2 || SP_GREEN;
-    const badgeSize = customization?.imageSize || 100;
-
     return (
-        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
-
-            {/* User Photo - Left Side Background, Extending Above */}
-            <View style={{ position: 'absolute', left: 10, top: -30, zIndex: 1 }}>
-                <View style={{ width: 100, height: 100, borderRadius: 50, overflow: 'hidden', borderWidth: 3, borderColor: bottomColor }}>
-                    {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
-                    ) : (
-                        <Image source={require('../../assets/images/icon.png')} style={{ width: '100%', height: '100%' }} />
-                    )}
-                </View>
-            </View>
-
-            <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 0, overflow: 'hidden', flexDirection: 'column' }}>
-                {/* Red Strip - Sharp - Solid */}
-                <View style={{ flex: 6, backgroundColor: topColor, paddingLeft: 120, paddingRight: 10, justifyContent: 'center' }}>
-                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 22, color: customization?.nameColor || '#fff', textTransform: 'uppercase' }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#e2e8f0', marginTop: 2 }]}>{details?.designation || 'Designation'}</Text>
-                </View>
-                {/* Green Strip - Sharp */}
-                <View style={{ flex: 4, backgroundColor: bottomColor, flexDirection: 'row', alignItems: 'center', paddingLeft: 120, paddingRight: 10, justifyContent: 'space-between', paddingVertical: 5 }}>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <Text style={{ fontSize: customization?.mobileFontSize || 12, color: '#fff', fontWeight: 'bold' }}>{details?.mobile || '+91...'}</Text>
-                        <Text style={{ fontSize: customization?.socialFontSize || 12, color: '#fff' }}>{details?.socialHandle || '@handle'}</Text>
-                    </View>
-                    <Text style={{ fontSize: customization?.addressFontSize || 11, color: '#fff' }}>{details?.address || 'Address'}</Text>
-                </View>
-            </View>
-            {/* STF Logo Badge - Left Side */}
-            <View style={{ position: 'absolute', top: 0, bottom: 0, left: 10, width: badgeSize + 10, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}>
-                <View style={{ width: badgeSize + 10, height: badgeSize + 10, backgroundColor: '#fff', padding: 3, shadowColor: "#000", shadowOffset: { width: 2, height: 2 }, shadowOpacity: 0.3, elevation: 5 }}>
-                    <Image source={require('../../assets/images/icon.png')} style={{ width: '100%', height: '100%', backgroundColor: '#eee' }} />
-                    <View style={{ position: 'absolute', bottom: -5, right: -5, backgroundColor: SP_RED, padding: 4 }}>
-                        <Text style={{ fontSize: 10, color: '#fff', fontWeight: 'bold' }}>STF</Text>
-                    </View>
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', padding: 15 }]}>
+            <View style={{ justifyContent: 'center' }}>
+                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 24, color: customization?.nameColor || '#1e293b', textAlign: 'left', textTransform: 'uppercase' }]}>{details?.name || 'Your Name'}</Text>
+                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 14, color: customization?.designationColor || '#64748b', marginTop: 4, textAlign: 'left' }]}>{details?.designation || 'Designation'}</Text>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>{details?.mobile || '+91...'}</Text>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>{details?.socialHandle || '@handle'}</Text>
                 </View>
             </View>
         </View>
@@ -731,75 +699,31 @@ const StfBoldFrame = ({ details, width, customization }: TemplateProps) => {
 
 // Template 9: Rounded STF - Floating Pills
 const StfRoundedFrame = ({ details, width, customization }: TemplateProps) => {
-    const topColor = customization?.backgroundGradient?.[0] || SP_RED;
-    const bottomColor = customization?.customColor2 || SP_GREEN;
-    const badgeSize = customization?.imageSize || 100;
-
     return (
-        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
-
-            {/* User Photo - Right Side Background, Extending Above */}
-            <View style={{ position: 'absolute', right: 10, top: -30, zIndex: 1 }}>
-                <View style={{ width: 100, height: 100, borderRadius: 50, overflow: 'hidden', borderWidth: 3, borderColor: bottomColor }}>
-                    {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
-                    ) : (
-                        <Image source={require('../../assets/images/icon.png')} style={{ width: '100%', height: '100%' }} />
-                    )}
-                </View>
-            </View>
-
-            <View style={{ flex: 1, flexDirection: 'column', gap: 4, padding: 5 }}>
-                {/* Red Pill - Solid */}
-                <View style={{ flex: 6, backgroundColor: topColor, borderRadius: 30, paddingLeft: 120, paddingRight: 20, justifyContent: 'center' }}>
-                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 20, color: customization?.nameColor || '#fff' }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#e2e8f0' }]}>{details?.designation || 'Designation'}</Text>
-                </View>
-                {/* Green Pill */}
-                <View style={{ flex: 4, backgroundColor: bottomColor, borderRadius: 20, flexDirection: 'row', alignItems: 'center', paddingLeft: 120, paddingRight: 20, justifyContent: 'space-between', paddingVertical: 5 }}>
-                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                        <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><MaterialCommunityIcons name="phone" size={12} color="#fff" /><Text style={{ fontSize: 11, color: '#fff' }}>{details?.mobile || '+91...'}</Text></View>
-                        <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><MaterialCommunityIcons name="web" size={12} color="#fff" /><Text style={{ fontSize: 11, color: '#fff' }}>{details?.socialHandle || '@handle'}</Text></View>
-                    </View>
-                </View>
-            </View>
-            {/* STF Logo Badge - Left Floating */}
-            <View style={{ position: 'absolute', top: -5, bottom: -5, left: 10, width: badgeSize + 10, justifyContent: 'center', zIndex: 20 }}>
-                <View style={{ width: badgeSize + 10, height: badgeSize + 10, borderRadius: (badgeSize + 10) / 2, backgroundColor: '#fff', borderWidth: 3, borderColor: bottomColor, overflow: 'hidden', elevation: 5 }}>
-                    <Image source={require('../../assets/images/icon.png')} style={{ width: '100%', height: '100%' }} />
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', padding: 15 }]}>
+            {/* Only User Data - Centered/Left */}
+            <View style={{ justifyContent: 'center' }}>
+                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 24, color: customization?.nameColor || '#1e293b', textAlign: 'left' }]}>{details?.name || 'Your Name'}</Text>
+                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 14, color: customization?.designationColor || '#64748b', marginTop: 4, textAlign: 'left' }]}>{details?.designation || 'Designation'}</Text>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>{details?.mobile || '+91...'}</Text>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>{details?.socialHandle || '@handle'}</Text>
                 </View>
             </View>
         </View>
     );
 };
 
-// Template 10: Tabbed STF - Interlocking
+// Template 10: Tabbed STF - Simple Data
 const StfTabbedFrame = ({ details, width, customization }: TemplateProps) => {
-    const bgColors = customization?.backgroundGradient || [SP_RED, SP_RED];
-    const bottomColor = customization?.customColor2 || SP_GREEN;
-    const badgeSize = customization?.imageSize || 100;
-
     return (
-        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
-            <View style={{ flex: 1, flexDirection: 'column' }}>
-                {/* Top: Red with rounded bottom-right */}
-                <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 6, borderBottomRightRadius: 40, marginRight: 20, paddingLeft: badgeSize + 35, paddingRight: 10, justifyContent: 'center', zIndex: 2 }}>
-                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 20, color: customization?.nameColor || '#fff' }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#e2e8f0' }]}>{details?.designation || 'Designation'}</Text>
-                </LinearGradient>
-                {/* Bottom: Green full width */}
-                <View style={{ flex: 4, backgroundColor: bottomColor, marginTop: -15, paddingTop: 15, flexDirection: 'row', alignItems: 'center', paddingLeft: badgeSize + 35, paddingRight: 10, justifyContent: 'space-between', zIndex: 1 }}>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 5 }}>
-                        <Text style={{ fontSize: 11, color: '#fff' }}>{details?.mobile || '+91...'}</Text>
-                        <View style={{ width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.5)' }} />
-                        <Text style={{ fontSize: 11, color: '#fff' }}>{details?.address || 'Location'}</Text>
-                    </View>
-                </View>
-            </View>
-            {/* Hexagon-ish Badge (Square with radius) */}
-            <View style={{ position: 'absolute', top: 5, bottom: 5, left: 5, zIndex: 20 }}>
-                <View style={{ width: badgeSize, height: badgeSize, borderRadius: 15, backgroundColor: '#fff', padding: 2, transform: [{ rotate: '3deg' }], shadowColor: '#000', shadowOpacity: 0.3, elevation: 5 }}>
-                    <Image source={{ uri: details.photo || undefined }} style={{ width: '100%', height: '100%', borderRadius: 13 }} />
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', padding: 15 }]}>
+            <View style={{ justifyContent: 'center' }}>
+                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 24, color: customization?.nameColor || '#1e293b', textAlign: 'left' }]}>{details?.name || 'Your Name'}</Text>
+                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 14, color: customization?.designationColor || '#64748b', marginTop: 4, textAlign: 'left' }]}>{details?.designation || 'Designation'}</Text>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>{details?.mobile || '+91...'}</Text>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>{details?.address || 'Location'}</Text>
                 </View>
             </View>
         </View>
@@ -808,55 +732,83 @@ const StfTabbedFrame = ({ details, width, customization }: TemplateProps) => {
 
 // Template 11: Minimal STF - Clean Lines
 const StfMinimalFrame = ({ details, width, customization }: TemplateProps) => {
-    const topColor = customization?.backgroundGradient?.[0] || SP_RED;
-    const bottomColor = customization?.customColor2 || SP_GREEN;
-    const badgeSize = customization?.imageSize || 100;
-
     return (
-        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', overflow: 'visible' }]}>
-
-            {/* User Photo - Right Side Background, Extending Above */}
-            <View style={{ position: 'absolute', right: 10, top: -30, zIndex: 1 }}>
-                <View style={{ width: 100, height: 100, borderRadius: 50, overflow: 'hidden', borderWidth: 3, borderColor: bottomColor }}>
-                    {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
-                    ) : (
-                        <Image source={require('../../assets/images/icon.png')} style={{ width: '100%', height: '100%' }} />
-                    )}
+        <View style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1, backgroundColor: 'transparent', padding: 15 }]}>
+            <View style={{ justifyContent: 'center' }}>
+                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 24, color: customization?.nameColor || '#1e293b', textAlign: 'left' }]}>{details?.name || 'Your Name'}</Text>
+                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 14, color: customization?.designationColor || '#64748b', marginTop: 4, textAlign: 'left' }]}>{details?.designation || 'Designation'}</Text>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>{details?.mobile || '+91...'}</Text>
                 </View>
             </View>
+        </View>
+    );
+};
 
-            <View style={{ flex: 1, flexDirection: 'column' }}>
-                {/* Red Line Top */}
-                <View style={{ height: 4, backgroundColor: topColor, width: '100%' }} />
-
-                <View style={{ flex: 1, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center' }}>
-                    {/* STF Logo Badge Left */}
-                    <View style={{ width: badgeSize + 20, alignItems: 'center', justifyContent: 'center' }}>
-                        <View style={{ width: badgeSize, height: badgeSize, borderRadius: badgeSize / 2, overflow: 'hidden', borderWidth: 3, borderColor: topColor }}>
-                            <Image source={require('../../assets/images/icon.png')} style={{ width: '100%', height: '100%' }} />
-                        </View>
-                    </View>
-
-                    {/* Content Right */}
-                    <View style={{ flex: 1, paddingVertical: 5, gap: 2 }}>
-                        <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start', backgroundColor: topColor }}>
-                            <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: '#fff' }]}>{details?.name || 'Your Name'}</Text>
-                        </View>
-                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: '#333', paddingHorizontal: 10 }]}>{details?.designation || 'Designation'}</Text>
-
-                        <View style={{ flexDirection: 'row', gap: 5, marginTop: 2, paddingHorizontal: 10 }}>
-                            <View style={{ backgroundColor: bottomColor, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-                                <Text style={{ fontSize: 10, color: '#fff' }}>{details?.mobile || 'Mobile'}</Text>
-                            </View>
-                            <View style={{ backgroundColor: bottomColor, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-                                <Text style={{ fontSize: 10, color: '#fff' }}>{details?.socialHandle || 'Social'}</Text>
-                            </View>
-                        </View>
-                    </View>
+// Template 12: Image Frame 1
+const ImageFrame1 = ({ details, width, customization }: TemplateProps) => {
+    return (
+        <View style={[styles.bottomBar, { width, height: 100, opacity: customization?.backgroundOpacity || 1, position: 'relative', overflow: 'hidden' }]}>
+            {/* Background Image - Behind everything */}
+            <Image
+                source={require('../../assets/images/frame1.png')}
+                style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, zIndex: 0 }}
+                resizeMode="cover"
+            />
+            {/* Text Content - On top */}
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: 20 }}>
+                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.name || 'Your Name'}</Text>
+                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', marginTop: 2, textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.designation || 'Designation'}</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.mobile || '+91...'}</Text>
+                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.socialHandle || '@handle'}</Text>
                 </View>
-                {/* Green Line Bottom */}
-                <View style={{ height: 6, backgroundColor: bottomColor, width: '100%' }} />
+            </View>
+        </View>
+    );
+};
+
+// Template 13: Image Frame 2
+const ImageFrame2 = ({ details, width, customization }: TemplateProps) => {
+    return (
+        <View style={[styles.bottomBar, { width, height: 100, opacity: customization?.backgroundOpacity || 1, position: 'relative', overflow: 'hidden' }]}>
+            {/* Background Image - Behind everything */}
+            <Image
+                source={require('../../assets/images/frame2.png')}
+                style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, zIndex: 0 }}
+                resizeMode="cover"
+            />
+            {/* Text Content - On top */}
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: 20 }}>
+                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.name || 'Your Name'}</Text>
+                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', marginTop: 2, textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.designation || 'Designation'}</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.mobile || '+91...'}</Text>
+                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.socialHandle || '@handle'}</Text>
+                </View>
+            </View>
+        </View>
+    );
+};
+
+// Template 14: Image Frame 3
+const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
+    return (
+        <View style={[styles.bottomBar, { width, height: 100, opacity: customization?.backgroundOpacity || 1, position: 'relative', overflow: 'hidden' }]}>
+            {/* Background Image - Behind everything */}
+            <Image
+                source={require('../../assets/images/frame3.png')}
+                style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, zIndex: 0 }}
+                resizeMode="cover"
+            />
+            {/* Text Content - On top */}
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: 20 }}>
+                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.name || 'Your Name'}</Text>
+                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', marginTop: 2, textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.designation || 'Designation'}</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.mobile || '+91...'}</Text>
+                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.socialHandle || '@handle'}</Text>
+                </View>
             </View>
         </View>
     );
@@ -904,6 +856,12 @@ export const renderTemplate = (templateIdOrProps: string | { template?: string; 
             return <StfTabbedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} />;
         case 'stf_minimal':
             return <StfMinimalFrame details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'image_frame1':
+            return <ImageFrame1 details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'image_frame2':
+            return <ImageFrame2 details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'image_frame3':
+            return <ImageFrame3 details={finalDetails} width={finalWidth} customization={finalCustomization} />;
         default:
             return <DefaultBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
     }

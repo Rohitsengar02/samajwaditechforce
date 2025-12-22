@@ -82,7 +82,6 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
 
             const newLiked = !liked;
             setLiked(newLiked);
-            setLikes(newLiked ? likes + 1 : likes - 1);
 
             Animated.sequence([
                 Animated.timing(likeAnim, {
@@ -97,12 +96,20 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                 }),
             ]).start();
 
-            await newsAPI.toggleLike(id, userId);
+            const username = userInfo.username || userInfo.phone || userInfo.email;
+            const response = await newsAPI.toggleLike(id, userId, username);
+
+            // Update likes count from backend response
+            setLikes(response.data.length);
+
+            // Show points notification if earned
+            if (response.firstLike && response.points) {
+                alert(`🎉 +${response.points} points earned for liking!`);
+            }
         } catch (error) {
             console.error(error);
-            // Revert
+            // Revert on error
             setLiked(!liked);
-            setLikes(liked ? likes + 1 : likes - 1);
         }
     };
 
@@ -118,7 +125,13 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
             const userId = userInfo._id || userInfo.id;
             const userName = userInfo.name || 'User';
 
-            const response = await newsAPI.addComment(id, commentText, userId, userName);
+            const username = userInfo.username || userInfo.phone || userInfo.email;
+            const response = await newsAPI.addComment(id, commentText, userId, userName, username);
+
+            // Show points notification if earned
+            if (response.firstComment && response.points) {
+                alert(`💬 +${response.points} points earned for commenting!`);
+            }
 
             if (response.success) {
                 setLocalComments(response.data);
@@ -146,9 +159,28 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
     };
 
     const shareToWhatsApp = async () => {
-        const { message } = getShareContent();
-        const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
         try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const userId = userInfo._id || userInfo.id;
+                const username = userInfo.username || userInfo.phone || userInfo.email;
+
+                const response = await newsAPI.shareNews(id, userId, username);
+
+                // Show points notification if earned
+                if (response.firstShare && response.points) {
+                    alert(`📤 +${response.points} points earned for sharing!`);
+                }
+            }
+
+            const { message } = getShareContent();
+            // Include image link in WhatsApp message
+            const whatsAppMessage = image
+                ? `${message}\n\n📸 ${image}`
+                : message;
+            const url = `whatsapp://send?text=${encodeURIComponent(whatsAppMessage)}`;
+
             const supported = await Linking.canOpenURL(url);
             if (supported) {
                 await Linking.openURL(url);
@@ -158,6 +190,7 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
             setShowShareModal(false);
         } catch (err) {
             console.error(err);
+            alert('Failed to share. Please try again.');
         }
     };
 
@@ -166,37 +199,36 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
         try {
             const { message, shareUrl } = getShareContent();
 
-            // Try to share image if available
-            if (image && image.startsWith('http')) {
-                const FileSystem = require('expo-file-system/legacy');
-                const Sharing = require('expo-sharing');
+            // Track share and award points
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const userId = userInfo._id || userInfo.id;
+                const username = userInfo.username || userInfo.phone || userInfo.email;
 
-                const fileUri = FileSystem.documentDirectory + `news_share_${id}.jpg`;
-                const { uri } = await FileSystem.downloadAsync(image, fileUri);
+                const response = await newsAPI.shareNews(id, userId, username);
 
-                if (Platform.OS === 'android') {
-                    await Sharing.shareAsync(uri, {
-                        mimeType: 'image/jpeg',
-                        dialogTitle: 'Share News',
-                        UTI: 'public.jpeg'
-                    });
-                } else {
-                    await Share.share({
-                        url: uri,
-                        message: message,
-                    });
+                // Show points notification if earned
+                if (response.firstShare && response.points) {
+                    alert(`📤 +${response.points} points earned for sharing!`);
                 }
-            } else {
-                await Share.share({
-                    message: message,
-                    url: shareUrl,
-                });
             }
-        } catch (error) {
+
+            // Share with message and URL
+            await Share.share({
+                message: `${message}\n\nImage: ${image || 'No image'}`,
+                url: image || shareUrl,
+                title: title
+            });
+
+            setShowShareModal(false);
+        } catch (error: any) {
             console.error('Sharing error:', error);
+            if (error.message !== 'User did not share') {
+                alert('Failed to share. Please try again.');
+            }
         } finally {
             setSharing(false);
-            setShowShareModal(false);
         }
     };
 

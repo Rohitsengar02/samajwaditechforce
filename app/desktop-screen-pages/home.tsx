@@ -523,7 +523,7 @@ export default function DesktopHome() {
                                 style={styles.joinButton}
                                 onPress={() => router.push('/joinus' as any)}
                             >
-                                Join as Volunteer
+                                Follow Us
                             </Button>
                             <Button
                                 mode="outlined"

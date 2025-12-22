@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { registerWithEmail } from '../utils/firebase';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Animated, Easing, TextInput as RNTextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Animated, Easing, TextInput as RNTextInput, KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator } from 'react-native';
 import { Card, Title, Text, Chip } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -120,7 +120,7 @@ const AnimatedInput = ({ label, value, onChangeText, icon, error, ...props }: an
 
   return (
     <View style={styles.inputWrapper}>
-      <Animated.Text style={[styles.floatingLabel, labelStyle]}>
+      <Animated.Text style={[styles.floatingLabel, labelStyle]} pointerEvents="none">
         {label}
       </Animated.Text>
       <Animated.View style={[styles.animatedInputContainer, containerStyle]}>
@@ -216,6 +216,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
   const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
 
   const [uploading, setUploading] = useState(false);
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
 
   // Cloudinary Config
   const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dssmutzly/image/upload";
@@ -261,6 +262,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
       return;
     }
 
+    setShowLoadingModal(true);
     setUploading(true);
 
     if (!isEditMode) {
@@ -275,6 +277,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
 
         if (checkData.exists) {
           setUploading(false);
+          setShowLoadingModal(false);
           Alert.alert(
             'Account Exists',
             'User already exists with this email or phone. Please login instead.',
@@ -312,6 +315,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
     }
 
     setUploading(false);
+    setShowLoadingModal(false);
 
     const profileData: any = {
       name: fullName,
@@ -558,6 +562,23 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
         <View style={styles.progressDot} />
         <View style={[styles.progressDot, styles.activeDot]} />
       </View>
+
+      {/* Loading Modal */}
+      <Modal
+        visible={showLoadingModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.loadingIconContainer}>
+              <ActivityIndicator size="large" color={SP_RED} />
+            </View>
+            <Text style={styles.modalTitle}>Setting Up Your Profile</Text>
+            <Text style={styles.modalSubtitle}>Please wait while we process your information...</Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -830,5 +851,35 @@ const styles = StyleSheet.create({
   activeDot: {
     backgroundColor: SP_RED,
     width: 24,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+  },
+  loadingIconContainer: {
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

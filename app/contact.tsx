@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -9,11 +9,13 @@ import {
     Animated,
     Linking,
     Platform,
+    ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { TranslatedText } from '../components/TranslatedText';
+import { getApiUrl } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -74,12 +76,39 @@ const ContactCard = ({ icon, title, subtitle, action, delay, color = SP_RED }: a
 
 export default function ContactPage() {
     const router = useRouter();
+    const [loading, setLoading] = useState(true);
+    const [settings, setSettings] = useState<any>({
+        pageTitle: 'Contact Us',
+        pageSubtitle: 'We are here to help & listen',
+        address: '19, Vikramaditya Marg, Gulistan Colony, Lucknow, Uttar Pradesh 226001',
+        email: 'contact@samajwaditechforce.com',
+        phone: '+91 96217 62121',
+        officeHours: '',
+    });
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            const url = getApiUrl();
+            const res = await fetch(`${url}/contact-settings`);
+            const data = await res.json();
+            if (data.success) {
+                setSettings(data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching contact settings:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const openMap = () => {
-        const address = "19, Vikramaditya Marg, Gulistan Colony, Lucknow, Uttar Pradesh 226001";
         const url = Platform.select({
-            ios: `maps:0,0?q=${address}`,
-            android: `geo:0,0?q=${address}`,
+            ios: `maps:0,0?q=${settings.address}`,
+            android: `geo:0,0?q=${settings.address}`,
         });
         if (url) Linking.openURL(url);
     };
@@ -96,6 +125,14 @@ export default function ContactPage() {
         Linking.openURL('https://www.youtube.com/@SamajwadiPartyOfficial');
     };
 
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color={SP_RED} />
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -108,92 +145,103 @@ export default function ContactPage() {
                     <View style={styles.headerContent}>
                         <MaterialCommunityIcons name="card-account-phone" size={64} color="#fff" />
                         <Text style={styles.headerTitle}>
-                            <TranslatedText>Contact Us</TranslatedText>
+                            <TranslatedText>{settings.pageTitle || 'Contact Us'}</TranslatedText>
                         </Text>
                         <Text style={styles.headerSubtitle}>
-                            <TranslatedText>We are here to help & listen</TranslatedText>
+                            <TranslatedText>{settings.pageSubtitle || 'We are here to help & listen'}</TranslatedText>
                         </Text>
                     </View>
                 </LinearGradient>
 
                 <View style={styles.content}>
                     {/* Office Location Section */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>
-                            <TranslatedText>📍 Party Office</TranslatedText>
-                        </Text>
-                        <Animated.View style={styles.locationCard}>
-                            <TouchableOpacity onPress={openMap} activeOpacity={0.9}>
-                                <LinearGradient colors={['#fff', '#fff']} style={styles.locationGradient}>
-                                    <View style={styles.mapPlaceholder}>
-                                        <LinearGradient colors={[SP_GREEN + '20', SP_GREEN + '10']} style={styles.mapBackground}>
-                                            <MaterialCommunityIcons name="map-marker-radius" size={48} color={SP_GREEN} />
-                                        </LinearGradient>
-                                    </View>
-                                    <View style={styles.locationInfo}>
-                                        <Text style={styles.locationName}>
-                                            <TranslatedText>Samajwadi Party Karyalay</TranslatedText>
-                                        </Text>
-                                        <Text style={styles.locationAddress}>
-                                            <TranslatedText>19, Vikramaditya Marg, Gulistan Colony, Lucknow, Uttar Pradesh 226001</TranslatedText>
-                                        </Text>
-                                        <View style={styles.directionButton}>
-                                            <Text style={styles.directionText}>
-                                                <TranslatedText>Get Directions</TranslatedText>
-                                            </Text>
-                                            <MaterialCommunityIcons name="arrow-right" size={16} color={SP_GREEN} />
+                    {settings.address && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>
+                                <TranslatedText>📍 Party Office</TranslatedText>
+                            </Text>
+                            <Animated.View style={styles.locationCard}>
+                                <TouchableOpacity onPress={openMap} activeOpacity={0.9}>
+                                    <LinearGradient colors={['#fff', '#fff']} style={styles.locationGradient}>
+                                        <View style={styles.mapPlaceholder}>
+                                            <LinearGradient colors={[SP_GREEN + '20', SP_GREEN + '10']} style={styles.mapBackground}>
+                                                <MaterialCommunityIcons name="map-marker-radius" size={48} color={SP_GREEN} />
+                                            </LinearGradient>
                                         </View>
-                                    </View>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    </View>
+                                        <View style={styles.locationInfo}>
+                                            <Text style={styles.locationName}>
+                                                <TranslatedText>Samajwadi Party Karyalay</TranslatedText>
+                                            </Text>
+                                            <Text style={styles.locationAddress}>
+                                                <TranslatedText>{settings.address}</TranslatedText>
+                                            </Text>
+                                            <View style={styles.directionButton}>
+                                                <Text style={styles.directionText}>
+                                                    <TranslatedText>Get Directions</TranslatedText>
+                                                </Text>
+                                                <MaterialCommunityIcons name="arrow-right" size={16} color={SP_GREEN} />
+                                            </View>
+                                        </View>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        </View>
+                    )}
 
                     {/* Contact Numbers */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>
-                            <TranslatedText>📞 Call Us</TranslatedText>
-                        </Text>
-                        <ContactCard
-                            icon="phone"
-                            title="Main Office"
-                            subtitle="+91 96217 62121"
-                            action={() => openDialer('9621762121')}
-                            delay={100}
-                            color="#3B82F6"
-                        />
-                        <ContactCard
-                            icon="cellphone"
-                            title="Support Line"
-                            subtitle="+91 73071 27762"
-                            action={() => openDialer('7307127762')}
-                            delay={200}
-                            color="#3B82F6"
-                        />
-                    </View>
+                    {settings.phone && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>
+                                <TranslatedText>📞 Call Us</TranslatedText>
+                            </Text>
+                            <ContactCard
+                                icon="phone"
+                                title="Main Office"
+                                subtitle={settings.phone}
+                                action={() => openDialer(settings.phone)}
+                                delay={100}
+                                color="#3B82F6"
+                            />
+                        </View>
+                    )}
 
                     {/* Email Addresses */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>
-                            <TranslatedText>✉️ Email Us</TranslatedText>
-                        </Text>
-                        <ContactCard
-                            icon="email"
-                            title="General Inquiry"
-                            subtitle="info@samajwaditechforce.com"
-                            action={() => openEmail('info@samajwaditechforce.com')}
-                            delay={300}
-                            color="#F59E0B"
-                        />
-                        <ContactCard
-                            icon="email-outline"
-                            title="Support Team"
-                            subtitle="contact@samajwaditechforce.com"
-                            action={() => openEmail('contact@samajwaditechforce.com')}
-                            delay={400}
-                            color="#F59E0B"
-                        />
-                    </View>
+                    {settings.email && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>
+                                <TranslatedText>✉️ Email Us</TranslatedText>
+                            </Text>
+                            <ContactCard
+                                icon="email"
+                                title="General Inquiry"
+                                subtitle={settings.email}
+                                action={() => openEmail(settings.email)}
+                                delay={300}
+                                color="#F59E0B"
+                            />
+                        </View>
+                    )}
+
+                    {/* Office Hours */}
+                    {settings.officeHours && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>
+                                <TranslatedText>🕒 Office Hours</TranslatedText>
+                            </Text>
+                            <View style={styles.card}>
+                                <LinearGradient colors={['#fff', '#f8fafc']} style={styles.cardGradient}>
+                                    <View style={[styles.iconContainer, { backgroundColor: '#10b981' + '15' }]}>
+                                        <MaterialCommunityIcons name="clock-outline" size={32} color="#10b981" />
+                                    </View>
+                                    <View style={styles.cardContent}>
+                                        <Text style={styles.cardSubtitle}>
+                                            <TranslatedText>{settings.officeHours}</TranslatedText>
+                                        </Text>
+                                    </View>
+                                </LinearGradient>
+                            </View>
+                        </View>
+                    )}
 
                     {/* Videos & Songs Section */}
                     <View style={styles.section}>

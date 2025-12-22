@@ -734,6 +734,44 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Points History Banner */}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.idCardBanner}
+              onPress={() => router.push('/desktop-screen-pages/points-history' as any)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#8b5cf6', '#7c3aed', '#6d28d9']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.idCardGradient}
+              >
+                <View style={styles.idCardContent}>
+                  <View style={styles.idCardLeft}>
+                    <View style={styles.idCardIconContainer}>
+                      <MaterialCommunityIcons name="star-circle" size={48} color="#fff" />
+                    </View>
+                    <View style={styles.idCardTextContainer}>
+                      <Text style={styles.idCardTitle}>
+                        <TranslatedText>पॉइंट्स देखें</TranslatedText>
+                      </Text>
+                      <Text style={styles.idCardSubtitle}>
+                        <TranslatedText>अपने सभी पॉइंट्स और रिवॉर्ड्स देखें</TranslatedText>
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.idCardButton}>
+                    <MaterialCommunityIcons name="trophy" size={24} color="#fff" />
+                  </View>
+                </View>
+
+                <View style={styles.shimmer1} />
+                <View style={styles.shimmer2} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
           {/* Nearby Volunteers Preview Section */}
           {nearbyVolunteers.length > 0 && (
             <View style={styles.section}>

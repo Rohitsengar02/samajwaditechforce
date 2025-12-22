@@ -9,9 +9,10 @@ interface Location {
 
 interface MapProps {
     location: Location | null;
+    onRegionChangeComplete?: (region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => void;
 }
 
-export default function Map({ location }: MapProps) {
+export default function Map({ location, onRegionChangeComplete }: MapProps) {
     const webViewRef = useRef<WebView>(null);
 
     const htmlContent = `
@@ -56,6 +57,22 @@ export default function Map({ location }: MapProps) {
                 }
                 map.setView([lat, lng], 16, { animate: true, duration: 1 });
             }
+
+            // Send map center changes to React Native
+            map.on('moveend', function() {
+                var center = map.getCenter();
+                var bounds = map.getBounds();
+                var latDelta = bounds.getNorth() - bounds.getSouth();
+                var lngDelta = bounds.getEast() - bounds.getWest();
+                
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'regionChange',
+                    latitude: center.lat,
+                    longitude: center.lng,
+                    latitudeDelta: latDelta,
+                    longitudeDelta: lngDelta
+                }));
+            });
         </script>
     </body>
     </html>
@@ -67,6 +84,22 @@ export default function Map({ location }: MapProps) {
         }
     }, [location]);
 
+    const handleMessage = (event: any) => {
+        try {
+            const data = JSON.parse(event.nativeEvent.data);
+            if (data.type === 'regionChange' && onRegionChangeComplete) {
+                onRegionChangeComplete({
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                    latitudeDelta: data.latitudeDelta,
+                    longitudeDelta: data.longitudeDelta
+                });
+            }
+        } catch (error) {
+            console.log('Map message error:', error);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <WebView
@@ -75,6 +108,7 @@ export default function Map({ location }: MapProps) {
                 source={{ html: htmlContent }}
                 style={styles.map}
                 scrollEnabled={false}
+                onMessage={handleMessage}
             />
         </View>
     );

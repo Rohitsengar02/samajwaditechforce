@@ -105,11 +105,19 @@ export default function DesktopHeader() {
                                             source={(user.photo || user.profileImage) ? { uri: user.photo || user.profileImage } : require('../assets/images/icon.png')}
                                             style={styles.sidebarAvatar}
                                         />
-                                        <View>
+                                        <View style={{ flex: 1 }}>
                                             <Text style={styles.sidebarName} numberOfLines={1}>{user.name || 'User'}</Text>
-                                            <Pressable onPress={handleLogout}>
-                                                <Text style={styles.sidebarLogout}>Logout</Text>
-                                            </Pressable>
+                                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+                                                <Pressable onPress={() => navigateTo('/desktop-screen-pages/points-history')}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                        <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+                                                        <Text style={[styles.sidebarLogout, { color: '#FFD700' }]}>Points</Text>
+                                                    </View>
+                                                </Pressable>
+                                                <Pressable onPress={handleLogout}>
+                                                    <Text style={styles.sidebarLogout}>Logout</Text>
+                                                </Pressable>
+                                            </View>
                                         </View>
                                     </View>
                                 ) : (
@@ -355,13 +363,22 @@ export default function DesktopHeader() {
 
 
                 {user ? (
-                    <Pressable style={styles.profileBtn} onPress={() => router.push('/(tabs)/profile' as any)}>
-                        <Image
-                            source={(user.photo || user.profileImage) ? { uri: user.photo || user.profileImage } : require('../assets/images/icon.png')}
-                            style={styles.avatar}
-                        />
-                        <Text style={styles.profileName}>{user.name?.split(' ')[0] || 'User'}</Text>
-                    </Pressable>
+                    <>
+                        <Pressable
+                            style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, backgroundColor: '#FFF9E6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
+                            onPress={() => navigateTo('/desktop-screen-pages/points-history')}
+                        >
+                            <MaterialCommunityIcons name="star" size={20} color="#FFD700" />
+                            <Text style={{ marginLeft: 6, fontSize: 14, fontWeight: '600', color: '#333' }}>Points</Text>
+                        </Pressable>
+                        <Pressable style={styles.profileBtn} onPress={() => router.push('/(tabs)/profile' as any)}>
+                            <Image
+                                source={(user.photo || user.profileImage) ? { uri: user.photo || user.profileImage } : require('../assets/images/icon.png')}
+                                style={styles.avatar}
+                            />
+                            <Text style={styles.profileName}>{user.name?.split(' ')[0] || 'User'}</Text>
+                        </Pressable>
+                    </>
                 ) : (
                     <>
                         <Pressable onPress={() => navigateTo('/signin')}><TranslatedText text="Login" style={styles.loginBtn} /></Pressable>

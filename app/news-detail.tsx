@@ -194,7 +194,6 @@ export default function NewsDetailScreen() {
 
         const isLiked = !liked;
         setLiked(isLiked);
-        setLikesCount(prev => isLiked ? prev + 1 : prev - 1);
 
         Animated.sequence([
             Animated.timing(likeAnim, { toValue: 1.3, duration: 150, useNativeDriver: true }),
@@ -202,10 +201,22 @@ export default function NewsDetailScreen() {
         ]).start();
 
         try {
-            await newsAPI.toggleLike(news._id, currentUserId);
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const username = userInfo.username || userInfo.phone || userInfo.email;
+                const response = await newsAPI.toggleLike(news._id, currentUserId, username);
+
+                // Update likes count from backend
+                setLikesCount(response.data.length);
+
+                // Show points notification
+                if (response.firstLike && response.points) {
+                    alert(`🎉 +${response.points} points earned for liking!`);
+                }
+            }
         } catch (err) {
             setLiked(!isLiked);
-            setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
             console.error('Error liking news:', err);
         }
     };
@@ -227,9 +238,28 @@ export default function NewsDetailScreen() {
 
     const shareToWhatsApp = async () => {
         if (!news) return;
-        const { message } = getShareContent();
-        const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
         try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const userId = userInfo._id || userInfo.id;
+                const username = userInfo.username || userInfo.phone || userInfo.email;
+
+                const response = await newsAPI.shareNews(news._id, userId, username);
+
+                // Show points notification
+                if (response.firstShare && response.points) {
+                    alert(`📤 +${response.points} points earned for sharing!`);
+                }
+            }
+
+            const { message } = getShareContent();
+            // Include image link
+            const whatsAppMessage = news.coverImage
+                ? `${message}\n\n📸 ${news.coverImage}`
+                : message;
+
+            const url = `whatsapp://send?text=${encodeURIComponent(whatsAppMessage)}`;
             const supported = await Linking.canOpenURL(url);
             if (supported) {
                 await Linking.openURL(url);
@@ -239,6 +269,7 @@ export default function NewsDetailScreen() {
             setShowShareModal(false);
         } catch (err) {
             console.error(err);
+            alert('Failed to share. Please try again.');
         }
     };
 
@@ -246,47 +277,37 @@ export default function NewsDetailScreen() {
         if (!news) return;
         setSharing(true);
         try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const userId = userInfo._id || userInfo.id;
+                const username = userInfo.username || userInfo.phone || userInfo.email;
+
+                const response = await newsAPI.shareNews(news._id, userId, username);
+
+                // Show points notification
+                if (response.firstShare && response.points) {
+                    alert(`📤 +${response.points} points earned for sharing!`);
+                }
+            }
+
             const { message, shareUrl } = getShareContent();
 
-            // Try to share image if available
-            if (news.coverImage && news.coverImage.startsWith('http')) {
-                // Use legacy API for downloadAsync as suggested by Expo SDK 54 error
-                const FileSystem = require('expo-file-system/legacy');
-                const Sharing = require('expo-sharing');
+            // Share with message and URL
+            await Share.share({
+                message: `${message}\n\n${news.coverImage ? '📸 ' + news.coverImage : ''}`,
+                url: news.coverImage || shareUrl,
+                title: news.title
+            });
 
-                const fileUri = FileSystem.documentDirectory + 'news_share.jpg';
-                const { uri } = await FileSystem.downloadAsync(news.coverImage, fileUri);
-
-                if (Platform.OS === 'android') {
-                    // On Android, sharing generic content with image + text is tricky. 
-                    // Sharing.shareAsync works well for files.
-                    await Sharing.shareAsync(uri, {
-                        mimeType: 'image/jpeg',
-                        dialogTitle: 'Share News',
-                        UTI: 'public.jpeg'
-                    });
-                    // Note: Android often drops the caption/message when sharing a file via certain apps.
-                    // Clipboard the text as backup? Or just rely on link being in image?
-                    // Alternatively use React Native Share (core)
-                } else {
-                    // iOS
-                    await Share.share({
-                        url: uri,
-                        message: message,
-                    });
-                }
-            } else {
-                // Fallback to text only
-                await Share.share({
-                    message: message,
-                    url: shareUrl, // iOS uses this for link metadata
-                });
-            }
-        } catch (error) {
+            setShowShareModal(false);
+        } catch (error: any) {
             console.error('Sharing error:', error);
+            if (error.message !== 'User did not share') {
+                alert('Failed to share. Please try again.');
+            }
         } finally {
             setSharing(false);
-            setShowShareModal(false);
         }
     };
 
@@ -295,10 +316,21 @@ export default function NewsDetailScreen() {
         if (!commentText.trim() || !news || !currentUserId) return;
 
         try {
-            const response = await newsAPI.addComment(news._id, commentText, currentUserId, currentUserName);
-            if (response.success) {
-                setNews(prev => prev ? { ...prev, comments: response.data } : null);
-                setCommentText('');
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const username = userInfo.username || userInfo.phone || userInfo.email;
+                const response = await newsAPI.addComment(news._id, commentText, currentUserId, currentUserName, username);
+
+                if (response.success) {
+                    setNews(prev => prev ? { ...prev, comments: response.data } : null);
+                    setCommentText('');
+
+                    // Show points notification
+                    if (response.firstComment && response.points) {
+                        alert(`💬 +${response.points} points earned for commenting!`);
+                    }
+                }
             }
         } catch (err) {
             console.error('Error posting comment:', err);
