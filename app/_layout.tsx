@@ -50,6 +50,8 @@ Notifications.setNotificationHandler({
   }),
 });
 
+import { WhatsAppButton } from '../components/WhatsAppButton';
+
 export default function RootLayout() {
   useFrameworkReady();
   const segments = useSegments();
@@ -116,8 +118,9 @@ export default function RootLayout() {
   }, []);
 
   // Hide WhatsApp button on these screens
-  const hideOnRoutes = ['onboarding', 'register', 'signin'];
-  const shouldHideWhatsApp = hideOnRoutes.includes(currentRoute as string);
+  // Check if any segment matches the hidden list
+  const hideOnRoutes = ['onboarding', 'register', 'signin', 'admin'];
+  const shouldHideWhatsApp = segments.some(seg => hideOnRoutes.includes(seg));
 
   // Debug log
   console.log('Current route:', currentRoute, 'Segments:', segments, 'Should hide WhatsApp:', shouldHideWhatsApp);
@@ -133,6 +136,7 @@ export default function RootLayout() {
               <Stack.Screen name="+not-found" />
             </Stack>
           )}
+          {!shouldHideWhatsApp && <WhatsAppButton />}
           <StatusBar style="auto" />
         </View>
       </PaperProvider>
@@ -140,22 +144,4 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  whatsappButton: {
-    position: 'absolute',
-    bottom: 67,
-    right: 10,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#25D366',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    zIndex: 9999,
-  },
-});
+

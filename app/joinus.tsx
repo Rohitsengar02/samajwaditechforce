@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { TranslatedText } from '../components/TranslatedText';
+import { getApiUrl } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -30,72 +31,17 @@ interface SocialLink {
     description: string;
 }
 
-const socialLinks: SocialLink[] = [
-    {
-        id: '1',
-        name: 'Facebook',
-        icon: 'facebook',
-        url: 'https://www.facebook.com/samajwadiparty',
-        color: '#1877F2',
-        description: 'Follow us on Facebook',
-    },
-    {
-        id: '2',
-        name: 'Twitter / X',
-        icon: 'twitter',
-        url: 'https://twitter.com/samajwadiparty',
-        color: '#000000',
-        description: 'Follow us on X (Twitter)',
-    },
-    {
-        id: '3',
-        name: 'Instagram',
-        icon: 'instagram',
-        url: 'https://www.instagram.com/samajwadiparty',
-        color: '#E4405F',
-        description: 'Follow us on Instagram',
-    },
-    {
-        id: '4',
-        name: 'YouTube',
-        icon: 'youtube',
-        url: 'https://www.youtube.com/@samajwadiparty',
-        color: '#FF0000',
-        description: 'Subscribe to our channel',
-    },
-    {
-        id: '5',
-        name: 'WhatsApp Community',
-        icon: 'whatsapp',
-        url: 'https://chat.whatsapp.com/samajwaditechforce',
-        color: '#25D366',
-        description: 'Join our WhatsApp group',
-    },
-    {
-        id: '6',
-        name: 'Telegram',
-        icon: 'telegram',
-        url: 'https://t.me/samajwaditechforce',
-        color: '#0088cc',
-        description: 'Join our Telegram channel',
-    },
-    {
-        id: '7',
-        name: 'LinkedIn',
-        icon: 'linkedin',
-        url: 'https://www.linkedin.com/company/samajwadiparty',
-        color: '#0A66C2',
-        description: 'Connect on LinkedIn',
-    },
-    {
-        id: '8',
-        name: 'Official Website',
-        icon: 'web',
-        url: 'https://samajwadiparty.in',
-        color: SP_RED,
-        description: 'Visit our official website',
-    },
-];
+// Mappings for social platforms
+const PLATFORM_MAPPINGS: Record<string, any> = {
+    facebook: { name: 'Facebook', icon: 'facebook', color: '#1877F2', description: 'Follow us on Facebook' },
+    twitter: { name: 'Twitter / X', icon: 'twitter', color: '#000000', description: 'Follow us on X (Twitter)' },
+    instagram: { name: 'Instagram', icon: 'instagram', color: '#E4405F', description: 'Follow us on Instagram' },
+    youtube: { name: 'YouTube', icon: 'youtube', color: '#FF0000', description: 'Subscribe to our channel' },
+    whatsapp: { name: 'WhatsApp Community', icon: 'whatsapp', color: '#25D366', description: 'Join our WhatsApp group' },
+    telegram: { name: 'Telegram', icon: 'telegram', color: '#0088cc', description: 'Join our Telegram channel' },
+    linkedin: { name: 'LinkedIn', icon: 'linkedin', color: '#0A66C2', description: 'Connect on LinkedIn' },
+    website: { name: 'Official Website', icon: 'web', color: '#E30512', description: 'Visit our official website' },
+};
 
 const SocialLinkCard = ({ link, delay }: { link: SocialLink; delay: number }) => {
     const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -167,6 +113,60 @@ const SocialLinkCard = ({ link, delay }: { link: SocialLink; delay: number }) =>
 
 export default function JoinUsPage() {
     const router = useRouter();
+    const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchSocialLinks();
+    }, []);
+
+    const fetchSocialLinks = async () => {
+        try {
+            const url = getApiUrl();
+            const res = await fetch(`${url}/footer`);
+            const data = await res.json();
+
+            if (data.success && data.data) {
+                const footerData = data.data;
+                const socialCols = (footerData.columns || []).filter((c: any) => c.type === 'social');
+
+                let allLinks: SocialLink[] = [];
+
+                // Aggregate links from all social columns if multiple exist
+                socialCols.forEach((col: any) => {
+                    if (col.social) {
+                        const social = col.social;
+                        Object.keys(PLATFORM_MAPPINGS).forEach((key, index) => {
+                            if (social[key]) {
+                                // Check if link already exists to avoid duplicates
+                                const exists = allLinks.some(l => l.name === PLATFORM_MAPPINGS[key].name);
+                                if (!exists) {
+                                    allLinks.push({
+                                        id: key + '-' + Math.random(),
+                                        url: social[key],
+                                        ...PLATFORM_MAPPINGS[key]
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+
+                // If no database links, fallback to empty or handle as needed. 
+                // For now, let's show whatever we found.
+                if (allLinks.length > 0) {
+                    setSocialLinks(allLinks);
+                } else {
+                    // Start with empty, maybe show empty state?
+                    setSocialLinks([]);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching social links:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -214,11 +214,17 @@ export default function JoinUsPage() {
                             <TranslatedText>Follow us on your favorite platforms</TranslatedText>
                         </Text>
 
-                        <View style={styles.socialLinksContainer}>
-                            {socialLinks.map((link, idx) => (
-                                <SocialLinkCard key={link.id} link={link} delay={idx * 80} />
-                            ))}
-                        </View>
+                        {loading ? (
+                            <Text style={{ textAlign: 'center', color: '#666', marginVertical: 20 }}>Loading links...</Text>
+                        ) : socialLinks.length === 0 ? (
+                            <Text style={{ textAlign: 'center', color: '#666', marginVertical: 20 }}>No social links configured yet.</Text>
+                        ) : (
+                            <View style={styles.socialLinksContainer}>
+                                {socialLinks.map((link, idx) => (
+                                    <SocialLinkCard key={link.id} link={link} delay={idx * 80} />
+                                ))}
+                            </View>
+                        )}
                     </View>
 
                     {/* Benefits Section */}

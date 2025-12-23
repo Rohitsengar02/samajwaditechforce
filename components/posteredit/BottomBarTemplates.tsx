@@ -3,6 +3,12 @@ import { View, Text, StyleSheet, Image, Dimensions, ImageBackground } from 'reac
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+// Import frame assets
+const frame1 = require('../../assets/images/frame1.png');
+const frame2 = require('../../assets/images/frame2.png');
+const frame3 = require('../../assets/images/frame3.png');
+const logo = require('../../assets/images/icon.png');
+
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
@@ -30,6 +36,9 @@ export const TEMPLATES = [
     { id: 'stf_rounded', name: '💊 STF Rounded' },
     { id: 'stf_tabbed', name: '📑 STF Tabbed' },
     { id: 'stf_minimal', name: '✨ STF Minimal' },
+    { id: 'image_frame1', name: '🖼️ STF Frame 1' },
+    { id: 'image_frame2', name: '🖼️ STF Frame 2' },
+    { id: 'image_frame3', name: '🖼️ STF Frame 3' },
 ];
 
 interface TemplateCustomization {
@@ -745,71 +754,138 @@ const StfMinimalFrame = ({ details, width, customization }: TemplateProps) => {
     );
 };
 
-// Template 12: Image Frame 1
+// Template 12: Red Body with Green Footer Strip
 const ImageFrame1 = ({ details, width, customization }: TemplateProps) => {
     return (
-        <View style={[styles.bottomBar, { width, height: 100, opacity: customization?.backgroundOpacity || 1, position: 'relative', overflow: 'hidden' }]}>
-            {/* Background Image - Behind everything */}
-            <Image
-                source={require('../../assets/images/frame1.png')}
-                style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, zIndex: 0 }}
-                resizeMode="cover"
-            />
-            {/* Text Content - On top */}
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: 20 }}>
-                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.name || 'Your Name'}</Text>
-                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', marginTop: 2, textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.designation || 'Designation'}</Text>
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.mobile || '+91...'}</Text>
-                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.socialHandle || '@handle'}</Text>
+        <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start' }]}>
+            <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#E30512', alignItems: 'center', paddingHorizontal: 15, position: 'relative' }}>
+                {/* Green Bottom Strip */}
+                <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 15, backgroundColor: '#009933' }} />
+
+                {/* Left: Logo */}
+                <View style={{ marginRight: 15 }}>
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                </View>
+
+                {/* Center: Details */}
+                <View style={{ flex: 1, paddingBottom: 10 }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left' }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2 }]}>{details?.designation || 'Designation'}</Text>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10 }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
+                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>{details?.socialHandle}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Right: User Photo */}
+                <View style={{ marginBottom: 15 }}>
+                    <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#f1f5f9', elevation: 5 }}>
+                        {details?.photo ? (
+                            <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                <MaterialCommunityIcons name="account" size={40} color="#cbd5e1" />
+                            </View>
+                        )}
+                    </View>
                 </View>
             </View>
         </View>
     );
 };
 
-// Template 13: Image Frame 2
+// Template 13: Green Body with Red Footer Strip
 const ImageFrame2 = ({ details, width, customization }: TemplateProps) => {
     return (
-        <View style={[styles.bottomBar, { width, height: 100, opacity: customization?.backgroundOpacity || 1, position: 'relative', overflow: 'hidden' }]}>
-            {/* Background Image - Behind everything */}
-            <Image
-                source={require('../../assets/images/frame2.png')}
-                style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, zIndex: 0 }}
-                resizeMode="cover"
-            />
-            {/* Text Content - On top */}
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: 20 }}>
-                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.name || 'Your Name'}</Text>
-                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', marginTop: 2, textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.designation || 'Designation'}</Text>
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.mobile || '+91...'}</Text>
-                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.socialHandle || '@handle'}</Text>
+        <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start' }]}>
+            <View style={{ flex: 1, flexDirection: 'row', backgroundColor: '#009933', alignItems: 'center', paddingHorizontal: 15, position: 'relative' }}>
+                {/* Red Bottom Strip */}
+                <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 15, backgroundColor: '#E30512' }} />
+
+                {/* Left: Logo */}
+                <View style={{ marginRight: 15 }}>
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                </View>
+
+                {/* Center: Details */}
+                <View style={{ flex: 1, paddingBottom: 10 }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left' }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10 }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
+                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>{details?.socialHandle}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Right: User Photo */}
+                <View style={{ marginBottom: 15 }}>
+                    <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#f1f5f9', elevation: 5 }}>
+                        {details?.photo ? (
+                            <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                <MaterialCommunityIcons name="account" size={40} color="#cbd5e1" />
+                            </View>
+                        )}
+                    </View>
                 </View>
             </View>
         </View>
     );
 };
 
-// Template 14: Image Frame 3
+// Template 14: Gradient Split (Red/Green)
+// Template 14: Gradient Split (Red/Green)
 const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
     return (
-        <View style={[styles.bottomBar, { width, height: 100, opacity: customization?.backgroundOpacity || 1, position: 'relative', overflow: 'hidden' }]}>
-            {/* Background Image - Behind everything */}
-            <Image
-                source={require('../../assets/images/frame3.png')}
-                style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, zIndex: 0 }}
-                resizeMode="cover"
-            />
-            {/* Text Content - On top */}
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: 20 }}>
-                <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.name || 'Your Name'}</Text>
-                <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', marginTop: 2, textAlign: 'left', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }]}>{details?.designation || 'Designation'}</Text>
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.mobile || '+91...'}</Text>
-                    <Text style={{ fontSize: 10, color: '#fff', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: { width: -1, height: 1 }, textShadowRadius: 8 }}>{details?.socialHandle || '@handle'}</Text>
+        <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start' }]}>
+            <LinearGradient
+                colors={['#E30512', '#009933']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 }}
+            >
+                {/* Left: Logo */}
+                <View style={{ marginRight: 15 }}>
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
                 </View>
-            </View>
+
+                {/* Center: Details */}
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left' }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10 }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
+                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>{details?.socialHandle}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Right: User Photo */}
+                <View style={{ marginBottom: 0 }}>
+                    <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#f1f5f9', elevation: 5 }}>
+                        {details?.photo ? (
+                            <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                <MaterialCommunityIcons name="account" size={40} color="#cbd5e1" />
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </LinearGradient>
         </View>
     );
 };

@@ -85,7 +85,10 @@ export default function Footer({ data }: { data?: any }) {
                     { name: 'twitter', icon: 'twitter', color: '#1DA1F2', label: 'Twitter' },
                     { name: 'instagram', icon: 'instagram', color: '#E4405F', label: 'Instagram' },
                     { name: 'youtube', icon: 'youtube', color: '#FF0000', label: 'YouTube' },
-
+                    { name: 'telegram', icon: 'telegram', color: '#0088cc', label: 'Telegram' },
+                    { name: 'linkedin', icon: 'linkedin', color: '#0A66C2', label: 'LinkedIn' },
+                    { name: 'whatsapp', icon: 'whatsapp', color: '#25D366', label: 'WhatsApp' },
+                    { name: 'website', icon: 'web', color: '#E30512', label: 'Website' },
                 ];
 
                 return (

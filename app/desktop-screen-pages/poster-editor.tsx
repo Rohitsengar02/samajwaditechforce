@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Asset } from 'expo-asset'; // Safe asset resolution
 import {
     View,
     Text,
@@ -30,6 +31,9 @@ import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadHtml2Canvas } from '../../utils/loadHtml2Canvas';
 
+// Image assets will be settled inside the component
+// const frame1 = ...; // Removed to prevent crash
+
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
@@ -55,6 +59,8 @@ interface EditorElement {
     letterSpacing?: number;
     lineHeight?: number;
     backgroundColor?: string;
+    width?: number;
+    height?: number;
 }
 
 const FONTS = ['System', 'Roboto', 'serif', 'monospace'];
@@ -1129,11 +1135,13 @@ export default function DesktopPosterEditor() {
                                     borderColor: isSelected ? SP_RED : 'transparent',
                                     borderStyle: isSelected ? 'dashed' : 'solid',
                                     borderWidth: isSelected ? 2 : 0,
+                                    width: element.width,
+                                    height: element.height,
                                 }
                             ]}
                         >
-                            <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
-                                <Image source={{ uri: element.content }} style={styles.elementImage} />
+                            <View style={{ width: '100%', height: '100%', transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
+                                <Image source={{ uri: element.content }} style={[styles.elementImage, { width: '100%', height: '100%' }]} resizeMode="stretch" />
                             </View>
 
                         </Animated.View>
@@ -2274,6 +2282,7 @@ export default function DesktopPosterEditor() {
                                     ]}
                                     onPress={() => {
                                         setSelectedBottomBarTemplate(item.id);
+
                                         setShowBottomBarModal(false);
                                         setShowBottomBarEditForm(true);
                                     }}
