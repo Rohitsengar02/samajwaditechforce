@@ -95,17 +95,27 @@ export default function DesktopHome() {
     const getHeroData = () => {
         const slides = homeContent?.hero?.slides || [];
         const currentSlide = slides[activeSlide] || slides[0] || {};
+
+        // Define default highlights if none exist
+        const defaultHighlights = [
+            '1. शिक्षा के क्षेत्र में छात्रों को मुफ्त लैपटॉप वितरण योजना ग्रामीण व शहरी क्षेत्रों में विद्यालयों का विस्तार अल्पसंख्यक व पिछड़े वर्ग के छात्रों के लिए छात्रवृत्तियाँ',
+            '2. आधारभूत ढाँचा (Infrastructure) आगरा–लखनऊ एक्सप्रेसवे का निर्माण लखनऊ मेट्रो परियोजना की शुरुआत सड़कों पुलों और शहरी परिवहन का विकास',
+            '3. सामाजिक न्याय पिछड़े दलित और वंचित वर्गों के अधिकारों की रक्षा समाजवादी पेंशन योजना की शुरुआत महिलाओं किसानों और मजदूरों के हित में नीतियाँ',
+            '4. स्वास्थ्य सेवाएँ सरकारी अस्पतालों का आधुनिकीकरण ग्रामीण क्षेत्रों में स्वास्थ्य सुविधाओं का विस्तार एंबुलेंस सेवा (108/102) को सशक्त बनाना',
+            '5. किसान कल्याण किसानों के लिए सिंचाई परियोजनाएँ फसलों के उचित मूल्य की मांग किसान हितैषी नीतियों को प्राथमिकता',
+            '6. युवाओं के लिए कार्य रोजगार सृजन पर जोर तकनीकी शिक्षा को बढ़ावा खेल सुविधाओं और युवा कार्यक्रमों का विकास',
+            '7. लोकतंत्र और संविधान लोकतांत्रिक मूल्यों की रक्षा संविधान की मजबूती और सामाजिक सौहार्द पर बल अभिव्यक्ति की स्वतंत्रता का समर्थन'
+        ];
+
         return {
-            badge: currentSlide.badge || 'भारत की सबसे बड़ी समाजवादी पार्टी',
-            title: currentSlide.title || 'समाजवादी पार्टी में\nआपका स्वागत है!',
-            subtitle: currentSlide.subtitle || 'समाज के हर वर्ग के विकास के लिए समर्पित। समानता, न्याय और समृद्धि के लिए हमारे साथ जुड़ें।',
-            image: currentSlide.image || news[0]?.coverImage || 'https://images.unsplash.com/photo-1557804506-669a67965ba0',
+            badge: currentSlide.badge || 'समाजवाद का अर्थ है – सबके लिए सम्मान, अवसर और न्याय।',
+            title: currentSlide.title || 'आदरणीय श्री अखिलेश यादव जी',
+            subtitle: currentSlide.subtitle || 'श्री अखिलेश यादव जी उत्तर प्रदेश के प्रमुख समाजवादी नेता, समाजवादी पार्टी के राष्ट्रीय अध्यक्ष एवं प्रदेश के पूर्व मुख्यमंत्री हैं।',
+            image: currentSlide.image || require('../../assets/images/heropre.png'),
             stats: currentSlide.stats || [
-                { num: '25L+', label: 'सक्रिय सदस्य' },
-                { num: '75+', label: 'सीटें जीतीं' },
-                { num: '1000+', label: 'विकास परियोजनाएं' }
+                { num: '37', label: 'प्रदेश के सबसे ज्यादा सांसदों की पार्टी' }
             ],
-            highlights: currentSlide.highlights || ['Free Laptop योजना', 'किसान पेंशन योजना', 'रोजगार गारंटी'],
+            highlights: currentSlide.highlights || defaultHighlights,
             totalSlides: slides.length
         };
     };
@@ -247,7 +257,7 @@ export default function DesktopHome() {
                         <View style={styles.heroRight}>
                             <View style={styles.heroImageWrapper}>
                                 <Image
-                                    source={{ uri: heroData.image }}
+                                    source={typeof heroData.image === 'string' ? { uri: heroData.image } : heroData.image}
                                     style={styles.heroMainImage}
                                     resizeMode="cover"
                                 />
@@ -279,7 +289,7 @@ export default function DesktopHome() {
                             <View style={styles.heroDecoCircle1} />
                             <View style={styles.heroDecoCircle2} />
                         </View>
-                    </View>
+                    </View >
 
 
                 </View >
@@ -335,7 +345,7 @@ export default function DesktopHome() {
                 </View >
 
                 {/* Section 4: Party Achievements - Dynamic */}
-                <View style={styles.section}>
+                < View style={styles.section} >
                     <Text style={styles.sectionTitle}>{trackRecordData.title}</Text>
                     <View style={styles.achievementsGrid}>
                         {trackRecordData.items.map((item: any, index: number) => (
@@ -350,64 +360,66 @@ export default function DesktopHome() {
                             </View>
                         ))}
                     </View>
-                </View>
+                </View >
 
                 {/* Section 5: Our Leaders - Cards Layout (Only if active slides exist) */}
-                {showPresidentSection && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>{presidentData.title}</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.leadersCardsContainer}
-                        >
-                            {presidentData.slides.map((leader: any, index: number) => (
-                                <View key={index} style={styles.leaderCard}>
-                                    {/* Leader Image */}
-                                    <View style={styles.leaderCardImageWrapper}>
-                                        <Image
-                                            source={{ uri: leader.image || 'https://images.unsplash.com/photo-1557804506-669a67965ba0' }}
-                                            style={styles.leaderCardImage}
-                                            resizeMode="contain"
-                                        />
-                                        {/* Badge */}
-                                        <View style={styles.leaderCardBadge}>
-                                            <Text style={styles.leaderCardBadgeText}>{leader.badge || 'Leader'}</Text>
+                {
+                    showPresidentSection && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>{presidentData.title}</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.leadersCardsContainer}
+                            >
+                                {presidentData.slides.map((leader: any, index: number) => (
+                                    <View key={index} style={styles.leaderCard}>
+                                        {/* Leader Image */}
+                                        <View style={styles.leaderCardImageWrapper}>
+                                            <Image
+                                                source={{ uri: leader.image || 'https://images.unsplash.com/photo-1557804506-669a67965ba0' }}
+                                                style={styles.leaderCardImage}
+                                                resizeMode="contain"
+                                            />
+                                            {/* Badge */}
+                                            <View style={styles.leaderCardBadge}>
+                                                <Text style={styles.leaderCardBadgeText}>{leader.badge || 'Leader'}</Text>
+                                            </View>
+                                        </View>
+
+                                        {/* Leader Info */}
+                                        <View style={styles.leaderCardInfo}>
+                                            <Text style={styles.leaderCardName}>{leader.name || 'Name'}</Text>
+                                            <Text style={styles.leaderCardSubtitle}>{leader.subtitle || ''}</Text>
+
+                                            {/* Quote */}
+                                            {leader.quote && (
+                                                <View style={styles.leaderCardQuote}>
+                                                    <MaterialCommunityIcons name="format-quote-open" size={16} color={SP_RED} />
+                                                    <Text style={styles.leaderCardQuoteText} numberOfLines={3}>
+                                                        {leader.quote}
+                                                    </Text>
+                                                </View>
+                                            )}
+
+                                            {/* Achievements */}
+                                            {leader.achievements && leader.achievements.length > 0 && (
+                                                <View style={styles.leaderCardAchievements}>
+                                                    {leader.achievements.slice(0, 2).map((ach: string, idx: number) => (
+                                                        <View key={idx} style={styles.leaderCardAchievementItem}>
+                                                            <MaterialCommunityIcons name="check-circle" size={14} color={SP_GREEN} />
+                                                            <Text style={styles.leaderCardAchievementText} numberOfLines={1}>{ach}</Text>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            )}
                                         </View>
                                     </View>
-
-                                    {/* Leader Info */}
-                                    <View style={styles.leaderCardInfo}>
-                                        <Text style={styles.leaderCardName}>{leader.name || 'Name'}</Text>
-                                        <Text style={styles.leaderCardSubtitle}>{leader.subtitle || ''}</Text>
-
-                                        {/* Quote */}
-                                        {leader.quote && (
-                                            <View style={styles.leaderCardQuote}>
-                                                <MaterialCommunityIcons name="format-quote-open" size={16} color={SP_RED} />
-                                                <Text style={styles.leaderCardQuoteText} numberOfLines={3}>
-                                                    {leader.quote}
-                                                </Text>
-                                            </View>
-                                        )}
-
-                                        {/* Achievements */}
-                                        {leader.achievements && leader.achievements.length > 0 && (
-                                            <View style={styles.leaderCardAchievements}>
-                                                {leader.achievements.slice(0, 2).map((ach: string, idx: number) => (
-                                                    <View key={idx} style={styles.leaderCardAchievementItem}>
-                                                        <MaterialCommunityIcons name="check-circle" size={14} color={SP_GREEN} />
-                                                        <Text style={styles.leaderCardAchievementText} numberOfLines={1}>{ach}</Text>
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        )}
-                                    </View>
-                                </View>
-                            ))}
-                        </ScrollView>
-                    </View>
-                )}
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )
+                }
 
                 {/* Section 6: Party History & Legacy - Dynamic */}
                 <View style={[styles.section, { backgroundColor: '#fff' }]}>
@@ -444,70 +456,72 @@ export default function DesktopHome() {
                 </View>
 
                 {/* Section 7: Our Programs - Dynamic with Enhanced UI */}
-                {programsData.items.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>{programsData.title}</Text>
-                        <View style={styles.programsGrid}>
-                            {programsData.items.map((program: any, index: number) => (
-                                <Pressable
-                                    key={program._id || index}
-                                    style={styles.programCard}
-                                    onPress={() => {
-                                        if (program._id) {
-                                            router.push(`/news/${program._id}` as any);
-                                        } else {
-                                            router.push('/events' as any);
-                                        }
-                                    }}
-                                >
-                                    {program.coverImage || program.image ? (
-                                        <View style={styles.programCardImageWrapper}>
-                                            <Image
-                                                source={{ uri: program.coverImage || program.image }}
-                                                style={styles.programCardImage}
-                                                resizeMode="cover"
-                                            />
-                                            {/* Gradient Overlay */}
+                {
+                    programsData.items.length > 0 && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>{programsData.title}</Text>
+                            <View style={styles.programsGrid}>
+                                {programsData.items.map((program: any, index: number) => (
+                                    <Pressable
+                                        key={program._id || index}
+                                        style={styles.programCard}
+                                        onPress={() => {
+                                            if (program._id) {
+                                                router.push(`/news/${program._id}` as any);
+                                            } else {
+                                                router.push('/events' as any);
+                                            }
+                                        }}
+                                    >
+                                        {program.coverImage || program.image ? (
+                                            <View style={styles.programCardImageWrapper}>
+                                                <Image
+                                                    source={{ uri: program.coverImage || program.image }}
+                                                    style={styles.programCardImage}
+                                                    resizeMode="cover"
+                                                />
+                                                {/* Gradient Overlay */}
+                                                <LinearGradient
+                                                    colors={['transparent', 'rgba(0,0,0,0.7)']}
+                                                    style={styles.programCardOverlay}
+                                                />
+                                                {/* Icon Badge */}
+                                                <View style={styles.programCardIconBadge}>
+                                                    <MaterialCommunityIcons
+                                                        name={program.icon || 'star'}
+                                                        size={32}
+                                                        color="#fff"
+                                                    />
+                                                </View>
+                                            </View>
+                                        ) : (
                                             <LinearGradient
-                                                colors={['transparent', 'rgba(0,0,0,0.7)']}
-                                                style={styles.programCardOverlay}
-                                            />
-                                            {/* Icon Badge */}
-                                            <View style={styles.programCardIconBadge}>
+                                                colors={index % 2 === 0 ? [SP_RED, '#b91c1c'] : [SP_GREEN, '#15803d']}
+                                                style={styles.programCardGradient}
+                                            >
                                                 <MaterialCommunityIcons
                                                     name={program.icon || 'star'}
-                                                    size={32}
+                                                    size={56}
                                                     color="#fff"
                                                 />
+                                            </LinearGradient>
+                                        )}
+                                        <View style={styles.programCardContent}>
+                                            <Text style={styles.programCardTitle}>{program.title}</Text>
+                                            <Text style={styles.programCardDesc} numberOfLines={2}>{program.excerpt || program.description || program.desc}</Text>
+
+                                            {/* Learn More Link */}
+                                            <View style={styles.programCardFooter}>
+                                                <Text style={styles.programCardLink}>Read More</Text>
+                                                <MaterialCommunityIcons name="arrow-right" size={16} color={SP_RED} />
                                             </View>
                                         </View>
-                                    ) : (
-                                        <LinearGradient
-                                            colors={index % 2 === 0 ? [SP_RED, '#b91c1c'] : [SP_GREEN, '#15803d']}
-                                            style={styles.programCardGradient}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name={program.icon || 'star'}
-                                                size={56}
-                                                color="#fff"
-                                            />
-                                        </LinearGradient>
-                                    )}
-                                    <View style={styles.programCardContent}>
-                                        <Text style={styles.programCardTitle}>{program.title}</Text>
-                                        <Text style={styles.programCardDesc} numberOfLines={2}>{program.excerpt || program.description || program.desc}</Text>
-
-                                        {/* Learn More Link */}
-                                        <View style={styles.programCardFooter}>
-                                            <Text style={styles.programCardLink}>Read More</Text>
-                                            <MaterialCommunityIcons name="arrow-right" size={16} color={SP_RED} />
-                                        </View>
-                                    </View>
-                                </Pressable>
-                            ))}
+                                    </Pressable>
+                                ))}
+                            </View>
                         </View>
-                    </View>
-                )}
+                    )
+                }
 
                 {/* Section 8: Join the Movement */}
                 < View style={styles.joinSection} >
@@ -567,43 +581,45 @@ export default function DesktopHome() {
                 </View >
 
                 {/* Section: Custom Pages */}
-                {pages.length > 0 && (
-                    <View style={[styles.section, { backgroundColor: '#fff' }]}>
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Explore Pages</Text>
-                            <Button mode="text" textColor={SP_RED} onPress={() => router.push('/pages' as any)}>
-                                View All →
-                            </Button>
-                        </View>
-                        <View style={styles.programsGrid}>
-                            {pages.map((page, index) => (
-                                <Pressable
-                                    key={page._id || index}
-                                    style={styles.explorePageCard}
-                                    onPress={() => router.push(`/pages/${page._id}` as any)}
-                                >
-                                    <LinearGradient
-                                        colors={[
-                                            index % 4 === 0 ? '#fef2f2' : index % 4 === 1 ? '#f0fdf4' : index % 4 === 2 ? '#eff6ff' : '#fef3c7',
-                                            index % 4 === 0 ? '#fecaca' : index % 4 === 1 ? '#bbf7d0' : index % 4 === 2 ? '#bfdbfe' : '#fde68a'
-                                        ]}
-                                        style={styles.explorePageGradient}
+                {
+                    pages.length > 0 && (
+                        <View style={[styles.section, { backgroundColor: '#fff' }]}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Explore Pages</Text>
+                                <Button mode="text" textColor={SP_RED} onPress={() => router.push('/pages' as any)}>
+                                    View All →
+                                </Button>
+                            </View>
+                            <View style={styles.programsGrid}>
+                                {pages.map((page, index) => (
+                                    <Pressable
+                                        key={page._id || index}
+                                        style={styles.explorePageCard}
+                                        onPress={() => router.push(`/pages/${page._id}` as any)}
                                     >
-                                        <MaterialCommunityIcons
-                                            name="file-document-outline"
-                                            size={40}
-                                            color={index % 4 === 0 ? SP_RED : index % 4 === 1 ? SP_GREEN : index % 4 === 2 ? '#2563eb' : '#d97706'}
-                                        />
-                                    </LinearGradient>
-                                    <View style={styles.explorePageContent}>
-                                        <Text style={styles.explorePageTitle}>{page.title}</Text>
-                                        <Text style={styles.explorePageDesc}>View Details →</Text>
-                                    </View>
-                                </Pressable>
-                            ))}
+                                        <LinearGradient
+                                            colors={[
+                                                index % 4 === 0 ? '#fef2f2' : index % 4 === 1 ? '#f0fdf4' : index % 4 === 2 ? '#eff6ff' : '#fef3c7',
+                                                index % 4 === 0 ? '#fecaca' : index % 4 === 1 ? '#bbf7d0' : index % 4 === 2 ? '#bfdbfe' : '#fde68a'
+                                            ]}
+                                            style={styles.explorePageGradient}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name="file-document-outline"
+                                                size={40}
+                                                color={index % 4 === 0 ? SP_RED : index % 4 === 1 ? SP_GREEN : index % 4 === 2 ? '#2563eb' : '#d97706'}
+                                            />
+                                        </LinearGradient>
+                                        <View style={styles.explorePageContent}>
+                                            <Text style={styles.explorePageTitle}>{page.title}</Text>
+                                            <Text style={styles.explorePageDesc}>View Details →</Text>
+                                        </View>
+                                    </Pressable>
+                                ))}
+                            </View>
                         </View>
-                    </View>
-                )}
+                    )
+                }
 
                 <Footer data={footerContent} />
             </ScrollView >
