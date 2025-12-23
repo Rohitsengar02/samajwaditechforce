@@ -95,7 +95,7 @@ export default function DesktopPosterEditor() {
 
     // Bottom Bar Template State
     const [showBottomBarModal, setShowBottomBarModal] = useState(false);
-    const [selectedBottomBarTemplate, setSelectedBottomBarTemplate] = useState(TEMPLATES[2].id);
+    const [selectedBottomBarTemplate, setSelectedBottomBarTemplate] = useState(TEMPLATES[0].id);
     const [bottomBarDetails, setBottomBarDetails] = useState({
         name: '',
         designation: '',
@@ -104,6 +104,7 @@ export default function DesktopPosterEditor() {
         socialPlatform: 'twitter' as 'twitter' | 'facebook' | 'instagram' | 'youtube' | 'linkedin' | 'whatsapp',
         address: '',
         photo: null as string | null,
+        photoNoBg: null as string | null,
     });
     const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
     const [isRemovingBg, setIsRemovingBg] = useState(false);
@@ -130,6 +131,7 @@ export default function DesktopPosterEditor() {
             setBottomBarDetails({
                 ...bottomBarDetails,
                 photo: result.assets[0].uri,
+                photoNoBg: null,
             });
         }
     };
@@ -173,7 +175,7 @@ export default function DesktopPosterEditor() {
 
             setBottomBarDetails({
                 ...bottomBarDetails,
-                photo: url,
+                photoNoBg: url,
             });
 
             Alert.alert('Success', 'Background removed successfully!');
@@ -317,6 +319,7 @@ export default function DesktopPosterEditor() {
                     socialPlatform: 'twitter',
                     address: addressStr || '',
                     photo: userInfo.profileImage || null,
+                    photoNoBg: userInfo.profileImageNoBg || null,
                 });
             }
         } catch (error) {
@@ -1904,7 +1907,7 @@ export default function DesktopPosterEditor() {
                                                     borderRadius: 8
                                                 }}>
                                                     <Image
-                                                        source={{ uri: bottomBarDetails.photo }}
+                                                        source={{ uri: (bottomBarDetails.photoNoBg || bottomBarDetails.photo)! }}
                                                         style={{
                                                             width: 120,
                                                             height: 160,

@@ -50,46 +50,121 @@ export default function AddressFormScreen({ navigation, route }: AddressFormProp
     const profileData = route?.params?.profileData || {};
 
     useEffect(() => {
-        (async () => {
+        fetchLocation();
+    }, []);
+
+    const fetchLocation = async () => {
+        try {
+            console.log('🗺️ Requesting location permissions...');
             let { status } = await Location.requestForegroundPermissionsAsync();
+
             if (status !== 'granted') {
                 setErrorMsg('Permission to access location was denied');
-                Alert.alert('Permission Denied', 'Allow location access to use the map feature.');
+                Alert.alert(
+                    'Location Permission Required',
+                    'Please allow location access to use the map feature. You can also manually enter your address.',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Try Again', onPress: () => fetchLocation() }
+                    ]
+                );
+                // Set a default location (India center) so map still loads
+                const defaultRegion = {
+                    latitude: 28.6139, // Delhi
+                    longitude: 77.2090,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                };
+                setRegion(defaultRegion);
                 return;
             }
 
-            let currentLocation = await Location.getCurrentPositionAsync({});
-            setLocation(currentLocation);
+            console.log('✅ Location permission granted, getting current position...');
+            try {
+                let currentLocation = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                });
 
-            const newRegion = {
-                latitude: currentLocation.coords.latitude,
-                longitude: currentLocation.coords.longitude,
-                latitudeDelta: 0.005,
-                longitudeDelta: 0.005,
+                console.log('✅ Got current location:', currentLocation.coords);
+                setLocation(currentLocation);
+
+                const newRegion = {
+                    latitude: currentLocation.coords.latitude,
+                    longitude: currentLocation.coords.longitude,
+                    latitudeDelta: 0.005,
+                    longitudeDelta: 0.005,
+                };
+                setRegion(newRegion);
+
+                // Initial reverse geocode
+                reverseGeocode(currentLocation.coords.latitude, currentLocation.coords.longitude);
+            } catch (locError: any) {
+                console.error('❌ Error getting location:', locError);
+                setErrorMsg('Could not fetch your location');
+
+                Alert.alert(
+                    'Location Error',
+                    'Unable to get your current location. You can manually enter your address or try again.',
+                    [
+                        { text: 'Enter Manually', style: 'cancel' },
+                        { text: 'Retry', onPress: () => fetchLocation() }
+                    ]
+                );
+
+                // Set default location so map still works
+                const defaultRegion = {
+                    latitude: 28.6139,
+                    longitude: 77.2090,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                };
+                setRegion(defaultRegion);
+            }
+        } catch (error: any) {
+            console.error('❌ Location fetch error:', error);
+            setErrorMsg('Location service error');
+
+            // Set default location
+            const defaultRegion = {
+                latitude: 28.6139,
+                longitude: 77.2090,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
             };
-            setRegion(newRegion);
-
-            // Initial reverse geocode
-            reverseGeocode(currentLocation.coords.latitude, currentLocation.coords.longitude);
-        })();
-    }, []);
+            setRegion(defaultRegion);
+        }
+    };
 
     const reverseGeocode = async (latitude: number, longitude: number) => {
         setLoadingAddress(true);
         try {
+            console.log(`📍 Reverse geocoding: ${latitude}, ${longitude}`);
             const result = await Location.reverseGeocodeAsync({ latitude, longitude });
+            console.log('📍 Address result:', result[0]);
+
             if (result.length > 0) {
                 const addr = result[0];
-                setAddress({
-                    street: `${addr.streetNumber || ''} ${addr.street || ''}`.trim() || addr.name || '',
-                    city: addr.city || addr.subregion || '',
-                    state: addr.region || '',
-                    postalCode: addr.postalCode || '',
-                    country: addr.country || '',
-                });
+
+                // Construct logic to find the best values
+                const street = [addr.streetNumber, addr.street, addr.name].filter(Boolean).join(' ').trim() || '';
+                const city = addr.city || addr.subregion || addr.district || '';
+                const state = addr.region || addr.subregion || '';
+                const postalCode = addr.postalCode || '';
+                const country = addr.country || '';
+
+                const newAddress = {
+                    street: street || 'Unknown Location',
+                    city: city,
+                    state: state,
+                    postalCode: postalCode,
+                    country: country,
+                };
+
+                console.log('📝 Autofilling Form:', newAddress);
+                setAddress(newAddress);
             }
         } catch (error) {
-            console.log('Reverse geocoding failed', error);
+            console.log('❌ Reverse geocoding failed', error);
         } finally {
             setLoadingAddress(false);
         }

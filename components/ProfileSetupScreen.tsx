@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { getApiUrl } from '../utils/api';
+import { useRouter } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
@@ -163,6 +164,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
   const [email, setEmail] = useState(googleData?.email || profileData?.email || '');
   const [hasPhoto, setHasPhoto] = useState<boolean>(!!googleData?.photo || !!profileData?.profileImage);
   const [photoUri, setPhotoUri] = useState<string | null>(googleData?.photo || profileData?.profileImage || null);
+  const [photoUriNoBg, setPhotoUriNoBg] = useState<string | null>(profileData?.profileImageNoBg || null);
   // If manual register, password exists but we might not want to show it or show it masked.
   // User asked to "show email and password autofill and unchangable".
   // Note: We typically don't get the plain password back from backend registration response.
@@ -173,6 +175,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
   const [password, setPassword] = useState('********');
   const [showErrors, setShowErrors] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -223,25 +226,39 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
   const UPLOAD_PRESET = "multimallpro";
 
   const uploadImageToCloudinary = async (uri: string) => {
-    const data = new FormData();
-    data.append('file', {
-      uri,
-      type: 'image/jpeg',
-      name: 'profile_image.jpg',
-    } as any);
-    data.append('upload_preset', UPLOAD_PRESET);
-    data.append('cloud_name', 'dssmutzly');
-
     try {
+      const data = new FormData();
+
+      // Check if it's a blob URL (from background removal)
+      if (uri.startsWith('blob:')) {
+        // For blob URLs, fetch the blob and append it directly
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        data.append('file', blob, 'profile_image.png');
+      } else {
+        // For regular URIs (mobile/native)
+        data.append('file', {
+          uri,
+          type: 'image/jpeg',
+          name: 'profile_image.jpg',
+        } as any);
+      }
+
+      data.append('upload_preset', UPLOAD_PRESET);
+      data.append('cloud_name', 'dssmutzly');
+
       const res = await fetch(CLOUDINARY_URL, {
         method: 'POST',
         body: data,
       });
+
       const result = await res.json();
+
       if (result.secure_url) {
         return result.secure_url;
       } else {
-        throw new Error('Image upload failed');
+        console.error('Cloudinary response:', result);
+        throw new Error(result.error?.message || 'Image upload failed');
       }
     } catch (error) {
       console.error('Cloudinary Upload Error:', error);
@@ -265,74 +282,109 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
     setShowLoadingModal(true);
     setUploading(true);
 
-    if (!isEditMode) {
-      try {
-        const apiUrl = getApiUrl();
-        const checkRes = await fetch(`${apiUrl}/auth/check-exists`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, phone })
-        });
-        const checkData = await checkRes.json();
+    try {
+      const apiUrl = getApiUrl();
 
-        if (checkData.exists) {
-          setUploading(false);
-          setShowLoadingModal(false);
-          Alert.alert(
-            'Account Exists',
-            'User already exists with this email or phone. Please login instead.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Login', onPress: () => navigation.goBack() }
-            ]
-          );
-          return;
+      // Check if user already exists (only for new registrations)
+      if (!isEditMode) {
+        try {
+          const checkRes = await fetch(`${apiUrl}/auth/check-exists`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, phone: `+91${phone}` })
+          });
+          const checkData = await checkRes.json();
+
+          if (checkData.exists) {
+            setUploading(false);
+            setShowLoadingModal(false);
+            Alert.alert(
+              'Account Already Exists',
+              'An account with this email or phone already exists. Redirecting you to home page...',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    // Redirect to home page (tabs)
+                    router.replace('/(tabs)');
+                  }
+                }
+              ]
+            );
+            return;
+          }
+        } catch (error) {
+          console.log('Check exists error:', error);
+          // Continue with registration if check fails
         }
-      } catch (error) {
-        console.log('Check exists error', error);
       }
-    }
 
-    let uploadedImageUrl = photoUri;
+      let uploadedImageUrl = photoUri;
+      let uploadedImageNoBgUrl = photoUriNoBg;
 
-    if (photoUri && hasPhoto) {
-      const cloudUrl = await uploadImageToCloudinary(photoUri);
-
-      if (cloudUrl) {
-        uploadedImageUrl = cloudUrl;
+      // Upload original image (with background)
+      if (photoUri && hasPhoto) {
+        const cloudUrl = await uploadImageToCloudinary(photoUri);
+        if (cloudUrl) {
+          uploadedImageUrl = cloudUrl;
+        }
       }
-    }
 
-    // Register with Firebase if not in edit mode
-    if (!isEditMode) {
-      const { user, error } = await registerWithEmail(email, password);
-
-      if (error) {
-        setUploading(false);
-        Alert.alert('Registration Failed', error);
-        return;
+      // Upload background-removed image
+      if (photoUriNoBg) {
+        const cloudUrlNoBg = await uploadImageToCloudinary(photoUriNoBg);
+        if (cloudUrlNoBg) {
+          uploadedImageNoBgUrl = cloudUrlNoBg;
+        }
       }
-    }
 
-    setUploading(false);
-    setShowLoadingModal(false);
+      // Register with Firebase (only for new users)
+      if (!isEditMode) {
+        const { user, error } = await registerWithEmail(email, password);
 
-    const profileData: any = {
-      name: fullName,
-      email,
-      gender,
-      dob,
-      phone: phone,
-      password,
-      profileImage: uploadedImageUrl,
-    };
+        if (error) {
+          // Check if it's because user already exists in Firebase
+          if (error.includes('already') || error.includes('exists') || error.includes('in-use')) {
+            console.log('User already exists in Firebase, continuing with flow...');
+            // Continue with the flow even if Firebase registration fails
+          } else {
+            // For other errors, show alert and stop
+            setUploading(false);
+            setShowLoadingModal(false);
+            Alert.alert('Registration Failed', error);
+            return;
+          }
+        }
+      }
 
-    console.log('Profile data (UI only):', profileData);
+      const profileDataPayload: any = {
+        name: fullName,
+        email,
+        gender,
+        dob,
+        phone: `+91${phone}`,
+        password,
+        profileImage: uploadedImageUrl,
+        profileImageNoBg: uploadedImageNoBgUrl,
+      };
 
-    if (isEditMode) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('AddressForm', { profileData });
+      console.log('Profile data to save:', profileDataPayload);
+
+      setUploading(false);
+      setShowLoadingModal(false);
+
+      // Navigate to next step
+      if (isEditMode) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('AddressForm', { profileData: profileDataPayload });
+      }
+
+    } catch (error) {
+      console.error('Profile setup error:', error);
+      setUploading(false);
+      setShowLoadingModal(false);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     }
   };
 
@@ -345,8 +397,51 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotoUri(result.assets[0].uri);
+      const originalUri = result.assets[0].uri;
+      setPhotoUri(originalUri);
       setHasPhoto(true);
+
+      // Auto-remove background
+      try {
+        setUploading(true);
+
+        // Fetch the image
+        const imageResponse = await fetch(originalUri);
+        const imageBlob = await imageResponse.blob();
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append('image', imageBlob);
+
+        // Call background removal service
+        const BG_REMOVAL_URL = process.env.EXPO_PUBLIC_BG_REMOVAL_URL || 'http://localhost:5002';
+        const response = await fetch(`${BG_REMOVAL_URL}/remove-bg`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          // Get the result as blob
+          const resultBlob = await response.blob();
+
+          // Create object URL for the background-removed image
+          const noBgUrl = URL.createObjectURL(resultBlob);
+
+          // Save both versions
+          setPhotoUri(originalUri); // Original with background
+          setPhotoUriNoBg(noBgUrl); // Without background
+
+          console.log('✅ Background removed successfully');
+        } else {
+          console.log('⚠️ Background removal failed, using original');
+          setPhotoUriNoBg(null);
+        }
+      } catch (error) {
+        console.error('Background removal error:', error);
+        setPhotoUriNoBg(null);
+      } finally {
+        setUploading(false);
+      }
     }
   };
 

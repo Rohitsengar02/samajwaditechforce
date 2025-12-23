@@ -6,6 +6,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
+// Import frame images
+const frame1 = require('../../assets/images/frame1.png');
+const frame2 = require('../../assets/images/frame2.png');
+const frame3 = require('../../assets/images/frame3.png');
+const logo = require('../../assets/images/icon.png');
+
+
 // Helper function to get social media icon
 const getSocialIcon = (platform?: string): string => {
     switch (platform) {
@@ -24,11 +31,13 @@ const getWebImageProps = () => Platform.OS === 'web' ? { crossOrigin: 'anonymous
 
 
 export const TEMPLATES = [
-    { id: 'default', name: '🎯 Classic Frame' },
-    { id: 'bold_strip', name: '💎 Professional Card' },
-    { id: 'minimal_white', name: '✨ Modern Minimal' },
-    { id: 'red_accent', name: '🔴 Red Power' },
-    { id: 'gradient_wave', name: '🌊 Vibrant Wave' },
+    { id: 'stf_bold', name: '🟥 STF Bold', gradient: ['#d90429', '#ef233c'] },
+    { id: 'stf_rounded', name: '💊 STF Rounded', gradient: ['#2b9348', '#55a630'] },
+    { id: 'stf_tabbed', name: '📑 STF Tabbed', gradient: ['#000000', '#4a4e69'] },
+    { id: 'bold_strip', name: '💎 Professional', gradient: ['#1e3a8a', '#3b82f6'] },
+    { id: 'minimal_white', name: '✨ Minimal', gradient: ['#ffffff', '#f1f5f9'] },
+    { id: 'red_accent', name: '🔴 Red Power', gradient: ['#7f1d1d', '#b91c1c'] },
+    { id: 'gradient_wave', name: '🌊 Vibrant', gradient: ['#E30512', '#009933'] },
 ];
 
 interface TemplateCustomization {
@@ -62,89 +71,11 @@ interface TemplateProps {
     details: any;
     width: number;
     customization?: TemplateCustomization;
+    photoPosition?: { x: number; y: number };
+    isPhotoFlipped?: boolean;
 }
 
-// Template 1: Classic Frame - Traditional horizontal layout with party strip
-const DefaultBar = ({ details, width, customization }: TemplateProps) => {
-    const isSolid = customization?.backgroundType === 'solid';
-    const bgColors = isSolid
-        ? [customization?.backgroundColor || SP_RED, customization?.backgroundColor || SP_RED]
-        : (customization?.backgroundGradient || [SP_RED, '#16a34a']);
 
-    return (
-        <LinearGradient colors={bgColors as any} style={[styles.bottomBar, { width, opacity: customization?.backgroundOpacity || 1 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 3 }}>
-                {/* LEFT CONTENT (40%): Details */}
-                <View style={{ width: '40%', gap: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name="phone" size={customization?.mobileFontSize ? customization.mobileFontSize + 2 : 10} color={customization?.mobileColor || '#ffffff'} />
-                        <Text style={[styles.textRegular, {
-                            fontSize: customization?.mobileFontSize || 8,
-                            color: customization?.mobileColor || '#ffffff',
-                            backgroundColor: customization?.mobileBackgroundColor || 'transparent',
-                        }]}>{details?.mobile || '+91 98765 43210'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4, flexWrap: 'wrap' }}>
-                        <MaterialCommunityIcons name="map-marker" size={customization?.addressFontSize ? customization.addressFontSize + 2 : 12} color={customization?.addressColor || '#ffffff'} />
-                        <Text style={[styles.textRegular, {
-                            fontSize: customization?.addressFontSize || 9,
-                            color: customization?.addressColor || '#ffffff',
-                            backgroundColor: customization?.addressBackgroundColor || 'transparent',
-                            flex: 1,
-                            flexWrap: 'wrap',
-                        }]}>{details?.address || 'Lucknow, Uttar Pradesh'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={customization?.socialFontSize ? customization.socialFontSize + 2 : 12} color={customization?.socialColor || '#ffffff'} />
-                        <Text style={[styles.textRegular, {
-                            fontSize: customization?.socialFontSize || 9,
-                            color: customization?.socialColor || '#ffffff',
-                            backgroundColor: customization?.socialBackgroundColor || 'transparent',
-                        }]}>{details?.socialHandle || '@samajwadiparty'}</Text>
-                    </View>
-                </View>
-
-                {/* GAP (4%) */}
-                <View style={{ width: '4%' }} />
-
-                {/* RIGHT CONTENT (Remaining): Photo & Name */}
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                    <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                        <Text style={[styles.textBold, {
-                            fontSize: customization?.nameFontSize || 10,
-                            color: customization?.nameColor || '#ffffff',
-                            backgroundColor: customization?.nameBackgroundColor || 'transparent',
-                            textAlign: 'right',
-                            flexWrap: 'wrap',
-                        }]}>{details?.name || 'Your Name'}</Text>
-                        <Text style={[styles.textRegular, {
-                            fontSize: customization?.designationFontSize || 8,
-                            color: customization?.designationColor || '#ffffff',
-                            backgroundColor: customization?.designationBackgroundColor || 'transparent',
-                            textAlign: 'right',
-                            flexWrap: 'wrap',
-                        }]}>{details?.designation || 'Designation'}</Text>
-                    </View>
-                    <View style={[styles.photoContainer, {
-                        width: customization?.imageSize || 40,
-                        height: customization?.imageSize || 40,
-                        borderRadius: (customization?.imageSize || 40) / 2,
-                        borderColor: customization?.imageBorderColor || SP_GREEN,
-                        borderWidth: customization?.imageBorderWidth || 2,
-                    }]}>
-                        {details?.photo ? (
-                            <Image source={{ uri: details.photo }} style={styles.photo} {...getWebImageProps()} />
-                        ) : (
-                            <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
-                        )}
-                    </View>
-                </View>
-            </View>
-            {/* Bottom Strip */}
-            <LinearGradient colors={[SP_GREEN, '#15803d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 4, width: '100%', position: 'absolute', bottom: 0, left: 0 }} />
-        </LinearGradient >
-    );
-};
 
 // Template 2: Professional Card - Blue gradient with large circular photo
 const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
@@ -534,25 +465,297 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
     );
 };
 
-export const renderTemplate = (templateIdOrProps: string | { template?: string; templateId?: string; details: any; width: number; customization?: TemplateCustomization }, details?: any, width?: number, customization?: TemplateCustomization) => {
+// Template 7: Bold STF - Image Frame (frame1)
+const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
+    const photoX = photoPosition?.x ?? 1;
+    const photoY = photoPosition?.y ?? -180;
+
+    return (
+        <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
+            {/* User Photo - Above Frame - Right Side - Large Square */}
+            <View style={{ position: 'absolute', right: photoX, top: photoY, height: 240, zIndex: 16 }}>
+                <View style={{
+                    width: 200,
+                    height: 287,
+                    overflow: 'hidden',
+                    transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
+                }}>
+                    {details?.photoNoBg || details?.photo ? (
+                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
+                        </View>
+                    )}
+                </View>
+            </View>
+
+            {/* Frame Image Overlay (Middle Layer) */}
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 12 }}>
+                <Image source={frame1} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+            </View>
+
+            {/* Content Layer (Top - Above Frame) */}
+            <View style={{ position: 'absolute', left: '20%', top: -10, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+                <View style={{ alignItems: 'flex-start' }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
+                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            {/* Address at Bottom of Frame */}
+            <View style={{ position: 'absolute', bottom: 19, left: 80, right: 5, zIndex: 20 }}>
+                <Text style={[styles.textBold, { fontSize: 11, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>
+                    {details?.address || 'Address'}
+                </Text>
+            </View>
+        </View>
+    );
+};
+
+// Template 8: Rounded STF - Image Frame (frame2)
+const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
+    const photoX = photoPosition?.x ?? 1;
+    const photoY = photoPosition?.y ?? -240;
+
+    return (
+        <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
+            {/* User Photo - ABOVE Frame - Right Side - Large Square */}
+            <View style={{ position: 'absolute', right: photoX, top: -132, height: 240, zIndex: 16 }}>
+                <View style={{
+                    width: 190,
+                    height: 240,
+                    overflow: 'hidden',
+                    transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
+                }}>
+                    {details?.photoNoBg || details?.photo ? (
+                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
+                        </View>
+                    )}
+                </View>
+            </View>
+
+            {/* Frame Image Overlay (Middle Layer) */}
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 12 }}>
+                <Image source={frame2} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+            </View>
+
+            {/* Content Layer (Top - Above Frame) - LEFT ALIGNED */}
+            <View style={{ position: 'absolute', left: '25%', top: -1, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+                <View style={{ alignItems: 'flex-start' }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
+                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            {/* Address at Bottom of Frame */}
+            <View style={{ position: 'absolute', bottom: 20, left: 100, right: 5, zIndex: 20 }}>
+                <Text style={[styles.textBold, { fontSize: 11, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>
+                    {details?.address || 'Address'}
+                </Text>
+            </View>
+        </View>
+    );
+};
+
+// Template 9: Tabbed STF - Image Frame (frame3)
+const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
+    const photoX = photoPosition?.x ?? 1;
+    const photoY = photoPosition?.y ?? -240;
+
+    return (
+        <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
+            {/* User Photo - ABOVE Frame - Right Side - Large Square */}
+            <View style={{ position: 'absolute', right: photoX, top: -130, height: 240, zIndex: 16 }}>
+                <View style={{
+                    width: 180,
+                    height: 240,
+                    overflow: 'hidden',
+                    transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
+                }}>
+                    {details?.photoNoBg || details?.photo ? (
+                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
+                        </View>
+                    )}
+                </View>
+            </View>
+
+            {/* Frame Image Overlay (Middle Layer) */}
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 12 }}>
+                <Image source={frame3} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+            </View>
+
+            {/* Content Layer (Top - Above Frame) - LEFT ALIGNED */}
+            <View style={{ position: 'absolute', left: '25%', top: -35, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+                <View style={{ alignItems: 'flex-start' }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
+                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            {/* Address at Bottom of Frame */}
+            <View style={{ position: 'absolute', bottom: 25, left: 99, right: 5, zIndex: 20 }}>
+                <Text style={[styles.textBold, { fontSize: 11, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>
+                    {details?.address || 'Address'}
+                </Text>
+            </View>
+        </View>
+    );
+};
+
+
+
+// Template 11: Image Frame 2 - Asset Overlay
+const ImageFrame2 = ({ details, width, customization }: TemplateProps) => {
+    return (
+        <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start' }]}>
+            {/* Content Layer (Behind Frame) */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, position: 'relative', zIndex: 10 }}>
+                {/* Left: Logo */}
+                <View style={{ marginRight: 15 }}>
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                </View>
+
+                {/* Center: Details */}
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10 }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
+                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Right: User Photo */}
+                <View style={{ marginBottom: 15 }}>
+                    <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
+                        {details?.photo ? (
+                            <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                <MaterialCommunityIcons name="account" size={40} color="#cbd5e1" />
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </View>
+
+            {/* Frame Image Overlay (Front) */}
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 }}>
+                <Image source={frame2} style={{ width: '100%', height: '100%' }} resizeMode="stretch" />
+            </View>
+        </View>
+    );
+};
+
+// Template 12: Image Frame 3 - Asset Overlay
+const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
+    return (
+        <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start' }]}>
+            {/* Content Layer (Behind Frame) */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, position: 'relative', zIndex: 10 }}>
+                {/* Left: Logo */}
+                <View style={{ marginRight: 15 }}>
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                </View>
+
+                {/* Center: Details */}
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10 }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
+                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Right: User Photo */}
+                <View style={{ marginBottom: 15 }}>
+                    <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
+                        {details?.photo ? (
+                            <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                <MaterialCommunityIcons name="account" size={40} color="#cbd5e1" />
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </View>
+
+            {/* Frame Image Overlay (Front) */}
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 }}>
+                <Image source={frame3} style={{ width: '100%', height: '100%' }} resizeMode="stretch" />
+            </View>
+        </View>
+    );
+};
+
+
+
+export const renderTemplate = (templateIdOrProps: string | { template?: string; templateId?: string; details: any; width: number; customization?: TemplateCustomization; photoPosition?: { x: number; y: number }; isPhotoFlipped?: boolean }, details?: any, width?: number, customization?: TemplateCustomization, photoPosition?: { x: number; y: number }, isPhotoFlipped?: boolean) => {
     // Handle both old and new API
     let templateId: string;
     let finalDetails: any;
     let finalWidth: number;
     let finalCustomization: TemplateCustomization | undefined;
+    let finalPhotoPosition: { x: number; y: number } | undefined;
+    let finalIsPhotoFlipped: boolean | undefined;
 
     if (typeof templateIdOrProps === 'string') {
-        // Old API: renderTemplate(templateId, details, width, customization)
+        // Old API: renderTemplate(templateId, details, width, customization, photoPosition, isPhotoFlipped)
         templateId = templateIdOrProps;
         finalDetails = details;
         finalWidth = width || 300;
         finalCustomization = customization;
+        finalPhotoPosition = photoPosition;
+        finalIsPhotoFlipped = isPhotoFlipped;
     } else {
-        // New API: renderTemplate({ template, details, width, customization })
+        // New API: renderTemplate({ template, details, width, customization, photoPosition, isPhotoFlipped })
         templateId = templateIdOrProps.template || templateIdOrProps.templateId || 'default';
         finalDetails = templateIdOrProps.details;
         finalWidth = templateIdOrProps.width;
         finalCustomization = templateIdOrProps.customization;
+        finalPhotoPosition = templateIdOrProps.photoPosition;
+        finalIsPhotoFlipped = templateIdOrProps.isPhotoFlipped;
     }
 
     switch (templateId) {
@@ -564,8 +767,14 @@ export const renderTemplate = (templateIdOrProps: string | { template?: string; 
             return <RedAccentBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
         case 'gradient_wave':
             return <GradientWaveBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
-        default:
-            return <DefaultBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+        case 'stf_bold':
+            return <StfBoldFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} />;
+        case 'stf_rounded':
+            return <StfRoundedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} />;
+        case 'stf_tabbed':
+            return <StfTabbedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} />;
+
+
     }
 };
 

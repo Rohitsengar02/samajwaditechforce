@@ -145,9 +145,16 @@ export default function PosterEditor() {
         socialPlatform: 'instagram',
         address: 'Your Address',
         photo: null as string | null,
+        photoNoBg: null as string | null,
     });
     const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
     const [showCustomizationModal, setShowCustomizationModal] = useState(false);
+
+    // Footer Photo Controls
+    const [footerPhotoPosition, setFooterPhotoPosition] = useState({ x: 1, y: -180 });
+    const [isPhotoFlipped, setIsPhotoFlipped] = useState(false);
+    const [isRemovingFooterPhotoBg, setIsRemovingFooterPhotoBg] = useState(false);
+
 
     // Frame Customization State (matching desktop)
     const [frameCustomization, setFrameCustomization] = useState({
@@ -248,7 +255,7 @@ export default function PosterEditor() {
         { id: 'instagram', name: 'Instagram', icon: 'instagram' },
         { id: 'youtube', name: 'YouTube', icon: 'youtube' },
         { id: 'whatsapp', name: 'WhatsApp', icon: 'whatsapp' },
-        { id: 'telegram', name: 'Telegram', icon: 'telegram' },
+        { id: 'telegram', name: 'Telegram', icon: 'send' },
     ];
 
     useEffect(() => {
@@ -313,6 +320,7 @@ export default function PosterEditor() {
                     socialPlatform: user.socialPlatform || 'instagram',
                     address: fullAddress,
                     photo: user.profileImage || null,
+                    photoNoBg: user.profileImageNoBg || null,
                 });
             }
         } catch (error) {
@@ -555,6 +563,59 @@ export default function PosterEditor() {
             setShowImageModal(false);
         }
     };
+
+    // Remove Background from Footer User Photo (Free Local Service)
+    const handleRemoveFooterPhotoBg = async () => {
+        if (!bottomBarDetails.photo) {
+            Alert.alert('No Photo', 'Please upload a photo first');
+            return;
+        }
+
+        setIsRemovingFooterPhotoBg(true);
+        try {
+            // Fetch the image
+            const imageResponse = await fetch(bottomBarDetails.photo);
+            const imageBlob = await imageResponse.blob();
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('image', imageBlob);
+
+            // Call FREE background removal service (local or deployed)
+            const BG_REMOVAL_URL = process.env.EXPO_PUBLIC_BG_REMOVAL_URL || 'http://localhost:5002';
+            const response = await fetch(`${BG_REMOVAL_URL}/remove-bg`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Background removal service not running');
+            }
+
+            // Get the result as blob
+            const resultBlob = await response.blob();
+
+            // Create object URL
+            const url = URL.createObjectURL(resultBlob);
+
+            setBottomBarDetails({
+                ...bottomBarDetails,
+                photoNoBg: url,
+            });
+
+            Alert.alert('Success', 'Background removed successfully!');
+        } catch (error: any) {
+            console.error('Background removal error:', error);
+            Alert.alert(
+                'Service Not Running',
+                'Background removal service is not running.\n\nTo start it:\n1. Open Terminal in project folder\n2. Run: ./start_bg_service.sh',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsRemovingFooterPhotoBg(false);
+        }
+    };
+
 
     // Legacy direct pick (not used for 'image' tool anymore, but kept if needed)
     const pickImage = async () => {
@@ -1069,6 +1130,8 @@ export default function PosterEditor() {
                                     details={bottomBarDetails}
                                     width={canvasSize.w}
                                     customization={frameCustomization}
+                                    photoPosition={footerPhotoPosition}
+                                    isPhotoFlipped={isPhotoFlipped}
                                 />
                             </View>
 
@@ -1945,43 +2008,86 @@ export default function PosterEditor() {
                                     'default': 'Traditional horizontal layout',
                                     'bold_strip': 'Blue gradient with golden accent',
                                     'minimal_white': 'Clean design with accent line',
-                                    'red_accent': 'Creative split design with geometric accents',
-                                    'gradient_wave': 'Modern glassmorphism with neon glow',
+                                    'red_accent': 'Creative split design',
+                                    'gradient_wave': 'Modern glassmorphism',
+                                    'stf_bold': 'Bold frame with cutout photo',
+                                    'stf_rounded': 'Rounded elegant design',
+                                    'stf_tabbed': 'Tabbed layout for professionals',
                                 };
                                 return (
                                     <TouchableOpacity
                                         style={{
                                             marginBottom: 16,
-                                            borderRadius: 12,
+                                            borderRadius: 16,
                                             borderWidth: isSelected ? 2 : 1,
-                                            borderColor: isSelected ? SP_RED : '#e2e8f0',
+                                            borderColor: isSelected ? SP_RED : '#cbd5e1',
                                             backgroundColor: '#fff',
+                                            // Shadow for card look
+                                            shadowColor: '#64748b',
+                                            shadowOffset: { width: 0, height: 4 },
+                                            shadowOpacity: 0.1,
+                                            shadowRadius: 8,
+                                            elevation: 4,
                                             overflow: 'hidden',
                                         }}
                                         onPress={() => {
                                             setSelectedBottomBarTemplate(item.id);
                                             setShowBottomBarModal(false);
                                         }}
+                                        activeOpacity={0.9}
                                     >
-                                        {/* Frame Preview */}
-                                        <View style={{ width: '100%', minHeight: 70, overflow: 'hidden', borderTopLeftRadius: 10, borderTopRightRadius: 10 }}>
-                                            <RenderBottomBar
-                                                template={item.id}
-                                                details={bottomBarDetails}
-                                                width={width - 82}
-                                                customization={frameCustomization}
+                                        {/* Gradient Preview Card */}
+                                        <View style={{
+                                            width: '100%',
+                                            height: 100, // Compact height for gradient card
+                                            backgroundColor: '#f1f5f9',
+                                        }}>
+                                            <LinearGradient
+                                                colors={(item.gradient || ['#e2e8f0', '#cbd5e1']) as any}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                                style={{ width: '100%', height: '100%' }}
                                             />
+                                            {/* Optional: Add icon overlay */}
+                                            <View style={{ position: 'absolute', bottom: 10, left: 10, backgroundColor: 'rgba(255,255,255,0.2)', padding: 6, borderRadius: 8 }}>
+                                                <MaterialCommunityIcons name="card-account-details-outline" size={24} color="#fff" />
+                                            </View>
                                         </View>
-                                        {/* Selected Checkmark */}
+
+                                        {/* Selected Checkmark Badge */}
                                         {isSelected && (
-                                            <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: SP_RED, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+                                            <View style={{
+                                                position: 'absolute',
+                                                top: 10,
+                                                right: 10,
+                                                backgroundColor: SP_RED,
+                                                borderRadius: 20,
+                                                width: 28,
+                                                height: 28,
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                borderWidth: 2,
+                                                borderColor: '#fff',
+                                                zIndex: 100, // High z-index to be on top
+                                                shadowColor: '#000',
+                                                shadowOffset: { width: 0, height: 2 },
+                                                shadowOpacity: 0.2,
+                                                shadowRadius: 2,
+                                            }}>
                                                 <MaterialCommunityIcons name="check" size={16} color="#fff" />
                                             </View>
                                         )}
-                                        {/* Frame Name & Description */}
-                                        <View style={{ padding: 12, backgroundColor: '#fff' }}>
-                                            <Text style={{ fontSize: 14, fontWeight: '600', color: isSelected ? SP_RED : '#0f172a' }}>{item.name}</Text>
-                                            <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{frameDescriptions[item.id] || 'Custom frame design'}</Text>
+
+                                        {/* info section */}
+                                        <View style={{ padding: 14, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f1f5f9' }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1e293b' }}>
+                                                    {item.name}
+                                                </Text>
+                                            </View>
+                                            <Text style={{ fontSize: 13, color: '#64748b', lineHeight: 18 }}>
+                                                {frameDescriptions[item.id] || 'Custom styled frame design'}
+                                            </Text>
                                         </View>
                                     </TouchableOpacity>
                                 );
@@ -2128,12 +2234,12 @@ export default function PosterEditor() {
                                             quality: 1,
                                         });
                                         if (!result.canceled) {
-                                            setBottomBarDetails(prev => ({ ...prev, photo: result.assets[0].uri }));
+                                            setBottomBarDetails(prev => ({ ...prev, photo: result.assets[0].uri, photoNoBg: null }));
                                         }
                                     }}
                                 >
-                                    {bottomBarDetails.photo ? (
-                                        <Image source={{ uri: bottomBarDetails.photo }} style={styles.photoPreviewSmall} />
+                                    {bottomBarDetails.photo || bottomBarDetails.photoNoBg ? (
+                                        <Image source={{ uri: (bottomBarDetails.photoNoBg || bottomBarDetails.photo) as string }} style={styles.photoPreviewSmall} />
                                     ) : (
                                         <View style={styles.photoPlaceholderSmall}>
                                             <MaterialCommunityIcons name="camera-plus" size={32} color="#94a3b8" />
@@ -2142,6 +2248,168 @@ export default function PosterEditor() {
                                     )}
                                 </TouchableOpacity>
                             </View>
+
+                            {/* Photo Controls - BG Removal, Flip, Position */}
+                            {bottomBarDetails.photo && (
+                                <View style={styles.formField}>
+                                    <Text style={styles.formLabel}>Photo Controls</Text>
+
+                                    {/* Remove Background & Flip Buttons */}
+                                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                                        <TouchableOpacity
+                                            style={{
+                                                flex: 1,
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                backgroundColor: isRemovingFooterPhotoBg ? '#f1f5f9' : '#fff',
+                                                borderWidth: 1,
+                                                borderColor: '#e2e8f0',
+                                                borderRadius: 8,
+                                                paddingVertical: 10,
+                                                gap: 6,
+                                            }}
+                                            onPress={handleRemoveFooterPhotoBg}
+                                            disabled={isRemovingFooterPhotoBg}
+                                        >
+                                            {isRemovingFooterPhotoBg ? (
+                                                <ActivityIndicator size="small" color={SP_RED} />
+                                            ) : (
+                                                <MaterialCommunityIcons name="eraser" size={18} color={SP_RED} />
+                                            )}
+                                            <Text style={{ fontSize: 12, color: SP_RED, fontWeight: '600' }}>
+                                                {isRemovingFooterPhotoBg ? 'Removing...' : 'Remove BG'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={{
+                                                flex: 1,
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                backgroundColor: isPhotoFlipped ? '#fef2f2' : '#fff',
+                                                borderWidth: isPhotoFlipped ? 2 : 1,
+                                                borderColor: isPhotoFlipped ? SP_RED : '#e2e8f0',
+                                                borderRadius: 8,
+                                                paddingVertical: 10,
+                                                gap: 6,
+                                            }}
+                                            onPress={() => setIsPhotoFlipped(!isPhotoFlipped)}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name="flip-horizontal"
+                                                size={18}
+                                                color={isPhotoFlipped ? SP_RED : '#64748b'}
+                                            />
+                                            <Text style={{
+                                                fontSize: 12,
+                                                color: isPhotoFlipped ? SP_RED : '#64748b',
+                                                fontWeight: isPhotoFlipped ? '600' : '400'
+                                            }}>
+                                                Flip Photo
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {/* Position Controls */}
+                                    <View style={{ gap: 10 }}>
+                                        {/* X Position */}
+                                        <View>
+                                            <Text style={[styles.formLabel, { fontSize: 12, marginBottom: 6 }]}>
+                                                Horizontal Position (X): {footerPhotoPosition.x}
+                                            </Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <TouchableOpacity
+                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: prev.x - 5 }))}
+                                                    style={{
+                                                        backgroundColor: '#e2e8f0',
+                                                        width: 40,
+                                                        height: 40,
+                                                        borderRadius: 8,
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons name="chevron-left" size={24} color="#0f172a" />
+                                                </TouchableOpacity>
+                                                <View style={{
+                                                    flex: 1,
+                                                    height: 40,
+                                                    backgroundColor: '#f1f5f9',
+                                                    borderRadius: 8,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}>
+                                                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#0f172a' }}>
+                                                        {footerPhotoPosition.x}px
+                                                    </Text>
+                                                </View>
+                                                <TouchableOpacity
+                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: prev.x + 5 }))}
+                                                    style={{
+                                                        backgroundColor: '#e2e8f0',
+                                                        width: 40,
+                                                        height: 40,
+                                                        borderRadius: 8,
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons name="chevron-right" size={24} color="#0f172a" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+
+                                        {/* Y Position */}
+                                        <View>
+                                            <Text style={[styles.formLabel, { fontSize: 12, marginBottom: 6 }]}>
+                                                Vertical Position (Y): {footerPhotoPosition.y}
+                                            </Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <TouchableOpacity
+                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: prev.y - 5 }))}
+                                                    style={{
+                                                        backgroundColor: '#e2e8f0',
+                                                        width: 40,
+                                                        height: 40,
+                                                        borderRadius: 8,
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons name="chevron-up" size={24} color="#0f172a" />
+                                                </TouchableOpacity>
+                                                <View style={{
+                                                    flex: 1,
+                                                    height: 40,
+                                                    backgroundColor: '#f1f5f9',
+                                                    borderRadius: 8,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}>
+                                                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#0f172a' }}>
+                                                        {footerPhotoPosition.y}px
+                                                    </Text>
+                                                </View>
+                                                <TouchableOpacity
+                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: prev.y + 5 }))}
+                                                    style={{
+                                                        backgroundColor: '#e2e8f0',
+                                                        width: 40,
+                                                        height: 40,
+                                                        borderRadius: 8,
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons name="chevron-down" size={24} color="#0f172a" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    </View>
+                                </View>
+                            )}
 
                             <View style={{ height: 20 }} />
                         </ScrollView>

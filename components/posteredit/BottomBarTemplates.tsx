@@ -26,17 +26,15 @@ const getSocialIcon = (platform?: string): string => {
 };
 
 export const TEMPLATES = [
-    { id: 'default', name: '🎯 Classic Frame' },
-    { id: 'bold_strip', name: '💎 Professional Card' },
-    { id: 'minimal_white', name: '✨ Modern Minimal' },
-    { id: 'red_accent', name: '🔴 Red Power' },
-    { id: 'gradient_wave', name: '🌊 Vibrant Wave' },
-    { id: 'stf_bold', name: '🟥 STF Bold' },
-    { id: 'stf_rounded', name: '💊 STF Rounded' },
+    { id: 'stf_bold', name: '� STF Bold' },
+    { id: 'stf_rounded', name: '� STF Rounded' },
     { id: 'stf_tabbed', name: '📑 STF Tabbed' },
-    { id: 'image_frame1', name: '🖼️ STF Frame 1' },
-    { id: 'image_frame2', name: '🖼️ STF Frame 2' },
-    { id: 'image_frame3', name: '🖼️ STF Frame 3' },
+    { id: 'image_frame1', name: '�️ STF Frame 1' },
+    { id: 'image_frame2', name: '�️ STF Frame 2' },
+    { id: 'image_frame3', name: '�️ STF Frame 3' },
+    { id: 'bold_strip', name: '� Professional Card' },
+    { id: 'red_accent', name: '� Red Power' },
+    { id: 'gradient_wave', name: '🌊 Vibrant Wave' },
 ];
 
 interface TemplateCustomization {
@@ -76,77 +74,6 @@ interface TemplateProps {
     isPhotoFlipped?: boolean;
 }
 
-// Template 1: Classic Frame - Traditional horizontal layout with party strip
-const DefaultBar = ({ details, width, customization }: TemplateProps) => {
-    const isSolid = customization?.backgroundType === 'solid';
-    const bgColors = isSolid
-        ? [customization?.backgroundColor || SP_RED, customization?.backgroundColor || SP_RED]
-        : (customization?.backgroundGradient || [SP_RED, SP_GREEN]);
-
-    return (
-        <LinearGradient colors={bgColors as any} style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
-                <View style={[styles.photoContainer, {
-                    width: customization?.imageSize || 100,
-                    height: customization?.imageSize || 100,
-                    borderRadius: (customization?.imageSize || 100) / 2,
-                    borderColor: customization?.imageBorderColor || SP_RED,
-                    borderWidth: customization?.imageBorderWidth || 2,
-                }]}>
-                    {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={styles.photo} />
-                    ) : (
-                        <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
-                    )}
-                </View>
-                <View style={{ flex: 1, marginLeft: 8, flexShrink: 1 }}>
-                    <Text style={[styles.textBold, {
-                        fontSize: customization?.nameFontSize || 15,
-                        color: customization?.nameColor || '#ffffff',
-                        backgroundColor: customization?.nameBackgroundColor || 'transparent',
-                        flexWrap: 'wrap',
-                    }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, {
-                        fontSize: customization?.designationFontSize || 15,
-                        color: customization?.designationColor || '#ffffff',
-                        backgroundColor: customization?.designationBackgroundColor || 'transparent',
-                        flexWrap: 'wrap',
-                    }]}>{details?.designation || 'Designation'}</Text>
-                </View>
-                <View style={{ gap: 2 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name="phone" size={customization?.mobileFontSize ? customization.mobileFontSize + 4 : 20} color={customization?.mobileColor || '#ffffff'} />
-                        <Text style={[styles.textRegular, {
-                            fontSize: customization?.mobileFontSize || 15,
-                            color: customization?.mobileColor || '#ffffff',
-                            backgroundColor: customization?.mobileBackgroundColor || 'transparent',
-                        }]}>{details?.mobile || '+91 98765 43210'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4, flexWrap: 'wrap' }}>
-                        <MaterialCommunityIcons name="map-marker" size={customization?.addressFontSize ? customization.addressFontSize + 6 : 20} color={customization?.addressColor || '#ffffff'} />
-                        <Text style={[styles.textRegular, {
-                            fontSize: customization?.addressFontSize || 15,
-                            color: customization?.addressColor || '#ffffff',
-                            backgroundColor: customization?.addressBackgroundColor || 'transparent',
-                            flex: 1,
-                            flexWrap: 'wrap',
-                        }]}>{details?.address || 'Lucknow, Uttar Pradesh'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={customization?.socialFontSize ? customization.socialFontSize + 4 : 20} color={customization?.socialColor || '#ffffff'} />
-                        <Text style={[styles.textRegular, {
-                            fontSize: customization?.socialFontSize || 15,
-                            color: customization?.socialColor || '#ffffff',
-                            backgroundColor: customization?.socialBackgroundColor || 'transparent',
-                        }]}>{details?.socialHandle || '@samajwadiparty'}</Text>
-                    </View>
-                </View>
-            </View>
-            {/* Bottom Strip */}
-            <LinearGradient colors={[SP_GREEN, '#15803d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 6, width: '100%', position: 'absolute', bottom: 0, left: 0 }} />
-        </LinearGradient >
-    );
-};
 
 // Template 2: Professional Card - Blue gradient with large circular photo
 const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
@@ -552,8 +479,8 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
-                    {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    {details?.photoNoBg || details?.photo ? (
+                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
@@ -608,8 +535,8 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
-                    {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    {details?.photoNoBg || details?.photo ? (
+                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
@@ -665,8 +592,8 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
-                    {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    {details?.photoNoBg || details?.photo ? (
+                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
@@ -899,7 +826,7 @@ export const renderTemplate = (templateIdOrProps: string | { template?: string; 
         case 'image_frame3':
             return <ImageFrame3 details={finalDetails} width={finalWidth} customization={finalCustomization} />;
         default:
-            return <DefaultBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+            return <BoldStripBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
     }
 };
 
