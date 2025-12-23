@@ -112,6 +112,84 @@ export default function DesktopPosterEditor() {
     const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
     const previewRef = useRef(null);
 
+    // Footer User Photo Position State
+    const [footerPhotoPosition, setFooterPhotoPosition] = useState({ x: 1, y: -180 });
+    const [showFooterEditControls, setShowFooterEditControls] = useState(false);
+    const [isPhotoFlipped, setIsPhotoFlipped] = useState(false);
+
+    // Pick User Photo for Footer
+    const pickFooterUserPhoto = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [3, 4],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setBottomBarDetails({
+                ...bottomBarDetails,
+                photo: result.assets[0].uri,
+            });
+        }
+    };
+
+    // State for footer photo BG removal
+    const [isRemovingFooterPhotoBg, setIsRemovingFooterPhotoBg] = useState(false);
+
+    // Remove Background from Footer User Photo
+    const handleRemoveFooterPhotoBg = async () => {
+        if (!bottomBarDetails.photo) {
+            Alert.alert('No Photo', 'Please upload a photo first');
+            return;
+        }
+
+        setIsRemovingFooterPhotoBg(true);
+        try {
+            // Fetch the image
+            const imageResponse = await fetch(bottomBarDetails.photo);
+            const imageBlob = await imageResponse.blob();
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('image', imageBlob);
+
+            // Call FREE background removal service (local or deployed)
+            const BG_REMOVAL_URL = process.env.EXPO_PUBLIC_BG_REMOVAL_URL || 'http://localhost:5002';
+            const response = await fetch(`${BG_REMOVAL_URL}/remove-bg`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Background removal service not running');
+            }
+
+            // Get the result as blob
+            const resultBlob = await response.blob();
+
+            // Create object URL
+            const url = URL.createObjectURL(resultBlob);
+
+            setBottomBarDetails({
+                ...bottomBarDetails,
+                photo: url,
+            });
+
+            Alert.alert('Success', 'Background removed successfully!');
+        } catch (error: any) {
+            console.error('Background removal error:', error);
+            Alert.alert(
+                'Service Not Running',
+                'Background removal service is not running.\n\nTo start it:\n1. Open Terminal in project folder\n2. Run: ./start_bg_service.sh',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsRemovingFooterPhotoBg(false);
+        }
+    };
+
+
     // Frame Customization State
     const [frameCustomization, setFrameCustomization] = useState({
         // Background
@@ -1381,6 +1459,8 @@ export default function DesktopPosterEditor() {
                                     details={bottomBarDetails}
                                     width={canvasSize.w}
                                     customization={frameCustomization}
+                                    photoPosition={footerPhotoPosition}
+                                    isPhotoFlipped={isPhotoFlipped}
                                 />
                                 <TouchableOpacity
                                     testID="edit-pencil-btn"
@@ -1400,6 +1480,7 @@ export default function DesktopPosterEditor() {
                                 >
                                     <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
                                 </TouchableOpacity>
+
                             </View>
                         </View>
                     </View>
@@ -1808,6 +1889,155 @@ export default function DesktopPosterEditor() {
                                                 numberOfLines={3}
                                             />
                                         </View>
+
+                                        {/* User Photo Section */}
+                                        <View>
+                                            <Text style={styles.inputLabel}>User Photo</Text>
+
+                                            {/* Photo Preview */}
+                                            {bottomBarDetails.photo && (
+                                                <View style={{
+                                                    marginBottom: 12,
+                                                    alignItems: 'center',
+                                                    backgroundColor: '#1e293b',
+                                                    padding: 12,
+                                                    borderRadius: 8
+                                                }}>
+                                                    <Image
+                                                        source={{ uri: bottomBarDetails.photo }}
+                                                        style={{
+                                                            width: 120,
+                                                            height: 160,
+                                                            borderRadius: 8,
+                                                            borderWidth: 2,
+                                                            borderColor: '#fff'
+                                                        }}
+                                                        resizeMode="cover"
+                                                    />
+                                                </View>
+                                            )}
+
+                                            {/* Change Photo Button */}
+                                            <TouchableOpacity
+                                                style={[styles.toolActionButton, { marginBottom: 16 }]}
+                                                onPress={pickFooterUserPhoto}
+                                            >
+                                                <MaterialCommunityIcons name="camera" size={24} color="#fff" />
+                                                <Text style={styles.toolActionText}>
+                                                    {bottomBarDetails.photo ? 'Change Photo' : 'Upload Photo'}
+                                                </Text>
+                                            </TouchableOpacity>
+
+                                            {/* Remove Background Button */}
+                                            {bottomBarDetails.photo && (
+                                                <TouchableOpacity
+                                                    style={[styles.toolActionButton, {
+                                                        marginBottom: 16,
+                                                        backgroundColor: '#16a34a',
+                                                        opacity: isRemovingFooterPhotoBg ? 0.6 : 1
+                                                    }]}
+                                                    onPress={handleRemoveFooterPhotoBg}
+                                                    disabled={isRemovingFooterPhotoBg}
+                                                >
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                        {isRemovingFooterPhotoBg ? (
+                                                            <ActivityIndicator size="small" color="#fff" />
+                                                        ) : (
+                                                            <MaterialCommunityIcons name="image-off" size={24} color="#fff" />
+                                                        )}
+                                                        <Text style={styles.toolActionText}>
+                                                            {isRemovingFooterPhotoBg ? 'Removing BG...' : 'Remove Background'}
+                                                        </Text>
+                                                    </View>
+                                                </TouchableOpacity>
+                                            )}
+
+                                            {/* Position Controls */}
+                                            <Text style={[styles.inputLabel, { marginTop: 16 }]}>Photo Position</Text>
+
+                                            {/* X Position Control */}
+                                            <View style={{ marginBottom: 12 }}>
+                                                <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 6 }}>
+                                                    Horizontal (X): {footerPhotoPosition.x}px
+                                                </Text>
+                                                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                                                    <TouchableOpacity
+                                                        style={styles.positionButton}
+                                                        onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: prev.x - 10 }))}
+                                                    >
+                                                        <MaterialCommunityIcons name="arrow-left" size={20} color="#fff" />
+                                                    </TouchableOpacity>
+
+                                                    <TextInput
+                                                        style={[styles.textInput, { flex: 1, textAlign: 'center' }]}
+                                                        value={footerPhotoPosition.x.toString()}
+                                                        onChangeText={(text) => {
+                                                            const num = parseInt(text) || 0;
+                                                            setFooterPhotoPosition(prev => ({ ...prev, x: num }));
+                                                        }}
+                                                        keyboardType="numeric"
+                                                        placeholder="X"
+                                                        placeholderTextColor="#94a3b8"
+                                                    />
+
+                                                    <TouchableOpacity
+                                                        style={styles.positionButton}
+                                                        onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: prev.x + 10 }))}
+                                                    >
+                                                        <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+
+                                            {/* Y Position Control */}
+                                            <View>
+                                                <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 6 }}>
+                                                    Vertical (Y): {footerPhotoPosition.y}px
+                                                </Text>
+                                                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                                                    <TouchableOpacity
+                                                        style={styles.positionButton}
+                                                        onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: prev.y - 10 }))}
+                                                    >
+                                                        <MaterialCommunityIcons name="arrow-up" size={20} color="#fff" />
+                                                    </TouchableOpacity>
+
+                                                    <TextInput
+                                                        style={[styles.textInput, { flex: 1, textAlign: 'center' }]}
+                                                        value={footerPhotoPosition.y.toString()}
+                                                        onChangeText={(text) => {
+                                                            const num = parseInt(text) || 0;
+                                                            setFooterPhotoPosition(prev => ({ ...prev, y: num }));
+                                                        }}
+                                                        keyboardType="numeric"
+                                                        placeholder="Y"
+                                                        placeholderTextColor="#94a3b8"
+                                                    />
+
+                                                    <TouchableOpacity
+                                                        style={styles.positionButton}
+                                                        onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: prev.y + 10 }))}
+                                                    >
+                                                        <MaterialCommunityIcons name="arrow-down" size={20} color="#fff" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+
+                                            {/* Flip Control */}
+                                            <TouchableOpacity
+                                                style={[styles.toolActionButton, {
+                                                    marginTop: 16,
+                                                    backgroundColor: isPhotoFlipped ? '#E30512' : '#334155'
+                                                }]}
+                                                onPress={() => setIsPhotoFlipped(!isPhotoFlipped)}
+                                            >
+                                                <MaterialCommunityIcons name="flip-horizontal" size={24} color="#fff" />
+                                                <Text style={styles.toolActionText}>
+                                                    {isPhotoFlipped ? 'Flip: ON' : 'Flip Photo'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+
                                     </View>
                                 </>
                             ) : selectedTool === 'text' ? (
@@ -3348,5 +3578,13 @@ const styles = StyleSheet.create({
     selectedSocialIconButton: {
         borderColor: SP_RED,
         backgroundColor: SP_RED,
+    },
+    positionButton: {
+        backgroundColor: '#334155',
+        padding: 10,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        minWidth: 40,
     },
 });

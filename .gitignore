@@ -34,3 +34,14 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .env
+
+# Python Background Removal Service
+bg_removal_env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist-python/
+build/
