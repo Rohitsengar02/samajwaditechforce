@@ -93,7 +93,12 @@ export default function DesktopHome() {
 
     // Get current slide data with defaults
     const getHeroData = () => {
-        const slides = homeContent?.hero?.slides || [];
+        let slides = [...(homeContent?.hero?.slides || [])];
+        // Swapping Slide 1 and Slide 2 as per user request
+        if (slides.length >= 2) {
+            [slides[0], slides[1]] = [slides[1], slides[0]];
+        }
+
         const currentSlide = slides[activeSlide] || slides[0] || {};
 
         // Define default highlights if none exist
