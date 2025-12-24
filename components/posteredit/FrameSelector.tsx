@@ -9,42 +9,6 @@ const SP_GREEN = '#009933';
 // Simplified frame preview data
 const FRAME_PREVIEWS = [
     {
-        id: 'default',
-        name: '🎯 Classic Frame',
-        colors: [SP_RED, '#16a34a'],
-        description: 'Traditional horizontal layout',
-    },
-    {
-        id: 'bold_strip',
-        name: '💎 Professional Card',
-        colors: ['#1e3a8a', '#3b82f6'],
-        description: 'Blue gradient with golden accent',
-    },
-    {
-        id: 'minimal_white',
-        name: '✨ Modern Minimal',
-        colors: [SP_RED, '#16a34a'],
-        description: 'Clean design with accent line',
-    },
-    {
-        id: 'red_accent',
-        name: '🔴 Red Power',
-        colors: [SP_RED, '#7f1d1d'],
-        description: 'Bold red with geometric accents',
-    },
-    {
-        id: 'gradient_wave',
-        name: '🌊 Vibrant Wave',
-        colors: ['#6366f1', '#d946ef'],
-        description: 'Purple gradient with wave effects',
-    },
-    {
-        id: 'curved_tech',
-        name: '🚀 STF Special',
-        colors: [SP_RED, SP_GREEN],
-        description: 'Circular badge with tech styling',
-    },
-    {
         id: 'stf_bold',
         name: '🟥 STF Bold',
         colors: [SP_RED, SP_GREEN],
@@ -62,11 +26,24 @@ const FRAME_PREVIEWS = [
         colors: [SP_RED, SP_GREEN],
         description: 'Interlocking tab design',
     },
+
     {
-        id: 'stf_minimal',
-        name: '✨ STF Minimal',
-        colors: [SP_RED, SP_GREEN],
-        description: 'Clean floating elements',
+        id: 'bold_strip',
+        name: '💎 Professional Card',
+        colors: ['#1e3a8a', '#3b82f6'],
+        description: 'Blue gradient with golden accent',
+    },
+    {
+        id: 'red_accent',
+        name: '🔴 Red Power',
+        colors: [SP_RED, '#7f1d1d'],
+        description: 'Bold red with geometric accents',
+    },
+    {
+        id: 'gradient_wave',
+        name: '🌊 Vibrant Wave',
+        colors: ['#6366f1', '#d946ef'],
+        description: 'Purple gradient with wave effects',
     },
 ];
 
