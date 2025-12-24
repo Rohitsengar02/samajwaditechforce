@@ -21,11 +21,24 @@ export default function DesktopNewsDetail() {
     const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [currentUserName, setCurrentUserName] = useState<string>('Guest User');
+    const [userInfo, setUserInfo] = useState<any>(null);
 
     // Action State
     const [liked, setLiked] = useState(false);
     const [likesCount, setLikesCount] = useState(0);
+    const [commentsCount, setCommentsCount] = useState(0);
+    const [sharesCount, setSharesCount] = useState(0);
     const [commentText, setCommentText] = useState('');
+
+    // Point System State
+    const [points, setPoints] = useState(0);
+    const [showPointPopup, setShowPointPopup] = useState(false);
+    const [earnedPoints, setEarnedPoints] = useState(0);
+    const [awardedPoints, setAwardedPoints] = useState({
+        liked: false,
+        commented: false,
+        shared: false
+    });
 
     // Modals
     const [showCommentsModal, setShowCommentsModal] = useState(false);
@@ -35,6 +48,8 @@ export default function DesktopNewsDetail() {
 
     // Animations
     const likeAnim = useRef(new Animated.Value(1)).current;
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(50)).current;
 
     useEffect(() => {
         checkUser();
@@ -60,10 +75,11 @@ export default function DesktopNewsDetail() {
             const userInfoStr = await AsyncStorage.getItem('userInfo');
             if (userInfoStr) {
                 const userInfo = JSON.parse(userInfoStr);
+                setUserInfo(userInfo);
                 setCurrentUserId(userInfo._id || userInfo.id);
-
                 setCurrentUserName(userInfo.name || 'User');
                 setIsVerified(userInfo.verificationStatus === 'Verified');
+                setPoints(userInfo.points || 0);
             }
         } catch (e) {
             console.error(e);
@@ -72,21 +88,29 @@ export default function DesktopNewsDetail() {
 
     const fetchNewsDetail = async () => {
         try {
-            // Use newsAPI service ideally, or match existing fetch
             const response = await newsAPI.getNewsById(id as string);
             if (response.success && response.data) {
-                // Ensure we only show 'News' type items
                 const item = response.data;
                 if (!item.type || item.type === 'News' || ['Program', 'program', 'Programs', 'programs'].includes(item.type)) {
                     setNews(item);
                     setLikesCount(item.likes ? item.likes.length : 0);
+                    setCommentsCount(item.comments ? item.comments.length : 0);
+                    setSharesCount((item as any).sharedBy ? (item as any).sharedBy.length : 0);
+
+                    // Check user interaction status
+                    if (currentUserId) {
+                        const userIdStr = currentUserId.toString();
+                        setAwardedPoints({
+                            liked: item.likes?.some((likeId: any) => likeId.toString() === userIdStr) || false,
+                            commented: (item as any).commentedBy?.some((c: any) => c.user?.toString() === userIdStr) || false,
+                            shared: (item as any).sharedBy?.some((s: any) => s.user?.toString() === userIdStr) || false
+                        });
+                    }
                 } else {
-                    // It is a Program or other type, treat as not found for this page
                     console.log('Item found but is not News:', item.type);
                     setNews(null);
                 }
             } else {
-                // Fallback if API fail
                 console.error('Failed to fetch news via service');
             }
         } catch (error) {
@@ -96,13 +120,33 @@ export default function DesktopNewsDetail() {
         }
     };
 
+    const showPointsAnimation = (amount: number) => {
+        setEarnedPoints(amount);
+        setShowPointPopup(true);
+
+        fadeAnim.setValue(0);
+        slideAnim.setValue(50);
+
+        Animated.parallel([
+            Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+            Animated.spring(slideAnim, { toValue: 0, friction: 5, useNativeDriver: true })
+        ]).start();
+
+        setTimeout(() => {
+            Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true })
+                .start(() => setShowPointPopup(false));
+        }, 2500);
+    };
+
     const handleLike = async () => {
         if (!isVerified) { setShowVerifyModal(true); return; }
-        if (!news || !currentUserId) return;
+        if (!news || !currentUserId || !userInfo) return;
 
-        const isLiked = !liked;
-        setLiked(isLiked);
-        setLikesCount(prev => isLiked ? prev + 1 : prev - 1);
+        const isLiked = liked;
+
+        // Optimistic UI update
+        setLiked(!isLiked);
+        setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
 
         Animated.sequence([
             Animated.timing(likeAnim, { toValue: 1.3, duration: 150, useNativeDriver: true }),
@@ -110,10 +154,34 @@ export default function DesktopNewsDetail() {
         ]).start();
 
         try {
-            await newsAPI.toggleLike(news._id, currentUserId);
+            const response = await fetch(`${getApiUrl()}/news/${news._id}/like`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentUserId,
+                    username: userInfo.name
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setLikesCount(data.data.length);
+
+                if (data.points) {
+                    showPointsAnimation(data.points);
+                    setPoints(prev => prev + data.points);
+                    setAwardedPoints(prev => ({ ...prev, liked: !data.removed }));
+                } else if (data.removed) {
+                    showPointsAnimation(-5);
+                    setPoints(prev => prev - 5);
+                    setAwardedPoints(prev => ({ ...prev, liked: false }));
+                }
+            }
         } catch (err) {
-            setLiked(!isLiked);
-            setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+            // Revert on error
+            setLiked(isLiked);
+            setLikesCount(prev => isLiked ? prev + 1 : prev - 1);
             console.error('Error liking news:', err);
         }
     };
@@ -124,38 +192,106 @@ export default function DesktopNewsDetail() {
     };
 
     const performShare = async (platform: string) => {
-        if (!news) return;
-        const shareUrl = `https://samajwaditechforce.com/news/${news._id}`; // Example URL
-        const startMessage = `Check out this news: ${news.title}\n\n`;
+        if (!news || !currentUserId || !userInfo) return;
 
-        try {
-            if (platform === 'whatsapp') {
-                const url = `https://wa.me/?text=${encodeURIComponent(startMessage + shareUrl)}`;
-                await Linking.openURL(url);
-            } else if (platform === 'copy') {
-                if (Platform.OS === 'web') {
+        // Use the backend share route for rich previews
+        const shareUrl = `${getApiUrl().replace('/api', '')}/share/news/${news._id}`;
+        const title = news.title;
+        const text = `${title} - Samajwadi Tech Force`;
+        let shareUrlPlatform = '';
+
+        switch (platform) {
+            case 'whatsapp':
+                // WhatsApp will fetch OG tags from the share URL
+                shareUrlPlatform = `https://wa.me/?text=${encodeURIComponent(text + '\n' + shareUrl)}`;
+                break;
+            case 'facebook':
+                // Facebook will show rich preview with OG tags
+                shareUrlPlatform = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+                break;
+            case 'twitter':
+                // Twitter will show card with OG tags
+                shareUrlPlatform = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`;
+                break;
+            case 'copy':
+                if (Platform.OS === 'web' && navigator.clipboard) {
                     await navigator.clipboard.writeText(shareUrl);
-                    alert('Link copied to clipboard!');
+                    alert(`Link copied!\n\n${shareUrl}\n\nThis link will show a rich preview with image when shared on social media.`);
                 } else {
-                    RNShare.share({ message: startMessage + shareUrl });
+                    RNShare.share({ message: text + '\n' + shareUrl });
+                }
+                break;
+        }
+
+        if (shareUrlPlatform) {
+            if (Platform.OS === 'web') {
+                window.open(shareUrlPlatform, '_blank');
+            } else {
+                await Linking.openURL(shareUrlPlatform);
+            }
+        }
+
+        // Call share API for point tracking
+        try {
+            const response = await fetch(`${getApiUrl()}/news/${news._id}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentUserId,
+                    username: userInfo.name
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setSharesCount(prev => prev + 1);
+
+                if (data.points) {
+                    showPointsAnimation(data.points);
+                    setPoints(prev => prev + data.points);
+                    setAwardedPoints(prev => ({ ...prev, shared: true }));
+                } else {
+                    alert('You can only earn points once per article for sharing!');
                 }
             }
-            setShowShareModal(false);
         } catch (error) {
-            console.error('Share Error:', error);
+            console.error('Error sharing news:', error);
         }
+
+        setShowShareModal(false);
     };
 
     const handlePostComment = async () => {
-
         if (!isVerified) { setShowVerifyModal(true); return; }
-        if (!commentText.trim() || !news || !currentUserId) return;
+        if (!commentText.trim() || !news || !currentUserId || !userInfo) return;
 
         try {
-            const response = await newsAPI.addComment(news._id, commentText, currentUserId, currentUserName);
-            if (response.success) {
-                setNews((prev: any) => prev ? { ...prev, comments: response.data } : null);
+            const response = await fetch(`${getApiUrl()}/news/${news._id}/comment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: commentText,
+                    userId: currentUserId,
+                    name: currentUserName,
+                    username: userInfo.name
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setNews((prev: any) => prev ? { ...prev, comments: data.data } : null);
+                setCommentsCount(data.data.length);
                 setCommentText('');
+
+                if (data.points) {
+                    showPointsAnimation(data.points);
+                    setPoints(prev => prev + data.points);
+                    setAwardedPoints(prev => ({ ...prev, commented: true }));
+                } else {
+                    alert('You can only earn points once per article for commenting!');
+                }
             }
         } catch (err) {
             console.error('Error posting comment:', err);
@@ -241,7 +377,7 @@ export default function DesktopNewsDetail() {
 
                         <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
                             <MaterialCommunityIcons name="share-variant" size={24} color="#64748b" />
-                            <Text style={styles.actionText}>Share</Text>
+                            <Text style={styles.actionText}>{sharesCount > 0 ? sharesCount : ''} Share</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -263,6 +399,14 @@ export default function DesktopNewsDetail() {
                 </View>
             </ScrollView>
 
+            {/* Points Badge */}
+            {points > 0 && (
+                <View style={styles.fixedPointsBadge}>
+                    <MaterialCommunityIcons name="star" size={20} color="#fff" />
+                    <Text style={styles.pointsBadgeText}>{points}</Text>
+                </View>
+            )}
+
             {/* Share Modal */}
             <Modal
                 visible={showShareModal}
@@ -270,48 +414,68 @@ export default function DesktopNewsDetail() {
                 animationType="fade"
                 onRequestClose={() => setShowShareModal(false)}
             >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowShareModal(false)}
-                >
-                    <View style={styles.shareModalContent}>
-                        <Text style={styles.modalTitle}>Share via</Text>
-                        <View style={styles.shareOptions}>
-                            <TouchableOpacity style={styles.shareOption} onPress={() => performShare('whatsapp')}>
-                                <View style={[styles.shareIcon, { backgroundColor: '#25D366' }]}>
-                                    <MaterialCommunityIcons name="whatsapp" size={32} color="#fff" />
-                                </View>
-                                <Text style={styles.shareText}>WhatsApp</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.shareOption} onPress={() => performShare('copy')}>
-                                <View style={[styles.shareIcon, { backgroundColor: '#3b82f6' }]}>
-                                    <MaterialCommunityIcons name="link-variant" size={32} color="#fff" />
-                                </View>
-                                <Text style={styles.shareText}>Copy Link</Text>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.shareModalContentNew}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Share Article</Text>
+                            <TouchableOpacity onPress={() => setShowShareModal(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color="#64748b" />
                             </TouchableOpacity>
                         </View>
-                        <Button mode="text" onPress={() => setShowShareModal(false)} style={{ marginTop: 20 }}>Close</Button>
+
+                        <Text style={styles.shareSubtitle}>Choose a platform to share</Text>
+
+                        <View style={styles.shareOptionsNew}>
+                            <TouchableOpacity style={styles.shareOptionNew} onPress={() => performShare('whatsapp')}>
+                                <View style={[styles.shareIconBg, { backgroundColor: '#25D366' }]}>
+                                    <MaterialCommunityIcons name="whatsapp" size={28} color="#fff" />
+                                </View>
+                                <Text style={styles.shareOptionText}>WhatsApp</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.shareOptionNew} onPress={() => performShare('facebook')}>
+                                <View style={[styles.shareIconBg, { backgroundColor: '#1877F2' }]}>
+                                    <MaterialCommunityIcons name="facebook" size={28} color="#fff" />
+                                </View>
+                                <Text style={styles.shareOptionText}>Facebook</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.shareOptionNew} onPress={() => performShare('twitter')}>
+                                <View style={[styles.shareIconBg, { backgroundColor: '#1DA1F2' }]}>
+                                    <MaterialCommunityIcons name="twitter" size={28} color="#fff" />
+                                </View>
+                                <Text style={styles.shareOptionText}>Twitter</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.shareOptionNew} onPress={() => alert('Instagram does not support direct web sharing. Please copy the link and share on Instagram app.')}>
+                                <View style={[styles.shareIconBg, { backgroundColor: '#E1306C' }]}>
+                                    <MaterialCommunityIcons name="instagram" size={28} color="#fff" />
+                                </View>
+                                <Text style={styles.shareOptionText}>Instagram</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.shareOptionNew} onPress={() => performShare('copy')}>
+                                <View style={[styles.shareIconBg, { backgroundColor: '#64748b' }]}>
+                                    <MaterialCommunityIcons name="content-copy" size={28} color="#fff" />
+                                </View>
+                                <Text style={styles.shareOptionText}>Copy Link</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </TouchableOpacity>
+                </View>
             </Modal>
 
             {/* Comments Modal (Desktop Style: Centered Popup) */}
             <Modal
                 visible={showCommentsModal}
                 transparent
-                animationType="fade" // Use fade for desktop feeling
+                animationType="fade"
                 onRequestClose={() => setShowCommentsModal(false)}
             >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowCommentsModal(false)}
-                >
+                <View style={styles.modalOverlay}>
                     <View style={styles.commentsModalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Comments ({news?.comments?.length || 0})</Text>
+                            <Text style={styles.modalTitle}>Comments ({commentsCount})</Text>
                             <TouchableOpacity onPress={() => setShowCommentsModal(false)}>
                                 <MaterialCommunityIcons name="close" size={24} color="#64748b" />
                             </TouchableOpacity>
@@ -326,29 +490,65 @@ export default function DesktopNewsDetail() {
                                     <View style={{ flex: 1 }}>
                                         <View style={styles.commentMeta}>
                                             <Text style={styles.commentAuthor}>{comment.name}</Text>
-                                            <Text style={styles.commentDate}>{new Date(comment.date).toLocaleDateString()}</Text>
+                                            <Text style={styles.commentDate}>
+                                                {new Date(comment.date).toLocaleDateString('en-US', {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </Text>
                                         </View>
                                         <Text style={styles.commentText}>{comment.text}</Text>
                                     </View>
                                 </View>
                             ))}
-                            {!news?.comments?.length && <Text style={{ textAlign: 'center', padding: 20, color: '#888' }}>No comments yet.</Text>}
+                            {!news?.comments?.length && (
+                                <View style={{ alignItems: 'center', padding: 40 }}>
+                                    <MaterialCommunityIcons name="comment-off-outline" size={48} color="#cbd5e1" />
+                                    <Text style={{ textAlign: 'center', padding: 20, color: '#64748b', fontWeight: '600', fontSize: 16, marginTop: 12 }}>No comments yet</Text>
+                                    <Text style={{ color: '#94a3b8', fontSize: 14 }}>Be the first to share your thoughts!</Text>
+                                </View>
+                            )}
                         </ScrollView>
 
                         <View style={styles.commentInputBox}>
                             <TextInput
                                 style={styles.inputfield}
-                                placeholder="Write a comment..."
+                                placeholder="Write a comment... ✨ Earn +10 Points"
                                 value={commentText}
                                 onChangeText={setCommentText}
+                                multiline
                             />
                             <TouchableOpacity onPress={handlePostComment} disabled={!commentText.trim()}>
                                 <MaterialCommunityIcons name="send" size={24} color={commentText.trim() ? themeColor : '#ccc'} />
                             </TouchableOpacity>
                         </View>
                     </View>
-                </TouchableOpacity>
+                </View>
             </Modal>
+
+            {/* Points Earned Popup Animation */}
+            {showPointPopup && (
+                <Animated.View style={[
+                    styles.pointPopup,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideAnim }]
+                    }
+                ]}>
+                    <View style={styles.popupContent}>
+                        <View style={styles.popupIconBg}>
+                            <MaterialCommunityIcons name="star-face" size={32} color="#fff" />
+                        </View>
+                        <View>
+                            <Text style={styles.popupTitle}>Awesome!</Text>
+                            <Text style={styles.popupText}>You earned <Text style={styles.popupPoints}>{earnedPoints > 0 ? '+' : ''}{earnedPoints} Points</Text></Text>
+                        </View>
+                    </View>
+                </Animated.View>
+            )}
 
 
             {/* Verification Modal */}
@@ -587,5 +787,120 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
         fontSize: 14,
-    }
+    },
+    // Point Badge Styles
+    fixedPointsBadge: {
+        position: 'absolute',
+        top: 100,
+        right: 40,
+        backgroundColor: SP_GREEN,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 8,
+        zIndex: 1000,
+    },
+    pointsBadgeText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    // Share Modal New Styles
+    shareModalContentNew: {
+        width: '90%',
+        maxWidth: 600,
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    shareSubtitle: {
+        fontSize: 14,
+        color: '#64748b',
+        marginBottom: 24,
+    },
+    shareOptionsNew: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 16,
+        justifyContent: 'center',
+    },
+    shareOptionNew: {
+        alignItems: 'center',
+        width: 100,
+    },
+    shareIconBg: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    shareOptionText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#1e293b',
+        textAlign: 'center',
+    },
+    // Point Popup Styles
+    pointPopup: {
+        position: 'absolute',
+        bottom: 100,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 9999,
+    },
+    popupContent: {
+        backgroundColor: '#fff',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        borderRadius: 50,
+        gap: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    popupIconBg: {
+        backgroundColor: SP_GREEN,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    popupTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1e293b',
+    },
+    popupText: {
+        fontSize: 14,
+        color: '#64748b',
+    },
+    popupPoints: {
+        color: SP_GREEN,
+        fontWeight: '700',
+    },
 });

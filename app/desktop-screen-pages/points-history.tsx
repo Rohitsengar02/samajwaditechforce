@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DesktopHeader from '../../components/DesktopHeader';
 import { getApiUrl } from '../../utils/api';
@@ -16,33 +17,70 @@ export default function PointsHistory() {
     const [totalPoints, setTotalPoints] = useState(0);
     const [loading, setLoading] = useState(true);
     const [username, setUsername] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         loadPointsHistory();
     }, []);
 
+    // Auto-refresh when page comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            loadPointsHistory();
+        }, [])
+    );
+
     const loadPointsHistory = async () => {
         try {
             const userInfo = await AsyncStorage.getItem('userInfo');
+            const token = await AsyncStorage.getItem('userToken');
+
             if (userInfo) {
                 const user = JSON.parse(userInfo);
                 const name = user.name || 'Guest';
                 setUsername(name);
 
                 const url = getApiUrl();
+
+                // Fetch fresh user data to get latest points
+                if (token) {
+                    const userResponse = await fetch(`${url}/auth/profile`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (userResponse.ok) {
+                        const freshUser = await userResponse.json();
+                        setTotalPoints(freshUser.points || 0);
+
+                        // Update AsyncStorage with latest points
+                        const updatedUser = { ...user, points: freshUser.points || 0 };
+                        await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUser));
+                        console.log('Points history loaded:', {
+                            totalPoints: freshUser.points || 0,
+                            username: name
+                        });
+                    }
+                }
+
+                // Fetch activities
                 const res = await fetch(`${url}/points/history/${name}`);
                 const data = await res.json();
 
                 if (data.success) {
                     setActivities(data.data);
-                    setTotalPoints(data.totalPoints);
                 }
             }
         } catch (error) {
             console.error('Error loading points:', error);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadPointsHistory();
     };
 
     const getActivityIcon = (type: string) => {
@@ -82,13 +120,18 @@ export default function PointsHistory() {
         <View style={styles.container}>
             <DesktopHeader />
 
-            <ScrollView style={styles.content}>
+            <ScrollView
+                style={styles.content}
+            >
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>My Points</Text>
+                    <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
+                        <MaterialCommunityIcons name="refresh" size={24} color="#fff" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Total Points Card */}
@@ -135,7 +178,12 @@ export default function PointsHistory() {
                                         {new Date(activity.timestamp).toLocaleDateString()} {new Date(activity.timestamp).toLocaleTimeString()}
                                     </Text>
                                 </View>
-                                <Text style={styles.activityPoints}>+{activity.points}</Text>
+                                <Text style={[
+                                    styles.activityPoints,
+                                    activity.points < 0 && styles.negativePoints
+                                ]}>
+                                    {activity.points > 0 ? '+' : ''}{activity.points}
+                                </Text>
                             </View>
                         ))
                     ) : (
@@ -168,6 +216,10 @@ const styles = StyleSheet.create({
     },
     backButton: {
         marginRight: 16,
+    },
+    refreshButton: {
+        marginLeft: 'auto',
+        padding: 8,
     },
     headerTitle: {
         fontSize: 24,
@@ -273,6 +325,9 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: SP_GREEN,
+    },
+    negativePoints: {
+        color: '#f44336', // Red for negative points
     },
     noActivity: {
         textAlign: 'center',
