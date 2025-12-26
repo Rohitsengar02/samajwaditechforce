@@ -573,37 +573,19 @@ export default function PosterEditor() {
 
         setIsRemovingFooterPhotoBg(true);
         try {
-            // Fetch the image
-            const imageResponse = await fetch(bottomBarDetails.photo);
-            const imageBlob = await imageResponse.blob();
-
-            // Create FormData
-            const formData = new FormData();
-            formData.append('image', imageBlob);
-
-            // Call FREE background removal service (local or deployed)
-            const BG_REMOVAL_URL = process.env.EXPO_PUBLIC_BG_REMOVAL_URL || 'http://localhost:5002';
-            const response = await fetch(`${BG_REMOVAL_URL}/remove-bg`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error('Background removal service not running');
-            }
-
-            // Get the result as blob
-            const resultBlob = await response.blob();
-
-            // Create object URL
-            const url = URL.createObjectURL(resultBlob);
+            // Import and use our background removal utility with fallback
+            const { removeBackground } = require('../utils/backgroundRemovalApi');
+            const result = await removeBackground(bottomBarDetails.photo);
 
             setBottomBarDetails({
                 ...bottomBarDetails,
-                photoNoBg: url,
+                photoNoBg: result.url,
             });
 
-            Alert.alert('Success', 'Background removed successfully!');
+            Alert.alert(
+                result.success ? 'Success' : 'Info',
+                result.message
+            );
         } catch (error: any) {
             console.error('Background removal error:', error);
             Alert.alert(
@@ -664,67 +646,23 @@ export default function PosterEditor() {
         setIsRemovingBg(true);
 
         try {
-            // Use Gemini API for all platforms
-            let formData: FormData;
+            // Use our background removal utility
+            const { removeBackground } = require('../utils/backgroundRemovalApi');
+            const result = await removeBackground(imageUri);
 
-            if (Platform.OS === 'web') {
-                // For web, fetch the image and convert to blob
-                const response = await fetch(imageUri);
-                const blob = await response.blob();
-                formData = new FormData();
-                formData.append('image', blob, 'image.jpg');
+            if (result.success) {
+                // Update the element with the processed image
+                updateElement(elementId, { content: result.url });
+                Alert.alert('Success', result.message);
             } else {
-                // For native, use the file URI directly
-                formData = new FormData();
-                formData.append('image', {
-                    uri: imageUri,
-                    name: 'image.jpg',
-                    type: 'image/jpeg',
-                } as any);
-            }
-
-            console.log('Sending request to:', `${API_URL}/ai-gemini/remove-background`);
-
-            const apiResponse = await fetch(`${API_URL}/ai-gemini/remove-background`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            const result = await apiResponse.json();
-            console.log('API Response:', JSON.stringify(result, null, 2));
-
-            // Handle different API response formats
-            const processedImageUrl = result.processedImageUrl || result.image || result.data?.image || result.data?.url;
-
-            if (result.success && processedImageUrl) {
-                if (Platform.OS === 'web') {
-                    // For web, use the URL or base64 directly
-                    updateElement(elementId, { content: processedImageUrl });
-                } else {
-                    // For native, download and save to cache
-                    if (processedImageUrl.startsWith('data:image')) {
-                        const filename = `bg_removed_${Date.now()}.png`;
-                        const fileUri = (FileSystem.cacheDirectory || '') + filename;
-                        const base64Data = processedImageUrl.split(',')[1];
-                        await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-                            encoding: FileSystem.EncodingType.Base64,
-                        });
-                        updateElement(elementId, { content: fileUri });
-                    } else {
-                        const filename = `bg_removed_${Date.now()}.png`;
-                        const fileUri = (FileSystem.cacheDirectory || '') + filename;
-                        const downloadRes = await FileSystem.downloadAsync(processedImageUrl, fileUri);
-                        updateElement(elementId, { content: downloadRes.uri });
-                    }
-                }
-                Alert.alert('Success', 'Background removed successfully!');
-            } else {
-                console.error('API Error Response:', result);
-                throw new Error(result.message || result.error || 'API did not return processed image');
+                // Show info message if service unavailable
+                Alert.alert('Info', result.message);
+                // Still update with original image
+                updateElement(elementId, { content: result.url });
             }
         } catch (error) {
             console.error('Background removal failed:', error);
-            Alert.alert('Error', 'Failed to remove background. Please check API connection.');
+            Alert.alert('Error', 'Failed to remove background. Please try again.');
         } finally {
             setIsRemovingBg(false);
         }

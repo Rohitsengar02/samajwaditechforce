@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 const { width } = Dimensions.get('window');
 
@@ -208,17 +209,27 @@ export default function ProfileScreen() {
           >
             <View style={styles.headerContent}>
               <TouchableOpacity
-                style={styles.settingsButton}
+                style={[styles.settingsButton, user?.verified && styles.verifiedButton]}
                 onPress={() => {
                   router.push('/verified-member');
                 }}
               >
-                <MaterialCommunityIcons name="cog" size={24} color="#fff" />
-                {/* Show badge if fields are missing */}
-                {(!user?.district || !user?.vidhanSabha || !user?.qualification) && (
-                  <View style={styles.settingsBadge}>
-                    <MaterialCommunityIcons name="alert-circle" size={12} color="#fff" />
-                  </View>
+                {user?.verified ? (
+                  <>
+                    <MaterialCommunityIcons name="check-decagram" size={20} color="#fff" />
+                    <Text style={styles.verifyButtonText}>Verified</Text>
+                  </>
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
+                    <Text style={styles.verifyButtonText}>Verify here</Text>
+                    {/* Show badge if fields are missing */}
+                    {(!user?.district || !user?.vidhanSabha || !user?.qualification) && (
+                      <View style={styles.settingsBadge}>
+                        <MaterialCommunityIcons name="alert-circle" size={12} color="#fff" />
+                      </View>
+                    )}
+                  </>
                 )}
               </TouchableOpacity>
             </View>
@@ -598,12 +609,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   settingsButton: {
-    width: 40,
-    height: 40,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+  },
+  verifiedButton: {
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  verifyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   settingsBadge: {
     position: 'absolute',
@@ -891,11 +912,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
     gap: 6,
-  },
-  verifyButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 13,
   },
   verifiedDetailsContainer: {
     marginTop: 20,

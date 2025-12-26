@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { getApiUrl } from '../utils/api';
 import { useRouter } from 'expo-router';
+import { removeBackground } from '../utils/backgroundRemovalApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -165,6 +166,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
   const [hasPhoto, setHasPhoto] = useState<boolean>(!!googleData?.photo || !!profileData?.profileImage);
   const [photoUri, setPhotoUri] = useState<string | null>(googleData?.photo || profileData?.profileImage || null);
   const [photoUriNoBg, setPhotoUriNoBg] = useState<string | null>(profileData?.profileImageNoBg || null);
+  const [isShowingNoBg, setIsShowingNoBg] = useState(false);
   // If manual register, password exists but we might not want to show it or show it masked.
   // User asked to "show email and password autofill and unchangable".
   // Note: We typically don't get the plain password back from backend registration response.
@@ -401,44 +403,26 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
       setPhotoUri(originalUri);
       setHasPhoto(true);
 
-      // Auto-remove background
+      // Reset BG Removal state for new photo
+      setPhotoUriNoBg(null);
+      setIsShowingNoBg(false);
+
+      // Auto-remove background using our utility function
       try {
         setUploading(true);
+        console.log('⏳ Removing background...');
 
-        // Fetch the image
-        const imageResponse = await fetch(originalUri);
-        const imageBlob = await imageResponse.blob();
+        const result = await removeBackground(originalUri);
 
-        // Create FormData
-        const formData = new FormData();
-        formData.append('image', imageBlob);
-
-        // Call background removal service
-        const BG_REMOVAL_URL = process.env.EXPO_PUBLIC_BG_REMOVAL_URL || 'http://localhost:5002';
-        const response = await fetch(`${BG_REMOVAL_URL}/remove-bg`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (response.ok) {
-          // Get the result as blob
-          const resultBlob = await response.blob();
-
-          // Create object URL for the background-removed image
-          const noBgUrl = URL.createObjectURL(resultBlob);
-
-          // Save both versions
-          setPhotoUri(originalUri); // Original with background
-          setPhotoUriNoBg(noBgUrl); // Without background
-
+        if (result.success) {
+          setPhotoUriNoBg(result.url);
+          setIsShowingNoBg(true); // Auto-show result
           console.log('✅ Background removed successfully');
         } else {
-          console.log('⚠️ Background removal failed, using original');
-          setPhotoUriNoBg(null);
+          console.warn('Background removal warning:', result.message);
         }
       } catch (error) {
         console.error('Background removal error:', error);
-        setPhotoUriNoBg(null);
       } finally {
         setUploading(false);
       }
@@ -500,7 +484,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
               >
                 {hasPhoto && photoUri ? (
                   <View style={styles.photoPreview}>
-                    <Image source={{ uri: photoUri }} style={styles.photoImage} />
+                    <Image source={{ uri: (isShowingNoBg && photoUriNoBg) ? photoUriNoBg : photoUri }} style={styles.photoImage} />
                     <View style={styles.editBadge}>
                       <MaterialCommunityIcons name="camera" size={16} color="#fff" />
                     </View>
@@ -518,6 +502,30 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
                 )}
               </TouchableOpacity>
               <Text style={styles.photoHint}>Upload Profile Photo</Text>
+
+              {photoUriNoBg && (
+                <TouchableOpacity
+                  onPress={() => setIsShowingNoBg(!isShowingNoBg)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginTop: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    backgroundColor: '#fee2e2',
+                    borderRadius: 16
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name={isShowingNoBg ? "image-off-outline" : "image-auto-adjust"}
+                    size={16}
+                    color={SP_RED}
+                  />
+                  <Text style={{ marginLeft: 6, color: SP_RED, fontSize: 13, fontWeight: '600' }}>
+                    {isShowingNoBg ? 'Show Original' : 'Show No Background'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </Animated.View>
 
             {/* Form Card */}

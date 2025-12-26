@@ -1,41 +1,154 @@
+import { Platform } from 'react-native';
+
 /**
  * Background Removal Utility
- * Uses Remove.bg API for transparent background removal
+ * Uses Hugging Face Xenova/modnet model via Backend Proxy (Web) or Direct (Mobile)
  */
 
-export const removeBackgroundFromImage = async (imageUri: string, apiKey: string): Promise<string> => {
+export interface BackgroundRemovalResult {
+    url: string;
+    success: boolean;
+    message: string;
+}
+
+/**
+ * Remove background using backend proxy (for web) or direct API (for mobile)
+ */
+const removeBackgroundWithHuggingFace = async (imageUri: string, apiToken: string): Promise<BackgroundRemovalResult> => {
     try {
-        // Fetch the image
+        console.log('🤗 Removing background with Hugging Face Xenova/modnet...');
+
+        // On web, use backend proxy to avoid CORS issues
+        if (Platform.OS === 'web') {
+            console.log('🌐 Using backend proxy for web platform');
+
+            // Determine API URL: Use local backend for development, prod for production
+            // You can override this with the EXPO_PUBLIC_API_URL env var
+            // Determine API URL with smart local detection
+            const isLocal = typeof window !== 'undefined' &&
+                (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+            let API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+            // FORCE valid local backend if running locally, preventing accidental prod hits
+            if (isLocal) {
+                // Check if the configured URL is actually a production URL
+                if (!API_URL || API_URL.includes('onrender.com')) {
+                    API_URL = 'http://localhost:5001/api';
+                    console.log('🔧 Forcing Local Backend URL:', API_URL);
+                }
+            } else if (!API_URL) {
+                API_URL = 'https://api-samajwaditechforce.onrender.com/api'; // Default prod backend
+            }
+
+            console.log(`🔗 Connecting to backend: ${API_URL}`);
+
+            // Convert to Base64 to support local/blob URLs on backend
+            // (Backend cannot fetch 'blob:...' URLs, so we must send data)
+            const imgResponse = await fetch(imageUri);
+            const blob = await imgResponse.blob();
+            const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            const base64Data = base64.split(',')[1];
+
+            const response = await fetch(`${API_URL}/background-removal/remove`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ imageUrl: imageUri, imageBase64: base64Data }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Background removal failed');
+            }
+
+            console.log('✅ Background removed via backend proxy');
+            return {
+                url: data.imageUrl,
+                success: true,
+                message: data.message || 'Background removed successfully!'
+            };
+        }
+
+        // On mobile (iOS/Android), call Hugging Face API directly
+        console.log('📱 Using direct Hugging Face API for mobile');
+
+        // Fetch image and convert to blob
         const imageResponse = await fetch(imageUri);
         const imageBlob = await imageResponse.blob();
 
-        // Create FormData
-        const formData = new FormData();
-        formData.append('image_file', imageBlob);
-        formData.append('size', 'auto');
+        // Call Hugging Face API (RMBG-1.4)
+        const response = await fetch(
+            'https://router.huggingface.co/hf-inference/models/briaai/RMBG-1.4',
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiToken}`,
+                },
+                body: imageBlob,
+            }
+        );
 
-        // Call Remove.bg API
-        const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-            method: 'POST',
-            headers: {
-                'X-Api-Key': apiKey,
-            },
-            body: formData,
-        });
-
+        // Check for errors
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.errors?.[0]?.title || 'Failed to remove background');
+            const errorText = await response.text();
+            console.error('Hugging Face API error:', response.status, errorText);
+
+            if (response.status === 503) {
+                throw new Error('Model is loading. Please try again in 5 seconds.');
+            }
+
+            throw new Error(`API error: ${response.status}`);
         }
 
         // Get the result as blob
         const resultBlob = await response.blob();
 
-        // Create object URL for web
+        if (resultBlob.size === 0) {
+            throw new Error('Received empty image from API');
+        }
+
         const url = URL.createObjectURL(resultBlob);
-        return url;
-    } catch (error) {
-        console.error('Background removal error:', error);
+
+        console.log('✅ Background removed successfully!');
+        return {
+            url,
+            success: true,
+            message: 'Background removed successfully!'
+        };
+    } catch (error: any) {
+        console.error('❌ Hugging Face API failed:', error);
         throw error;
     }
+};
+
+/**
+ * Main function: Remove background
+ */
+export const removeBackground = async (imageUri: string): Promise<BackgroundRemovalResult> => {
+    // 1. Try Hugging Face API (proxied on web, direct on mobile)
+    const HF_API_TOKEN = process.env.EXPO_PUBLIC_REMOVE_BG_API_KEY;
+
+    if ((HF_API_TOKEN && HF_API_TOKEN.startsWith('hf_')) || Platform.OS === 'web') {
+        try {
+            return await removeBackgroundWithHuggingFace(imageUri, HF_API_TOKEN || '');
+        } catch (error: any) {
+            console.warn('⚠️ Hugging Face failed:', error.message);
+        }
+    }
+
+    // 2. Fallback to original image
+    console.log('ℹ️ No background removal service available. Using original image.');
+    return {
+        url: imageUri,
+        success: false,
+        message: 'Background removal unavailable. Using original image.'
+    };
 };

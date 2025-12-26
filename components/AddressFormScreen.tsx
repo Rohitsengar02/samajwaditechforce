@@ -140,31 +140,47 @@ export default function AddressFormScreen({ navigation, route }: AddressFormProp
         try {
             console.log(`📍 Reverse geocoding: ${latitude}, ${longitude}`);
             const result = await Location.reverseGeocodeAsync({ latitude, longitude });
-            console.log('📍 Address result:', result[0]);
+            console.log('📍 Raw geocode result:', JSON.stringify(result, null, 2));
 
-            if (result.length > 0) {
+            if (result && result.length > 0) {
                 const addr = result[0];
+                console.log('📍 First address:', addr);
 
-                // Construct logic to find the best values
-                const street = [addr.streetNumber, addr.street, addr.name].filter(Boolean).join(' ').trim() || '';
+                // Construct address from available data
+                const streetParts = [];
+                if (addr.streetNumber) streetParts.push(addr.streetNumber);
+                if (addr.street) streetParts.push(addr.street);
+                if (addr.name && !addr.street) streetParts.push(addr.name);
+                const street = streetParts.join(' ').trim();
+
                 const city = addr.city || addr.subregion || addr.district || '';
-                const state = addr.region || addr.subregion || '';
+                const state = addr.region || '';
                 const postalCode = addr.postalCode || '';
-                const country = addr.country || '';
+                const country = addr.country || addr.isoCountryCode || '';
 
                 const newAddress = {
-                    street: street || 'Unknown Location',
+                    street: street || addr.name || 'Current Location',
                     city: city,
                     state: state,
                     postalCode: postalCode,
                     country: country,
                 };
 
-                console.log('📝 Autofilling Form:', newAddress);
+                console.log('✅ Auto-filling address form:', newAddress);
                 setAddress(newAddress);
+
+                // Show success feedback
+                Alert.alert('Location Found', 'Address has been auto-filled. Please verify and edit if needed.');
+            } else {
+                console.warn('⚠️ No address found for coordinates');
+                Alert.alert('Location Found', 'Could not determine address. Please enter manually.');
             }
-        } catch (error) {
-            console.log('❌ Reverse geocoding failed', error);
+        } catch (error: any) {
+            console.error('❌ Reverse geocoding failed:', error);
+            Alert.alert(
+                'Geocoding Error',
+                'Could not determine address from location. Please enter manually.'
+            );
         } finally {
             setLoadingAddress(false);
         }

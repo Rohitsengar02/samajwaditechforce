@@ -148,37 +148,19 @@ export default function DesktopPosterEditor() {
 
         setIsRemovingFooterPhotoBg(true);
         try {
-            // Fetch the image
-            const imageResponse = await fetch(bottomBarDetails.photo);
-            const imageBlob = await imageResponse.blob();
-
-            // Create FormData
-            const formData = new FormData();
-            formData.append('image', imageBlob);
-
-            // Call FREE background removal service (local or deployed)
-            const BG_REMOVAL_URL = process.env.EXPO_PUBLIC_BG_REMOVAL_URL || 'http://localhost:5002';
-            const response = await fetch(`${BG_REMOVAL_URL}/remove-bg`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error('Background removal service not running');
-            }
-
-            // Get the result as blob
-            const resultBlob = await response.blob();
-
-            // Create object URL
-            const url = URL.createObjectURL(resultBlob);
+            // Import and use our background removal utility with fallback
+            const { removeBackground } = require('../../utils/backgroundRemovalApi');
+            const result = await removeBackground(bottomBarDetails.photo);
 
             setBottomBarDetails({
                 ...bottomBarDetails,
-                photoNoBg: url,
+                photoNoBg: result.url,
             });
 
-            Alert.alert('Success', 'Background removed successfully!');
+            Alert.alert(
+                result.success ? 'Success' : 'Info',
+                result.message
+            );
         } catch (error: any) {
             console.error('Background removal error:', error);
             Alert.alert(
@@ -396,35 +378,16 @@ export default function DesktopPosterEditor() {
 
         setIsProcessing(true);
         try {
-            if (Platform.OS === 'web') {
-                const blob = await imglyRemoveBackground(selectedImageUri);
-                const url = URL.createObjectURL(blob);
-                setProcessedImageUri(url);
-                Alert.alert('Success', 'Background removed successfully!');
+            // Use our background removal utility
+            const { removeBackground } = require('../../utils/backgroundRemovalApi');
+            const result = await removeBackground(selectedImageUri);
+
+            if (result.success) {
+                setProcessedImageUri(result.url);
+                Alert.alert('Success', result.message);
             } else {
-                // For native platforms
-                const formData = new FormData();
-                formData.append('image', {
-                    uri: selectedImageUri,
-                    name: 'image.jpg',
-                    type: 'image/jpeg',
-                } as any);
-
-                const response = await fetch(`${API_URL}/ai-gemini/remove-background`, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    setProcessedImageUri(result.processedImageUrl);
-                    Alert.alert('Success', 'Background removed successfully!');
-                } else {
-                    throw new Error(result.message || 'Failed to remove background');
-                }
+                setProcessedImageUri(result.url); // Use original if removal failed
+                Alert.alert('Info', result.message);
             }
         } catch (error) {
             console.error('Background removal error:', error);
@@ -485,33 +448,27 @@ export default function DesktopPosterEditor() {
         setIsRemovingBg(true);
 
         try {
-            // Use Gemini API for background removal
-            let formData = new FormData();
+            console.log('🎨 Removing background for element:', elementId);
 
-            // Fetch image to get blob
-            const response = await fetch(element.content);
-            const blob = await response.blob();
-            formData.append('image', blob, 'image.jpg');
+            // Import the background removal utility
+            const { removeBackground } = await import('../../utils/backgroundRemovalApi');
 
-            const apiResponse = await fetch(`${API_URL}/ai-gemini/remove-background`, {
-                method: 'POST',
-                body: formData,
-            });
+            // Remove background using Hugging Face API
+            const result = await removeBackground(element.content);
 
-            const result = await apiResponse.json();
-
-            // Handle response
-            const processedImageUrl = result.processedImageUrl || result.image || result.data?.image || result.data?.url;
-
-            if (result.success && processedImageUrl) {
-                updateElement(elementId, { content: processedImageUrl });
-                Alert.alert('Success', 'Background removed successfully!');
+            if (result.success) {
+                // Update element with processed image
+                updateElement(elementId, { content: result.url });
+                Alert.alert('Success', result.message);
+                console.log('✅ Background removed successfully');
             } else {
-                throw new Error(result.message || result.error || 'Failed to remove background');
+                // Show info message if service unavailable
+                Alert.alert('Info', result.message);
+                console.log('ℹ️ Background removal not available');
             }
-        } catch (error) {
-            console.error('Background removal failed:', error);
-            Alert.alert('Error', 'Failed to remove background. Please try again.');
+        } catch (error: any) {
+            console.error('❌ Background removal failed:', error);
+            Alert.alert('Error', error.message || 'Failed to remove background. Please try again.');
         } finally {
             setIsRemovingBg(false);
         }

@@ -228,6 +228,39 @@ export default function VerifiedMemberScreen() {
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
+                    {/* Verification Status Badge */}
+                    {user?.verified && (
+                        <Card style={[styles.card, styles.verifiedCard]}>
+                            <Card.Content>
+                                <View style={styles.verifiedBadge}>
+                                    <MaterialCommunityIcons name="check-decagram" size={48} color="#10b981" />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.verifiedTitle}>✅ You Are Verified!</Text>
+                                        <Text style={styles.verifiedSubtitle}>
+                                            Your account has been verified. You can update your details below.
+                                        </Text>
+                                    </View>
+                                </View>
+                            </Card.Content>
+                        </Card>
+                    )}
+
+                    {user?.verificationStatus === 'pending' && !user?.verified && (
+                        <Card style={[styles.card, styles.pendingCard]}>
+                            <Card.Content>
+                                <View style={styles.verifiedBadge}>
+                                    <MaterialCommunityIcons name="clock-outline" size={48} color="#f59e0b" />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.pendingTitle}>⏳ Verification Pending</Text>
+                                        <Text style={styles.pendingSubtitle}>
+                                            Your verification request is under review. We'll notify you once approved.
+                                        </Text>
+                                    </View>
+                                </View>
+                            </Card.Content>
+                        </Card>
+                    )}
+
                     <Card style={styles.card}>
                         <Card.Content>
                             <View style={styles.sectionHeader}>
@@ -616,5 +649,43 @@ const styles = StyleSheet.create({
     iconStyle: {
         width: 20,
         height: 20,
+    },
+    // Verification badge styles
+    verifiedCard: {
+        borderLeftWidth: 4,
+        borderLeftColor: '#10b981',
+        backgroundColor: '#f0fdf4',
+    },
+    pendingCard: {
+        borderLeftWidth: 4,
+        borderLeftColor: '#f59e0b',
+        backgroundColor: '#fffbeb',
+    },
+    verifiedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    verifiedTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#059669',
+        marginBottom: 4,
+    },
+    verifiedSubtitle: {
+        fontSize: 14,
+        color: '#047857',
+        lineHeight: 20,
+    },
+    pendingTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#d97706',
+        marginBottom: 4,
+    },
+    pendingSubtitle: {
+        fontSize: 14,
+        color: '#b45309',
+        lineHeight: 20,
     },
 });

@@ -91,22 +91,20 @@ export default function Footer({ data }: { data?: any }) {
                     { name: 'website', icon: 'web', color: '#E30512', label: 'Website' },
                 ];
 
+                // Filter to show only platforms that have links
+                const availableSocial = socialPlatforms.filter(platform => social[platform.name]);
+
                 return (
                     <View style={styles.socialLinksColumn}>
-                        {socialPlatforms.map((platform) => {
-                            const hasLink = social[platform.name];
-                            return (
+                        {availableSocial.length > 0 ? (
+                            availableSocial.map((platform) => (
                                 <TouchableOpacity
                                     key={platform.name}
-                                    onPress={() => hasLink ? openLink(social[platform.name]) : null}
+                                    onPress={() => openLink(social[platform.name])}
                                     style={[
                                         styles.socialButton,
-                                        {
-                                            backgroundColor: platform.color + '20',
-                                            opacity: hasLink ? 1 : 0.5
-                                        }
+                                        { backgroundColor: platform.color + '20' }
                                     ]}
-                                    disabled={!hasLink}
                                 >
                                     <MaterialCommunityIcons
                                         name={platform.icon as any}
@@ -114,8 +112,10 @@ export default function Footer({ data }: { data?: any }) {
                                         color={platform.color}
                                     />
                                 </TouchableOpacity>
-                            );
-                        })}
+                            ))
+                        ) : (
+                            <Text style={styles.footerText}>No social links available</Text>
+                        )}
                     </View>
                 );
             default:

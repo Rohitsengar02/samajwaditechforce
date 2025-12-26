@@ -6,6 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "samajwaditechforce",
+    "schemes": [
+      "samajwaditechforce",
+      "com.googleusercontent.apps.994334881012-4nls5jej6oehnreecpft35h09chgo1bu"
+    ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -24,7 +28,7 @@
     },
     "android": {
       "package": "com.stf.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "android.permission.NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -90,8 +94,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "79284153-0de8-44c7-88e1-f7b87d8b97fb"
+        "projectId": "d19c2549-f31e-462d-94ce-23c802b1b8fe"
       }
-    }
+    },
+    "owner": "ramram32"
   }
 }
