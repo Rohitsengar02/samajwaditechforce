@@ -24,7 +24,7 @@
     },
     "android": {
       "package": "com.stf.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": [
         "android.permission.NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",

@@ -51,6 +51,7 @@ Notifications.setNotificationHandler({
 });
 
 import { WhatsAppButton } from '../components/WhatsAppButton';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -91,28 +92,37 @@ export default function RootLayout() {
 
   // Setup global notification handling
   useEffect(() => {
-    // Setup Socket.IO connection for notifications
-    const socketService = require('../services/socketService').default;
-    socketService.connect();
+    try {
+      // Setup Socket.IO connection for notifications
+      const socketService = require('../services/socketService').default;
+      socketService.connect();
 
-    // Listener for when notification is received while app is in foreground
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('📱 Notification received in foreground:', notification);
-    });
+      // Listener for when notification is received while app is in foreground
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log('📱 Notification received in foreground:', notification);
+      });
 
-    // Listener for when user taps on notification
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 User tapped notification:', response);
-      // Navigate to notifications page
-      router.push('/notifications');
-    });
+      // Listener for when user taps on notification
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('👆 User tapped notification:', response);
+        // Navigate to notifications page
+        router.push('/notifications');
+      });
+    } catch (error) {
+      console.warn('Socket.IO or notifications setup failed:', error);
+      // App can continue without real-time features
+    }
 
     return () => {
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
+      try {
+        if (notificationListener.current) {
+          notificationListener.current.remove();
+        }
+        if (responseListener.current) {
+          responseListener.current.remove();
+        }
+      } catch (error) {
+        console.warn('Error removing notification listeners:', error);
       }
     };
   }, []);
@@ -126,21 +136,23 @@ export default function RootLayout() {
   console.log('Current route:', currentRoute, 'Segments:', segments, 'Should hide WhatsApp:', shouldHideWhatsApp);
 
   return (
-    <LanguageProvider>
-      <PaperProvider>
-        <View style={{ flex: 1 }}>
-          {!appIsReady ? null : (
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="onboarding" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-          )}
-          {!shouldHideWhatsApp && <WhatsAppButton />}
-          <StatusBar style="auto" />
-        </View>
-      </PaperProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <PaperProvider>
+          <View style={{ flex: 1 }}>
+            {!appIsReady ? null : (
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="onboarding" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+            )}
+            {!shouldHideWhatsApp && <WhatsAppButton />}
+            <StatusBar style="auto" />
+          </View>
+        </PaperProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 
