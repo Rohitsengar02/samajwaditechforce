@@ -132,41 +132,62 @@ export default function RegisterScreen() {
   };
 
   const renderStep = () => {
-    switch (step) {
-      case STEPS.LOGIN:
-        return <InteractiveLoginScreen navigation={loginNavigation} />;
-      case STEPS.OTP:
-        return (
-          <InteractiveOTPScreen
-            navigation={otpNavigation}
-            route={{ params: { phone } }}
-          />
-        );
-      case STEPS.PROFILE:
-        return (
-          <ProfileSetupScreen
-            navigation={profileNavigation}
-            route={{ params: { phone, googleData } }}
-          />
-        );
-      case STEPS.ADDRESS:
-        return (
-          <AddressFormScreen
-            navigation={addressNavigation}
-            route={{ params: { phone, profileData } }}
-          />
-        );
-      case STEPS.VERIFICATION:
-        return (
-          <EmailVerificationScreen
-            navigation={verificationNavigation}
-            route={{ params: { email: profileData?.email } }}
-          />
-        );
-      case STEPS.COMPLETE:
-        return <InteractiveCompleteScreen navigation={completeNavigation} />;
-      default:
-        return null;
+    try {
+      switch (step) {
+        case STEPS.LOGIN:
+          return <InteractiveLoginScreen navigation={loginNavigation} />;
+        case STEPS.OTP:
+          return (
+            <InteractiveOTPScreen
+              navigation={otpNavigation}
+              route={{ params: { phone } }}
+            />
+          );
+        case STEPS.PROFILE:
+          return (
+            <ProfileSetupScreen
+              navigation={profileNavigation}
+              route={{ params: { phone, googleData } }}
+            />
+          );
+        case STEPS.ADDRESS:
+          return (
+            <AddressFormScreen
+              navigation={addressNavigation}
+              route={{ params: { phone, profileData } }}
+            />
+          );
+        case STEPS.VERIFICATION:
+          return (
+            <EmailVerificationScreen
+              navigation={verificationNavigation}
+              route={{ params: { email: profileData?.email } }}
+            />
+          );
+        case STEPS.COMPLETE:
+          return <InteractiveCompleteScreen navigation={completeNavigation} />;
+        default:
+          return null;
+      }
+    } catch (error) {
+      console.error('Error rendering step:', step, error);
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <MaterialCommunityIcons name="alert-circle" size={60} color="#E30512" />
+          <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 16, textAlign: 'center' }}>
+            Something went wrong
+          </Text>
+          <Text style={{ fontSize: 14, color: '#666', marginTop: 8, textAlign: 'center' }}>
+            {error?.toString()}
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.replace('/(tabs)')}
+            style={{ marginTop: 20, backgroundColor: '#E30512', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Go to Home</Text>
+          </TouchableOpacity>
+        </View>
+      );
     }
   };
 
