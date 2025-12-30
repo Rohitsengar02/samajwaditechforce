@@ -1,33 +1,120 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet, Pressable, Dimensions } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import {
+    View,
+    Text,
+    ScrollView,
+    ActivityIndicator,
+    StyleSheet,
+    Pressable,
+    Dimensions,
+    TextInput,
+    Animated,
+    Platform
+} from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getApiUrl } from '../../utils/api';
-import DesktopHeader from '../../components/DesktopHeader';
-import Footer from '../../components/Footer';
+import { TranslatedText } from '../../components/TranslatedText';
 
 const { width } = Dimensions.get('window');
+const SP_RED = '#E30512';
+const SP_GREEN = '#009933';
+const SP_DARK = '#1a1a1a';
 
-const GRADIENTS = [
-    ['#ff9a9e', '#fad0c4'], // Soft Pink
-    ['#a18cd1', '#fbc2eb'], // Purple to Pink
-    ['#84fab0', '#8fd3f4'], // Mint to Blue
-    ['#e0c3fc', '#8ec5fc'], // Lavender
-    ['#fccb90', '#d57eeb'], // Orange to Purple
-    ['#e2ebf0', '#cfd9df'], // Silver
-    ['#43e97b', '#38f9d7'], // Green Teal
-    ['#fa709a', '#fee140'], // Pink Yellow
-];
+const PageCard = ({ page, index, onPress }: { page: any, index: number, onPress: () => void }) => {
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const translateY = useRef(new Animated.Value(30)).current;
+
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                delay: index * 100,
+                useNativeDriver: true,
+            }),
+            Animated.spring(translateY, {
+                toValue: 0,
+                tension: 50,
+                friction: 7,
+                delay: index * 100,
+                useNativeDriver: true,
+            })
+        ]).start();
+    }, []);
+
+    return (
+        <Animated.View style={[
+            styles.cardContainer,
+            {
+                opacity: fadeAnim,
+                transform: [{ translateY }]
+            }
+        ]}>
+            <Pressable
+                onPress={onPress}
+                style={({ pressed }) => [
+                    styles.card,
+                    pressed && styles.cardPressed
+                ]}
+            >
+                <View style={styles.cardVisual}>
+                    <LinearGradient
+                        colors={[SP_RED + '10', SP_RED + '05']}
+                        style={styles.cardGradient}
+                    />
+                    <View style={styles.cardIconWrapper}>
+                        <MaterialCommunityIcons name="web" size={32} color={SP_RED} />
+                    </View>
+                </View>
+
+                <View style={styles.cardContent}>
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                        <TranslatedText>{page.title}</TranslatedText>
+                    </Text>
+                    <View style={styles.cardMeta}>
+                        <MaterialCommunityIcons name="link-variant" size={14} color="#64748b" />
+                        <Text style={styles.cardSlug} numberOfLines={1}>
+                            {page.slug || 'Custom Page'}
+                        </Text>
+                    </View>
+
+                    <View style={styles.cardFooter}>
+                        <Text style={styles.viewText}>
+                            <TranslatedText>Open Page</TranslatedText>
+                        </Text>
+                        <View style={styles.arrowIcon}>
+                            <MaterialCommunityIcons name="arrow-right" size={16} color="#fff" />
+                        </View>
+                    </View>
+                </View>
+            </Pressable>
+        </Animated.View>
+    );
+};
 
 export default function PagesDirectory() {
     const router = useRouter();
     const [pages, setPages] = useState<any[]>([]);
+    const [filteredPages, setFilteredPages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchPages();
     }, []);
+
+    useEffect(() => {
+        if (searchQuery) {
+            setFilteredPages(pages.filter(p =>
+                p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (p.slug && p.slug.toLowerCase().includes(searchQuery.toLowerCase()))
+            ));
+        } else {
+            setFilteredPages(pages);
+        }
+    }, [searchQuery, pages]);
 
     const fetchPages = async () => {
         try {
@@ -36,6 +123,7 @@ export default function PagesDirectory() {
             const data = await response.json();
             if (data.success && Array.isArray(data.data)) {
                 setPages(data.data);
+                setFilteredPages(data.data);
             }
         } catch (error) {
             console.error('Error fetching pages:', error);
@@ -47,8 +135,8 @@ export default function PagesDirectory() {
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <Stack.Screen options={{ title: 'All Pages' }} />
-                <ActivityIndicator size="large" color="#E30512" />
+                <Stack.Screen options={{ title: 'Directories' }} />
+                <ActivityIndicator size="large" color={SP_RED} />
             </View>
         );
     }
@@ -57,70 +145,85 @@ export default function PagesDirectory() {
         <View style={styles.container}>
             <Stack.Screen options={{
                 headerShown: false,
-                title: 'All Pages'
+                title: 'Directories'
             }} />
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <DesktopHeader />
-
-                <View style={styles.contentWrapper}>
-                    <View style={styles.headerSection}>
-                        <Text style={styles.mainTitle}>Explore Pages</Text>
-                        <Text style={styles.subTitle}>Discover campaigns, initiatives, and updates.</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {/* Modern Hero Header */}
+                <LinearGradient
+                    colors={[SP_RED, '#b91c1c', SP_DARK]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.header}
+                >
+                    <View style={styles.headerTop}>
+                        <Pressable onPress={() => router.back()} style={styles.backButton}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+                        </Pressable>
+                        <View style={styles.badge}>
+                            <Text style={styles.badgeText}>
+                                {pages.length} <TranslatedText>PAGES AVAILABLE</TranslatedText>
+                            </Text>
+                        </View>
                     </View>
 
-                    {pages.length === 0 ? (
+                    <View style={styles.headerMain}>
+                        <Text style={styles.headerTitle}>
+                            <TranslatedText>Digital Directory</TranslatedText>
+                        </Text>
+                        <Text style={styles.headerSubtitle}>
+                            <TranslatedText>Explore campaigns, initiatives, and the digital movement of Samajwadi Party.</TranslatedText>
+                        </Text>
+                    </View>
+
+                    <View style={styles.searchContainer}>
+                        <View style={styles.searchBar}>
+                            <MaterialCommunityIcons name="magnify" size={24} color="#94a3b8" />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search pages..."
+                                placeholderTextColor="#94a3b8"
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                            />
+                            {searchQuery !== '' && (
+                                <Pressable onPress={() => setSearchQuery('')}>
+                                    <MaterialCommunityIcons name="close-circle" size={20} color="#94a3b8" />
+                                </Pressable>
+                            )}
+                        </View>
+                    </View>
+                </LinearGradient>
+
+                <View style={styles.gridSection}>
+                    {filteredPages.length === 0 ? (
                         <View style={styles.emptyState}>
-                            <MaterialCommunityIcons name="file-document-outline" size={64} color="#e5e7eb" />
-                            <Text style={styles.emptyText}>No pages found</Text>
+                            <MaterialCommunityIcons name="file-search-outline" size={80} color="#e5e7eb" />
+                            <Text style={styles.emptyText}>
+                                <TranslatedText>No matching pages found</TranslatedText>
+                            </Text>
+                            <Pressable
+                                style={styles.clearButton}
+                                onPress={() => setSearchQuery('')}
+                            >
+                                <Text style={styles.clearButtonText}>
+                                    <TranslatedText>Clear Search</TranslatedText>
+                                </Text>
+                            </Pressable>
                         </View>
                     ) : (
                         <View style={styles.grid}>
-                            {pages.map((page, index) => {
-                                const gradientColors = GRADIENTS[index % GRADIENTS.length];
-                                return (
-                                    <Pressable
-                                        key={page._id}
-                                        style={({ pressed }) => [
-                                            styles.card,
-                                            pressed && styles.cardPressed
-                                        ]}
-                                        onPress={() => router.push(`/pages/${page._id}`)}
-                                    >
-                                        <View style={styles.imageContainer}>
-                                            <LinearGradient
-                                                colors={gradientColors as any}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 1, y: 1 }}
-                                                style={styles.cardGradient}
-                                            />
-                                            <View style={styles.cardIconBadge}>
-                                                <MaterialCommunityIcons name="web" size={24} color="#E30512" />
-                                            </View>
-                                        </View>
-
-                                        <View style={styles.cardContent}>
-                                            <Text style={styles.cardTitle} numberOfLines={2}>{page.title}</Text>
-                                            <View style={styles.cardMeta}>
-                                                <MaterialCommunityIcons name="link-variant" size={14} color="#94a3b8" />
-                                                <Text style={styles.cardSlug} numberOfLines={1}>
-                                                    {page.slug || 'Custom Page'}
-                                                </Text>
-                                            </View>
-
-                                            <View style={styles.cardFooter}>
-                                                <Text style={styles.viewLink}>View Page</Text>
-                                                <MaterialCommunityIcons name="arrow-right" size={16} color="#E30512" />
-                                            </View>
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
+                            {filteredPages.map((page, index) => (
+                                <PageCard
+                                    key={page._id}
+                                    page={page}
+                                    index={index}
+                                    onPress={() => router.push(`/pages/${page._id}`)}
+                                />
+                            ))}
                         </View>
                     )}
                 </View>
-
-                <Footer />
             </ScrollView>
         </View>
     );
@@ -129,97 +232,150 @@ export default function PagesDirectory() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#f8fafc',
+    },
+    scrollContent: {
+        paddingBottom: 40,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    contentWrapper: {
-        maxWidth: 1200,
-        width: '100%',
-        alignSelf: 'center',
-        paddingHorizontal: 40,
-        paddingVertical: 60,
-        minHeight: 500,
+    header: {
+        paddingTop: Platform.OS === 'ios' ? 60 : 40,
+        paddingBottom: 60,
+        paddingHorizontal: 24,
+        borderBottomLeftRadius: 40,
+        borderBottomRightRadius: 40,
     },
-    headerSection: {
-        marginBottom: 40,
+    headerTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+    backButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
         alignItems: 'center',
     },
-    mainTitle: {
-        fontSize: 42,
-        fontWeight: '900',
-        color: '#1e293b',
-        marginBottom: 12,
-        textAlign: 'center',
-    },
-    subTitle: {
-        fontSize: 18,
-        color: '#64748b',
-        textAlign: 'center',
-    },
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 24,
-        justifyContent: 'center',
-    },
-    card: {
-        width: 340,
-        backgroundColor: '#fff',
+    badge: {
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
         borderRadius: 20,
-        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    badgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '800',
+        letterSpacing: 1,
+    },
+    headerMain: {
+        marginBottom: 32,
+    },
+    headerTitle: {
+        fontSize: 36,
+        fontWeight: '900',
+        color: '#fff',
+        marginBottom: 8,
+    },
+    headerSubtitle: {
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.8)',
+        lineHeight: 24,
+        maxWidth: '90%',
+    },
+    searchContainer: {
+        position: 'absolute',
+        bottom: 5,
+        left: 24,
+        right: 24,
+    },
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        height: 56,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.1,
         shadowRadius: 20,
-        elevation: 10,
+        elevation: 8,
+    },
+    searchInput: {
+        flex: 1,
+        marginLeft: 12,
+        fontSize: 16,
+        color: '#1e293b',
+    },
+    gridSection: {
+        marginTop: 60,
+        paddingHorizontal: 20,
+    },
+    grid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+    },
+    cardContainer: {
+        width: width > 768 ? '31%' : width > 480 ? '48%' : '100%',
+        marginBottom: 20,
+    },
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        overflow: 'hidden',
         borderWidth: 1,
         borderColor: '#f1f5f9',
-        flexGrow: 1,
-        maxWidth: 380,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
     cardPressed: {
         transform: [{ scale: 0.98 }],
-        opacity: 0.9,
     },
-    imageContainer: {
-        height: 200,
-        position: 'relative',
+    cardVisual: {
+        height: 120,
+        justifyContent: 'center',
+        alignItems: 'center',
         backgroundColor: '#f8fafc',
     },
     cardGradient: {
-        width: '100%',
-        height: '100%',
+        ...StyleSheet.absoluteFillObject,
     },
-    cardIconBadge: {
-        position: 'absolute',
-        bottom: -24,
-        right: 24,
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+    cardIconWrapper: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         backgroundColor: '#fff',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowColor: SP_RED,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 15,
+        elevation: 5,
     },
     cardContent: {
-        padding: 24,
-        paddingTop: 32,
+        padding: 20,
     },
     cardTitle: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: 18,
+        fontWeight: '800',
         color: '#1e293b',
         marginBottom: 8,
-        lineHeight: 28,
+        height: 50,
     },
     cardMeta: {
         flexDirection: 'row',
@@ -228,28 +384,52 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     cardSlug: {
-        fontSize: 14,
-        color: '#94a3b8',
+        fontSize: 13,
+        color: '#64748b',
+        fontWeight: '500',
     },
     cardFooter: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginTop: 'auto',
+        justifyContent: 'space-between',
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#f1f5f9',
     },
-    viewLink: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: '#E30512',
+    viewText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: SP_RED,
+    },
+    arrowIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: SP_RED,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 60,
+        paddingVertical: 100,
     },
     emptyText: {
         fontSize: 18,
-        color: '#9ca3af',
+        color: '#94a3b8',
         marginTop: 16,
+        fontWeight: '600',
+    },
+    clearButton: {
+        marginTop: 20,
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        borderRadius: 12,
+        backgroundColor: '#f1f5f9',
+    },
+    clearButtonText: {
+        color: '#475569',
+        fontWeight: '700',
     },
 });
+

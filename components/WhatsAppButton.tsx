@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
         ...Platform.select({
             default: {
                 position: 'absolute',
-                bottom: 160,
+                bottom: 90,
                 right: 30,
             },
             web: {

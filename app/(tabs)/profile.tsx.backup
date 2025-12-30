@@ -19,12 +19,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../../utils/api';
-// Removed problematic imports that cause crashes on Android:
-// - signOutUser from firebase (uses require() for native modules)
-// - useLanguage from LanguageContext
-// - TranslatedText component
+import { signOutUser } from '../../utils/firebase';
+import { useLanguage } from '../../context/LanguageContext';
+import { TranslatedText } from '../../components/TranslatedText';
 
 const { width } = Dimensions.get('window');
 
@@ -33,7 +33,7 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
 
-// Profile Option Card - uses plain Text to avoid TranslatedText crash
+// Profile Option Card
 const ProfileOption = ({ icon, title, subtitle, onPress, showArrow = true, delay = 0 }: any) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
@@ -57,9 +57,13 @@ const ProfileOption = ({ icon, title, subtitle, onPress, showArrow = true, delay
           <MaterialCommunityIcons name={icon} size={24} color={SP_RED} />
         </View>
         <View style={styles.optionContent}>
-          <Text style={styles.optionTitle}>{title}</Text>
+          <Text style={styles.optionTitle}>
+            <TranslatedText>{title}</TranslatedText>
+          </Text>
           {subtitle && (
-            <Text style={styles.optionSubtitle}>{subtitle}</Text>
+            <Text style={styles.optionSubtitle}>
+              <TranslatedText>{subtitle}</TranslatedText>
+            </Text>
           )}
         </View>
         {showArrow && (
@@ -71,8 +75,16 @@ const ProfileOption = ({ icon, title, subtitle, onPress, showArrow = true, delay
 };
 
 
-// Direct export without ErrorBoundary wrapper
+// Error-safe wrapper component using ErrorBoundary
 export default function ProfileScreen() {
+  return (
+    <ErrorBoundary>
+      <ProfileScreenContent />
+    </ErrorBoundary>
+  );
+}
+
+function ProfileScreenContent() {
   const router = useRouter();
   const isDesktop = width >= 768;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -82,20 +94,18 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Hardcoded language values (removed useLanguage to prevent crash)
-  const language = 'en';
-  const setLanguage = async (_code: string) => { };
-  const availableLanguages = [{ code: 'en', name: 'English', nativeName: 'English' }];
+  // Use language context (now safe - returns defaults instead of throwing)
+  const { language, setLanguage, availableLanguages } = useLanguage();
 
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredLanguages = availableLanguages.filter((lang: any) =>
+  const filteredLanguages = availableLanguages.filter(lang =>
     lang.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     lang.nativeName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const currentLanguageName = availableLanguages.find((l: any) => l.code === language)?.name || 'English';
+  const currentLanguageName = availableLanguages.find(l => l.code === language)?.name || 'English';
 
   useFocusEffect(
     React.useCallback(() => {
@@ -181,15 +191,14 @@ export default function ProfileScreen() {
 
   const performLogout = async () => {
     try {
-      // Clear local storage (removed signOutUser import that was causing crashes)
+      await signOutUser();
       await AsyncStorage.removeItem('userInfo');
       await AsyncStorage.removeItem('userToken');
-      // Navigate to google-signin (the mobile login page, not /signin which is for web)
-      router.replace('/google-signin');
+      router.replace('/signin');
     } catch (error) {
       console.error('Logout error:', error);
       // Fallback navigation even on error
-      router.replace('/google-signin');
+      router.replace('/signin');
     }
   };
 
@@ -406,7 +415,9 @@ export default function ProfileScreen() {
 
             {/* Account Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account</Text>
+              <Text style={styles.sectionTitle}>
+                <TranslatedText>Account</TranslatedText>
+              </Text>
               <View style={styles.optionsContainer}>
                 <ProfileOption
                   icon="account-edit"
@@ -434,7 +445,9 @@ export default function ProfileScreen() {
 
             {/* Preferences Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Preferences</Text>
+              <Text style={styles.sectionTitle}>
+                <TranslatedText>Preferences</TranslatedText>
+              </Text>
               <View style={styles.optionsContainer}>
                 <View style={styles.optionCard}>
                   <View style={styles.optionIcon}>
@@ -480,7 +493,9 @@ export default function ProfileScreen() {
 
             {/* Support Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Support</Text>
+              <Text style={styles.sectionTitle}>
+                <TranslatedText>Support</TranslatedText>
+              </Text>
               <View style={styles.optionsContainer}>
                 <ProfileOption
                   icon="help-circle"

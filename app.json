@@ -8,7 +8,7 @@
     "scheme": "samajwaditechforce",
     "schemes": [
       "samajwaditechforce",
-      "com.googleusercontent.apps.994334881012-4nls5jej6oehnreecpft35h09chgo1bu"
+      "com.googleusercontent.apps.905993531472-8nh7kkchsn6rvgba1ss7oq3jabtf4std"
     ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -28,6 +28,7 @@
     },
     "android": {
       "package": "com.stf.app",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 7,
       "permissions": [
         "android.permission.NOTIFICATIONS",
@@ -58,6 +59,9 @@
       "expo-router",
       "expo-font",
       "expo-web-browser",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-google-signin/google-signin",
       [
         "expo-splash-screen",
         {
@@ -94,9 +98,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d19c2549-f31e-462d-94ce-23c802b1b8fe"
+        "projectId": "11d74806-b997-4de9-a0b4-59b4588d0801"
       }
     },
-    "owner": "ramram32"
+    "owner": "patelpulse9967"
   }
 }

@@ -74,17 +74,44 @@ const ContactCard = ({ icon, title, subtitle, action, delay, color = SP_RED }: a
     );
 };
 
+interface ContactSettings {
+    pageTitle: string;
+    pageSubtitle: string;
+    address: string;
+    email: string;
+    phone: string;
+    officeHours: string;
+    formTitle: string;
+    nameLabel: string;
+    emailLabel: string;
+    messageLabel: string;
+    submitButtonText: string;
+    successMessage: string;
+    additionalInfo: string;
+    socialMedia: Array<{ platform: string; url: string; icon: string }>;
+}
+
 export default function ContactPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
-    const [settings, setSettings] = useState<any>({
+    const [settings, setSettings] = useState<ContactSettings>({
         pageTitle: 'Contact Us',
         pageSubtitle: 'We are here to help & listen',
         address: '19, Vikramaditya Marg, Gulistan Colony, Lucknow, Uttar Pradesh 226001',
         email: 'contact@samajwaditechforce.com',
         phone: '+91 96217 62121',
         officeHours: '',
+        formTitle: 'Send us a Message',
+        nameLabel: 'Full Name',
+        emailLabel: 'Email Address',
+        messageLabel: 'Message',
+        submitButtonText: 'Send Message',
+        successMessage: 'Your message has been sent!',
+        additionalInfo: '',
+        socialMedia: [],
     });
+
+    const API_URL = getApiUrl();
 
     useEffect(() => {
         fetchSettings();
@@ -92,11 +119,10 @@ export default function ContactPage() {
 
     const fetchSettings = async () => {
         try {
-            const url = getApiUrl();
-            const res = await fetch(`${url}/contact-settings`);
+            const res = await fetch(`${API_URL}/contact-settings`);
             const data = await res.json();
             if (data.success) {
-                setSettings(data.data);
+                setSettings({ ...settings, ...data.data });
             }
         } catch (error) {
             console.error('Error fetching contact settings:', error);
@@ -121,8 +147,34 @@ export default function ContactPage() {
         Linking.openURL(`mailto:${email}`);
     };
 
-    const openYouTube = () => {
-        Linking.openURL('https://www.youtube.com/@SamajwadiPartyOfficial');
+    const openSocialMedia = (url: string) => {
+        Linking.openURL(url);
+    };
+
+    const getSocialIcon = (platform: string): string => {
+        const icons: { [key: string]: string } = {
+            facebook: 'facebook',
+            twitter: 'twitter',
+            instagram: 'instagram',
+            linkedin: 'linkedin',
+            youtube: 'youtube',
+            whatsapp: 'whatsapp',
+            telegram: 'send',
+        };
+        return icons[platform.toLowerCase()] || 'link';
+    };
+
+    const getSocialColor = (platform: string): string => {
+        const colors: { [key: string]: string } = {
+            facebook: '#1877F2',
+            twitter: '#1DA1F2',
+            instagram: '#E4405F',
+            linkedin: '#0A66C2',
+            youtube: '#FF0000',
+            whatsapp: '#25D366',
+            telegram: '#0088CC',
+        };
+        return colors[platform.toLowerCase()] || SP_RED;
     };
 
     if (loading) {
@@ -145,10 +197,10 @@ export default function ContactPage() {
                     <View style={styles.headerContent}>
                         <MaterialCommunityIcons name="card-account-phone" size={64} color="#fff" />
                         <Text style={styles.headerTitle}>
-                            <TranslatedText>{settings.pageTitle || 'Contact Us'}</TranslatedText>
+                            <TranslatedText>{settings.pageTitle}</TranslatedText>
                         </Text>
                         <Text style={styles.headerSubtitle}>
-                            <TranslatedText>{settings.pageSubtitle || 'We are here to help & listen'}</TranslatedText>
+                            <TranslatedText>{settings.pageSubtitle}</TranslatedText>
                         </Text>
                     </View>
                 </LinearGradient>
@@ -216,7 +268,7 @@ export default function ContactPage() {
                                 title="General Inquiry"
                                 subtitle={settings.email}
                                 action={() => openEmail(settings.email)}
-                                delay={300}
+                                delay={200}
                                 color="#F59E0B"
                             />
                         </View>
@@ -243,30 +295,43 @@ export default function ContactPage() {
                         </View>
                     )}
 
-                    {/* Videos & Songs Section */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>
-                            <TranslatedText>🎵 youtube</TranslatedText>
-                        </Text>
-                        <Animated.View style={styles.mediaCard}>
-                            <TouchableOpacity onPress={openYouTube} activeOpacity={0.9}>
-                                <LinearGradient colors={['#FF0000', '#cc0000']} style={styles.mediaGradient}>
-                                    <View style={styles.mediaContent}>
-                                        <MaterialCommunityIcons name="youtube" size={48} color="#fff" />
-                                        <View style={styles.mediaTextContainer}>
-                                            <Text style={styles.mediaTitle}>
-                                                <TranslatedText>Samajwadi Party Official</TranslatedText>
-                                            </Text>
-                                            <Text style={styles.mediaSubtitle}>
-                                                <TranslatedText>Watch latest campaigns, songs & speeches</TranslatedText>
-                                            </Text>
-                                        </View>
-                                        <MaterialCommunityIcons name="open-in-new" size={24} color="#fff" />
-                                    </View>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    </View>
+                    {/* Social Media Links */}
+                    {settings.socialMedia && settings.socialMedia.length > 0 && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>
+                                <TranslatedText>🔗 Follow Us</TranslatedText>
+                            </Text>
+                            <View style={styles.socialContainer}>
+                                {settings.socialMedia.map((social, idx) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={[styles.socialButton, { backgroundColor: getSocialColor(social.platform) }]}
+                                        onPress={() => openSocialMedia(social.url)}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={getSocialIcon(social.platform) as any}
+                                            size={24}
+                                            color="#fff"
+                                        />
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Additional Info */}
+                    {settings.additionalInfo && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>
+                                <TranslatedText>ℹ️ Additional Information</TranslatedText>
+                            </Text>
+                            <View style={styles.infoCard}>
+                                <Text style={styles.infoText}>
+                                    <TranslatedText>{settings.additionalInfo}</TranslatedText>
+                                </Text>
+                            </View>
+                        </View>
+                    )}
 
                 </View>
             </ScrollView>
@@ -450,5 +515,37 @@ const styles = StyleSheet.create({
     mediaSubtitle: {
         fontSize: 13,
         color: 'rgba(255,255,255,0.9)',
+    },
+    socialContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    socialButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    infoCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    infoText: {
+        fontSize: 15,
+        color: '#475569',
+        lineHeight: 24,
     },
 });

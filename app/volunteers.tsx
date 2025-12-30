@@ -8,13 +8,14 @@ import {
     Dimensions,
     Animated,
     TextInput,
+    ActivityIndicator,
+    Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-// Import the JSON data
-import volunteersData from './(tabs)/समाजवादी टेक फोर्स से जुड़ें — बने समाजवाद की डिजिटल आवाज़! (Responses) (5).json';
 import { TranslatedText } from '../components/TranslatedText';
+import { getApiUrl } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -22,21 +23,22 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
 
-interface Volunteer {
-    'Timestamp': string;
-    'आपका पूरा नाम क्या है? ': string;
-    'आपका मोबाइल नंबर ': number | string;
-    'जिला ': string;
-    'आपकी विधानसभा (Vidhan Sabha) कौन सी है? ': string;
-    'आपकी उम्र क्या है? ': number;
-    'अगर हाँ, तो पार्टी से आपका संबंध क्या है? ': string;
-    'E Mail ID ': string;
-    'क्वालिफिकेशन ': string;
-    'वेरिफिकेशन स्टेटस ': string;
-    'बातचीत के दौरान उसका माइंडसेट कैसा है ': string;
+interface VerifiedMember {
+    _id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: any;
+    profileImage?: string;
+    verificationStatus: string;
+    role?: string;
+    createdAt: string;
+    district?: string;
+    vidhanSabha?: string;
+    isVolunteer?: boolean;
 }
 
-const VolunteerCard = ({ volunteer, delay }: { volunteer: any; delay: number }) => {
+const VolunteerCard = ({ volunteer, delay }: { volunteer: VerifiedMember; delay: number }) => {
     const scaleAnim = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -58,28 +60,39 @@ const VolunteerCard = ({ volunteer, delay }: { volunteer: any; delay: number }) 
     }, []);
 
     const getRoleColor = () => {
-        const role = volunteer['Column9'] || volunteer['अगर हाँ, तो पार्टी से आपका संबंध क्या है? '];
-        if (role?.includes('पदाधिकारी')) return SP_RED;
-        if (role?.includes('कार्यकर्ता')) return SP_GREEN;
-        return '#3B82F6';
+        if (volunteer.isVolunteer) return '#3B82F6';
+        const role = volunteer.role || 'member';
+        if (role === 'admin') return SP_RED;
+        if (role === 'moderator') return '#3B82F6';
+        return SP_GREEN;
     };
 
-    const getMindsetIcon = () => {
-        const mindset = volunteer['बातचीत के दौरान उसका माइंडसेट कैसा है '];
-        if (mindset === 'A') return 'star';
-        if (mindset === 'B') return 'star-half-full';
-        return 'star-outline';
+    const formatAddress = (addr: any) => {
+        if (!addr) return 'N/A';
+        if (typeof addr === 'string') return addr;
+        if (typeof addr === 'object') {
+            const parts = [addr.city, addr.state, addr.district].filter(Boolean);
+            return parts.length > 0 ? parts.join(', ') : 'N/A';
+        }
+        return 'N/A';
     };
 
-    const name = volunteer['Column2'] || volunteer['आपका पूरा नाम क्या है? '] || 'N/A';
-    const role = volunteer['Column9'] || volunteer['अगर हाँ, तो पार्टी से आपका संबंध क्या है? '] || 'समर्थक';
-    const district = volunteer['Column4'] || volunteer['जिला '] || 'N/A';
-    const vidhanSabha = volunteer['Column5'] || volunteer['आपकी विधानसभा (Vidhan Sabha) कौन सी है? '] || 'N/A';
-    const mobile = volunteer['Column3'] || volunteer['आपका मोबाइल नंबर '] || 'N/A';
-    const email = volunteer['Column13'] || volunteer['E Mail ID '];
-    const qualification = volunteer['Column14'] || volunteer['क्वालिफिकेशन '] || 'N/A';
-    const age = volunteer['Column6'] || volunteer['आपकी उम्र क्या है? '] || 'N/A';
-    const timestamp = volunteer['Column1'] || volunteer['Timestamp'];
+    const getLocation = () => {
+        if (volunteer.district) return volunteer.district;
+        if (volunteer.address) return formatAddress(volunteer.address);
+        return 'N/A';
+    };
+
+    // Check if image URL is valid (not blob URL which React Native doesn't support)
+    const isValidImageUrl = (url: string | undefined) => {
+        if (!url) return false;
+        if (url.startsWith('blob:')) return false;
+        if (url.startsWith('data:')) return true;
+        if (url.startsWith('http://') || url.startsWith('https://')) return true;
+        return false;
+    };
+
+    const hasValidImage = isValidImageUrl(volunteer.profileImage);
 
     return (
         <Animated.View
@@ -91,32 +104,32 @@ const VolunteerCard = ({ volunteer, delay }: { volunteer: any; delay: number }) 
             <LinearGradient colors={['#fff', '#f8fafc']} style={styles.cardGradient}>
                 {/* Header */}
                 <View style={styles.cardHeader}>
-                    <View style={[styles.avatarContainer, { backgroundColor: getRoleColor() + '20' }]}>
-                        <Text style={[styles.avatarText, { color: getRoleColor() }]}>
-                            {name?.charAt(0) || '?'}
-                        </Text>
-                    </View>
+                    {hasValidImage ? (
+                        <Image
+                            source={{ uri: volunteer.profileImage }}
+                            style={styles.avatarImage}
+                        />
+                    ) : (
+                        <View style={[styles.avatarContainer, { backgroundColor: getRoleColor() + '15' }]}>
+                            <Image
+                                source={require('../assets/images/icon.png')}
+                                style={styles.avatarIcon}
+                            />
+                        </View>
+                    )}
 
                     <View style={styles.headerInfo}>
                         <View style={styles.nameRow}>
                             <Text style={styles.volunteerName} numberOfLines={1}>
-                                <TranslatedText>{name}</TranslatedText>
+                                <TranslatedText>{volunteer.name || 'N/A'}</TranslatedText>
                             </Text>
-                            <View style={[styles.verifiedBadge, { backgroundColor: SP_GREEN }]}>
-                                <MaterialCommunityIcons name="check-decagram" size={16} color="#fff" />
+                            <View style={[styles.verifiedBadge, { backgroundColor: volunteer.isVolunteer ? '#3B82F6' : SP_GREEN }]}>
+                                <MaterialCommunityIcons name={volunteer.isVolunteer ? "account" : "check-decagram"} size={16} color="#fff" />
                             </View>
                         </View>
                         <Text style={styles.volunteerRole}>
-                            <TranslatedText>{role}</TranslatedText>
+                            <TranslatedText>{volunteer.isVolunteer ? (volunteer.role || 'Volunteer') : 'Verified Member'}</TranslatedText>
                         </Text>
-                    </View>
-
-                    <View style={styles.mindsetBadge}>
-                        <MaterialCommunityIcons
-                            name={getMindsetIcon()}
-                            size={20}
-                            color="#F59E0B"
-                        />
                     </View>
                 </View>
 
@@ -125,36 +138,40 @@ const VolunteerCard = ({ volunteer, delay }: { volunteer: any; delay: number }) 
                     <View style={styles.detailRow}>
                         <MaterialCommunityIcons name="map-marker" size={16} color="#64748b" />
                         <Text style={styles.detailText}>
-                            <TranslatedText>{`${district} - ${vidhanSabha}`}</TranslatedText>
+                            <TranslatedText>{getLocation()}</TranslatedText>
                         </Text>
                     </View>
 
-                    <View style={styles.detailRow}>
-                        <MaterialCommunityIcons name="phone" size={16} color="#64748b" />
-                        <Text style={styles.detailText}>{mobile}</Text>
-                    </View>
-
-                    {email && (
+                    {volunteer.vidhanSabha && (
                         <View style={styles.detailRow}>
-                            <MaterialCommunityIcons name="email" size={16} color="#64748b" />
+                            <MaterialCommunityIcons name="office-building" size={16} color="#64748b" />
                             <Text style={styles.detailText} numberOfLines={1}>
-                                {email}
+                                <TranslatedText>{volunteer.vidhanSabha}</TranslatedText>
                             </Text>
                         </View>
                     )}
 
-                    <View style={styles.detailRow}>
-                        <MaterialCommunityIcons name="school" size={16} color="#64748b" />
-                        <Text style={styles.detailText}>
-                            <TranslatedText>{`${qualification} • Age: ${age}`}</TranslatedText>
-                        </Text>
-                    </View>
+                    {volunteer.phone && (
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="phone" size={16} color="#64748b" />
+                            <Text style={styles.detailText}>{volunteer.phone}</Text>
+                        </View>
+                    )}
+
+                    {volunteer.email && (
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="email" size={16} color="#64748b" />
+                            <Text style={styles.detailText} numberOfLines={1}>
+                                {volunteer.email}
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* Footer */}
                 <View style={styles.cardFooter}>
                     <Text style={styles.timestamp}>
-                        <TranslatedText>{`Joined: ${timestamp ? new Date(timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}`}</TranslatedText>
+                        <TranslatedText>{`Joined: ${volunteer.createdAt ? new Date(volunteer.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}`}</TranslatedText>
                     </Text>
                 </View>
             </LinearGradient>
@@ -165,47 +182,73 @@ const VolunteerCard = ({ volunteer, delay }: { volunteer: any; delay: number }) 
 export default function VolunteersPage() {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterRole, setFilterRole] = useState<'all' | 'पदाधिकारी' | 'कार्यकर्ता' | 'समर्थक'>('all');
+    const [loading, setLoading] = useState(true);
+    const [verifiedMembers, setVerifiedMembers] = useState<VerifiedMember[]>([]);
 
-    // Handle potential default export from JSON import
-    const data = (volunteersData as any).default || volunteersData;
-    const safeData = Array.isArray(data) ? data : [];
+    const API_URL = getApiUrl();
 
-    // Filter only verified volunteers
-    const verifiedVolunteers = safeData.filter((vol: any) =>
-        vol && vol['वेरिफिकेशन स्टेटस ']?.trim() === 'Verified'
-    );
+    // Fetch verified members from API
+    useEffect(() => {
+        fetchVerifiedMembers();
+    }, []);
 
-    // Apply search and role filter
-    // Apply search and role filter
-    const filteredVolunteers = verifiedVolunteers.filter((vol: any) => {
-        const name = vol['Column2'] || vol['आपका पूरा नाम क्या है? '];
-        const district = vol['Column4'] || vol['जिला '];
-        const vidhanSabha = vol['Column5'] || vol['आपकी विधानसभा (Vidhan Sabha) कौन सी है? '];
-        const role = vol['Column9'] || vol['अगर हाँ, तो पार्टी से आपका संबंध क्या है? '];
+    // Debug: Log when verifiedMembers changes
+    useEffect(() => {
+        console.log('verifiedMembers state updated:', verifiedMembers.length, 'members');
+        if (verifiedMembers.length > 0) {
+            console.log('First member:', verifiedMembers[0]?.name);
+        }
+    }, [verifiedMembers]);
 
-        const matchesSearch = !searchQuery ||
-            name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            district?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            vidhanSabha?.toLowerCase().includes(searchQuery.toLowerCase());
+    const fetchVerifiedMembers = async () => {
+        try {
+            setLoading(true);
+            console.log('Fetching verified members from:', `${API_URL}/auth/verified-members`);
 
-        const matchesRole = filterRole === 'all' ||
-            role?.includes(filterRole);
+            const response = await fetch(`${API_URL}/auth/verified-members`);
+            const data = await response.json();
 
-        return matchesSearch && matchesRole;
+            console.log('Verified members response:', JSON.stringify(data, null, 2));
+
+            let members: VerifiedMember[] = [];
+
+            if (data.success && data.data && Array.isArray(data.data)) {
+                members = data.data;
+                console.log('Setting members from data.data:', members.length);
+            } else if (Array.isArray(data)) {
+                members = data;
+                console.log('Setting members from array:', members.length);
+            } else if (data.users && Array.isArray(data.users)) {
+                members = data.users.filter((u: any) => u.verificationStatus === 'Verified');
+                console.log('Setting members from data.users:', members.length);
+            }
+
+            console.log('Total members to display:', members.length);
+            setVerifiedMembers(members);
+        } catch (error: any) {
+            console.error('Error fetching verified members:', error);
+            setVerifiedMembers([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Apply search filter
+    const filteredVolunteers = verifiedMembers.filter((vol) => {
+        if (!searchQuery) return true;
+
+        const searchLower = searchQuery.toLowerCase();
+        const name = vol.name?.toLowerCase() || '';
+        const email = vol.email?.toLowerCase() || '';
+        const phone = vol.phone || '';
+
+        return name.includes(searchLower) ||
+            email.includes(searchLower) ||
+            phone.includes(searchLower);
     });
 
     // Stats
-    const totalVerified = verifiedVolunteers.length;
-    const officers = verifiedVolunteers.filter((v: Volunteer) =>
-        v['अगर हाँ, तो पार्टी से आपका संबंध क्या है? ']?.includes('पदाधिकारी')
-    ).length;
-    const workers = verifiedVolunteers.filter((v: Volunteer) =>
-        v['अगर हाँ, तो पार्टी से आपका संबंध क्या है? ']?.includes('कार्यकर्ता')
-    ).length;
-    const supporters = verifiedVolunteers.filter((v: Volunteer) =>
-        v['अगर हाँ, तो पार्टी से आपका संबंध क्या है? ']?.includes('समर्थक')
-    ).length;
+    const totalVerified = verifiedMembers.length;
 
     return (
         <View style={styles.container}>
@@ -219,7 +262,7 @@ export default function VolunteersPage() {
                     <View style={styles.headerContent}>
                         <MaterialCommunityIcons name="account-group" size={64} color="#fff" />
                         <Text style={styles.headerTitle}>
-                            <TranslatedText>Verified Volunteers</TranslatedText>
+                            <TranslatedText>Verified Members</TranslatedText>
                         </Text>
                         <Text style={styles.headerSubtitle}>
                             <TranslatedText>समाजवादी टेक फोर्स सदस्य</TranslatedText>
@@ -228,28 +271,10 @@ export default function VolunteersPage() {
 
                     {/* Stats */}
                     <View style={styles.statsContainer}>
-                        <View style={styles.statCard}>
+                        <View style={[styles.statCard, { flex: 1 }]}>
                             <Text style={styles.statNumber}>{totalVerified}</Text>
                             <Text style={styles.statLabel}>
-                                <TranslatedText>Total</TranslatedText>
-                            </Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>{officers}</Text>
-                            <Text style={styles.statLabel}>
-                                <TranslatedText>Officers</TranslatedText>
-                            </Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>{workers}</Text>
-                            <Text style={styles.statLabel}>
-                                <TranslatedText>Workers</TranslatedText>
-                            </Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>{supporters}</Text>
-                            <Text style={styles.statLabel}>
-                                <TranslatedText>Supporters</TranslatedText>
+                                <TranslatedText>Total Verified Members</TranslatedText>
                             </Text>
                         </View>
                     </View>
@@ -261,7 +286,7 @@ export default function VolunteersPage() {
                         <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="Search by name, district, or vidhan sabha..."
+                            placeholder="Search by name, email, or phone..."
                             placeholderTextColor="#94A3B8"
                             value={searchQuery}
                             onChangeText={setSearchQuery}
@@ -273,76 +298,43 @@ export default function VolunteersPage() {
                         )}
                     </View>
 
-                    {/* Filter Pills */}
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.filterContainer}
-                    >
-                        <TouchableOpacity
-                            style={[styles.filterPill, filterRole === 'all' && styles.filterPillActive]}
-                            onPress={() => setFilterRole('all')}
-                        >
-                            <Text style={[styles.filterText, filterRole === 'all' && styles.filterTextActive]}>
-                                <TranslatedText>{`All (${totalVerified})`}</TranslatedText>
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.filterPill, filterRole === 'पदाधिकारी' && styles.filterPillActive]}
-                            onPress={() => setFilterRole('पदाधिकारी')}
-                        >
-                            <Text style={[styles.filterText, filterRole === 'पदाधिकारी' && styles.filterTextActive]}>
-                                <TranslatedText>{`पदाधिकारी (${officers})`}</TranslatedText>
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.filterPill, filterRole === 'कार्यकर्ता' && styles.filterPillActive]}
-                            onPress={() => setFilterRole('कार्यकर्ता')}
-                        >
-                            <Text style={[styles.filterText, filterRole === 'कार्यकर्ता' && styles.filterTextActive]}>
-                                <TranslatedText>{`कार्यकर्ता (${workers})`}</TranslatedText>
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.filterPill, filterRole === 'समर्थक' && styles.filterPillActive]}
-                            onPress={() => setFilterRole('समर्थक')}
-                        >
-                            <Text style={[styles.filterText, filterRole === 'समर्थक' && styles.filterTextActive]}>
-                                <TranslatedText>{`समर्थक (${supporters})`}</TranslatedText>
-                            </Text>
-                        </TouchableOpacity>
-                    </ScrollView>
-
                     {/* Results Count */}
                     <Text style={styles.resultsText}>
-                        <TranslatedText>{`Showing ${filteredVolunteers.length} verified volunteer${filteredVolunteers.length !== 1 ? 's' : ''}`}</TranslatedText>
+                        <TranslatedText>{`Showing ${filteredVolunteers.length} verified member${filteredVolunteers.length !== 1 ? 's' : ''}`}</TranslatedText>
                     </Text>
 
-                    {/* Volunteers List */}
-                    <View style={styles.volunteersContainer}>
-                        {filteredVolunteers.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <MaterialCommunityIcons name="account-search" size={64} color="#CBD5E1" />
-                                <Text style={styles.emptyText}>
-                                    <TranslatedText>No volunteers found</TranslatedText>
-                                </Text>
-                                <Text style={styles.emptySubtext}>
-                                    <TranslatedText>Try a different search or filter</TranslatedText>
-                                </Text>
-                            </View>
-                        ) : (
-                            filteredVolunteers.slice(2).map((volunteer: Volunteer, idx) => (
-                                <VolunteerCard
-                                    key={String(volunteer['आपका मोबाइल नंबर ']) + idx}
-                                    volunteer={volunteer}
-                                    delay={Math.min(idx * 50, 1000)}
-                                />
-                            ))
-                        )}
-                    </View>
+                    {/* Loading State */}
+                    {loading ? (
+                        <View style={styles.emptyState}>
+                            <ActivityIndicator size="large" color="#3B82F6" />
+                            <Text style={[styles.emptyText, { marginTop: 16 }]}>
+                                <TranslatedText>Loading verified members...</TranslatedText>
+                            </Text>
+                        </View>
+                    ) : (
+                        /* Volunteers List */
+                        <View style={styles.volunteersContainer}>
+                            {filteredVolunteers.length === 0 ? (
+                                <View style={styles.emptyState}>
+                                    <MaterialCommunityIcons name="account-search" size={64} color="#CBD5E1" />
+                                    <Text style={styles.emptyText}>
+                                        <TranslatedText>No verified members found</TranslatedText>
+                                    </Text>
+                                    <Text style={styles.emptySubtext}>
+                                        <TranslatedText>Try a different search</TranslatedText>
+                                    </Text>
+                                </View>
+                            ) : (
+                                filteredVolunteers.map((volunteer, idx) => (
+                                    <VolunteerCard
+                                        key={volunteer._id || idx}
+                                        volunteer={volunteer}
+                                        delay={Math.min(idx * 50, 1000)}
+                                    />
+                                ))
+                            )}
+                        </View>
+                    )}
                 </View>
             </ScrollView>
         </View>
@@ -494,6 +486,17 @@ const styles = StyleSheet.create({
     avatarText: {
         fontSize: 20,
         fontWeight: '900',
+    },
+    avatarImage: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        marginRight: 12,
+    },
+    avatarIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
     },
     headerInfo: {
         flex: 1,

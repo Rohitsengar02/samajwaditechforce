@@ -532,10 +532,22 @@ export default function IDCardTab() {
                         visible={showVerificationModal}
                         transparent
                         animationType="fade"
-                        onRequestClose={() => { }}
+                        onRequestClose={() => setShowVerificationModal(false)}
                     >
                         <View style={styles.modalOverlay}>
                             <View style={styles.verificationModal}>
+                                {/* Close Button */}
+                                <TouchableOpacity
+                                    style={styles.closeButton}
+                                    onPress={() => {
+                                        setShowVerificationModal(false);
+                                        router.back();
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+                                </TouchableOpacity>
+
                                 <View style={styles.modalIconContainer}>
                                     <MaterialCommunityIcons name="shield-alert" size={60} color={SP_RED} />
                                 </View>
@@ -890,5 +902,17 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontWeight: '600',
         fontStyle: 'italic',
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#f1f5f9',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10,
     },
 });

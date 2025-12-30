@@ -64,12 +64,12 @@ export default function DynamicPage() {
         return (
             <View style={styles.centerContainer}>
                 <Stack.Screen options={{ headerShown: false }} />
-                <DesktopHeader />
+
                 <View style={[styles.mainContent, { alignItems: 'center', justifyContent: 'center', paddingHorizontal: width < 768 ? 20 : 80 }]}>
                     <Text style={{ fontSize: 18, color: '#ef4444', marginBottom: 8 }}>Oops!</Text>
                     <Text style={{ color: '#6b7280' }}>{error || 'Page not found'}</Text>
                 </View>
-                <Footer />
+
             </View>
         );
     }
@@ -81,7 +81,7 @@ export default function DynamicPage() {
             <Stack.Screen options={{ headerShown: false }} />
 
             <ScrollView showsVerticalScrollIndicator={false}>
-                <DesktopHeader />
+
 
                 <View style={[styles.mainContent, { paddingHorizontal: width < 768 ? 20 : 80 }]}>
                     {/* Page Title Section (Optional) */}
@@ -94,7 +94,7 @@ export default function DynamicPage() {
                     <PageRenderer sections={sections} viewport={viewport} />
                 </View>
 
-                <Footer />
+
             </ScrollView>
         </View>
     );

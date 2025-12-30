@@ -168,11 +168,33 @@ export const sendPasswordReset = async (email: string): Promise<{ success: boole
 };
 
 /**
- * Sign out current user
+ * Sign out current user (handles both web SDK and native SDK)
  */
 export const signOutUser = async (): Promise<{ success: boolean; error: string | null }> => {
     try {
+        // Sign out from web Firebase SDK
         await signOut(auth);
+
+        // Try to sign out from native Firebase and GoogleSignin if available
+        try {
+            const nativeAuth = require('@react-native-firebase/auth').default;
+            const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+
+            // Sign out from native Firebase
+            if (nativeAuth().currentUser) {
+                await nativeAuth().signOut();
+            }
+
+            // Sign out from Google
+            const isSignedIn = await GoogleSignin.isSignedIn();
+            if (isSignedIn) {
+                await GoogleSignin.signOut();
+            }
+        } catch (nativeError) {
+            // Native modules might not be available (e.g., on web)
+            console.log('Native signout not available:', nativeError);
+        }
+
         return { success: true, error: null };
     } catch (error: any) {
         return { success: false, error: error.message };

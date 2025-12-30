@@ -18,6 +18,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { TranslatedText } from '../components/TranslatedText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -231,8 +232,8 @@ export default function EventsPage() {
     });
     const [userData, setUserData] = useState<any>(null);
 
-    // API URL from environment
-    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001/api';
+    // API URL - use the shared utility for consistent cross-platform behavior
+    const API_URL = getApiUrl();
 
     // Platform-aware alert function
     const showAlert = (title: string, message: string, onOk?: () => void) => {
@@ -303,15 +304,27 @@ export default function EventsPage() {
     const fetchEvents = async () => {
         try {
             setLoading(true);
+            console.log('Fetching events from:', `${API_URL}/events`);
+
             const response = await fetch(`${API_URL}/events`);
+            console.log('Events response status:', response.status);
+
             const data = await response.json();
+            console.log('Events data:', data);
 
             if (data.success && data.data) {
                 setEventsData(data.data);
+            } else if (data.data) {
+                // Handle case where success might be undefined but data exists
+                setEventsData(data.data);
+            } else if (Array.isArray(data)) {
+                // Handle case where API returns array directly
+                setEventsData(data);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching events:', error);
-            showAlert('Error', 'Failed to load events');
+            console.error('Error details:', error.message);
+            // Don't show error alert - just log it, show empty state instead
         } finally {
             setLoading(false);
         }

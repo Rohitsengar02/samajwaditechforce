@@ -9,11 +9,13 @@ import {
     Animated,
     Alert,
 } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { TranslatedText } from '../components/TranslatedText';
+import { getApiUrl } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -55,21 +57,23 @@ const NotificationCard = ({ notification, onPress, delay }: any) => {
     }, []);
 
     const getIconName = (type: string) => {
-        switch (type) {
+        switch (type?.toLowerCase()) {
             case 'news': return 'newspaper';
             case 'event': return 'calendar';
             case 'update': return 'bell-ring';
             case 'message': return 'message';
+            case 'task': return 'clipboard-check';
             default: return 'bell';
         }
     };
 
     const getIconColor = (type: string) => {
-        switch (type) {
+        switch (type?.toLowerCase()) {
             case 'news': return SP_RED;
             case 'event': return SP_GREEN;
             case 'update': return '#3B82F6';
             case 'message': return '#F59E0B';
+            case 'task': return '#8B5CF6';
             default: return '#64748b';
         }
     };
@@ -106,7 +110,7 @@ const NotificationCard = ({ notification, onPress, delay }: any) => {
                         <Text style={styles.notificationTime}>
                             <TranslatedText>{notification.time}</TranslatedText>
                         </Text>
-                        {!notification.read && <View style={styles.unreadDot} />}
+                        {(notification.read === false || (Array.isArray(notification.read) && notification.read.length === 0)) && <View style={styles.unreadDot} />}
                     </View>
                 </View>
 
@@ -121,6 +125,10 @@ export default function NotificationsScreen() {
     const isDesktop = width >= 768;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const [selectedFilter, setSelectedFilter] = useState('All');
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const API_URL = getApiUrl();
 
     useEffect(() => {
         Animated.timing(fadeAnim, {
@@ -129,14 +137,41 @@ export default function NotificationsScreen() {
             useNativeDriver: true,
         }).start();
 
-        requestPermissions();
+        fetchNotifications();
     }, []);
 
-    const requestPermissions = async () => {
-        const { status } = await Notifications.requestPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert('Permission Required', 'Please enable notifications to receive updates.');
+    const fetchNotifications = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`${API_URL}/notifications`);
+            const data = await response.json();
+            if (data.success) {
+                setNotifications(data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        } finally {
+            setLoading(false);
         }
+    };
+
+    const formatTime = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+        if (diffInSeconds < 60) return 'Just now';
+
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        if (diffInHours < 24) return `${diffInHours}h ago`;
+
+        const diffInDays = Math.floor(diffInHours / 24);
+        if (diffInDays < 7) return `${diffInDays}d ago`;
+
+        return date.toLocaleDateString();
     };
 
     const sendTestNotification = async (notification: any) => {
@@ -162,54 +197,24 @@ export default function NotificationsScreen() {
         }
     };
 
-    const notifications = [
-        {
-            id: 1,
-            type: 'news',
-            title: 'New Article Published',
-            message: 'समाजवादी टेक फोर्स का विस्तार पूरे देश में - Read the latest update',
-            time: '2 hours ago',
-            read: false,
-        },
-        {
-            id: 2,
-            type: 'event',
-            title: 'Upcoming Event',
-            message: 'Tech Force meeting scheduled for tomorrow at 10 AM',
-            time: '5 hours ago',
-            read: false,
-        },
-        {
-            id: 3,
-            type: 'update',
-            title: 'App Update Available',
-            message: 'New features and improvements are now available',
-            time: '1 day ago',
-            read: true,
-        },
-        {
-            id: 4,
-            type: 'message',
-            title: 'New Message',
-            message: 'You have received a message from the admin',
-            time: '2 days ago',
-            read: true,
-        },
-        {
-            id: 5,
-            type: 'news',
-            title: 'Policy Update',
-            message: 'किसानों के लिए नई योजना की घोषणा - Check details',
-            time: '3 days ago',
-            read: true,
-        },
-    ];
-
-    const filters = ['All', 'News', 'Events', 'Updates', 'Messages'];
+    const filters = ['All', 'News', 'Event', 'Update', 'Message'];
 
     const filteredNotifications = notifications.filter(notif => {
+        // Exclude task submissions based on title or relatedItem model
+        const isSubmission = notif.title === 'Task Submission' || notif.relatedItem?.model === 'UserTask';
+        if (isSubmission) return false;
+
         if (selectedFilter === 'All') return true;
-        return notif.type === selectedFilter.toLowerCase().slice(0, -1);
+
+        // Handle cases where type might be slightly different or missing
+        const type = notif.type?.toLowerCase();
+        const filter = selectedFilter.toLowerCase();
+
+        // If it's a 'task' type but not a submission (e.g., 'New Task Available'), 
+        // we show it in 'All' or if we had a task filter. 
+        // Since we removed the Task filter, it will only show in 'All'.
+
+        return type === filter;
     });
 
     return (
@@ -230,7 +235,13 @@ export default function NotificationsScreen() {
                             <TranslatedText>Notifications</TranslatedText>
                         </Text>
                         <Text style={styles.headerSubtitle}>
-                            <TranslatedText>{`${notifications.filter(n => !n.read).length} unread`}</TranslatedText>
+                            <TranslatedText>
+                                {`${notifications.filter(n =>
+                                    (n.read === false || (Array.isArray(n.read) && n.read.length === 0)) &&
+                                    n.title !== 'Task Submission' &&
+                                    n.relatedItem?.model !== 'UserTask'
+                                ).length} unread`}
+                            </TranslatedText>
                         </Text>
                     </View>
                     <TouchableOpacity style={styles.headerButton}>
@@ -282,11 +293,21 @@ export default function NotificationsScreen() {
                     </View>
 
                     <View style={styles.notificationsList}>
-                        {filteredNotifications.length > 0 ? (
+                        {loading ? (
+                            <View style={styles.loadingState}>
+                                <ActivityIndicator size="large" color={SP_RED} />
+                                <Text style={styles.loadingText}>
+                                    <TranslatedText>Loading notifications...</TranslatedText>
+                                </Text>
+                            </View>
+                        ) : filteredNotifications.length > 0 ? (
                             filteredNotifications.map((notification, idx) => (
                                 <NotificationCard
-                                    key={notification.id}
-                                    notification={notification}
+                                    key={notification._id || notification.id}
+                                    notification={{
+                                        ...notification,
+                                        time: formatTime(notification.createdAt)
+                                    }}
                                     delay={idx * 100}
                                     onPress={() => sendTestNotification(notification)}
                                 />
@@ -298,7 +319,7 @@ export default function NotificationsScreen() {
                                     <TranslatedText>No notifications found</TranslatedText>
                                 </Text>
                                 <Text style={styles.emptyStateSubtext}>
-                                    <TranslatedText>Try selecting a different filter</TranslatedText>
+                                    <TranslatedText>Connect to the internet or try a different filter</TranslatedText>
                                 </Text>
                             </View>
                         )}
@@ -482,5 +503,16 @@ const styles = StyleSheet.create({
     emptyStateSubtext: {
         fontSize: 14,
         color: '#94a3b8',
+    },
+    loadingState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 14,
+        color: '#64748b',
+        fontWeight: '600',
     },
 });

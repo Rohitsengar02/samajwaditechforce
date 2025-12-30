@@ -9,18 +9,33 @@ import {
     Dimensions,
     Platform,
     Alert,
+    Modal,
+    ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../utils/api';
 
-// Enable web browser redirect for OAuth
-WebBrowser.maybeCompleteAuthSession();
+// Native Firebase modules - only available in development/production builds, not Expo Go
+let auth: any = null;
+let GoogleSignin: any = null;
+let statusCodes: any = {};
+
+try {
+    auth = require('@react-native-firebase/auth').default;
+    const googleSignin = require('@react-native-google-signin/google-signin');
+    GoogleSignin = googleSignin.GoogleSignin;
+    statusCodes = googleSignin.statusCodes;
+
+    // Configure Google Sign-In only if available
+    GoogleSignin?.configure({
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+    });
+} catch (e) {
+    console.log('Native Firebase/GoogleSignin not available (running in Expo Go?)');
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,11 +43,6 @@ const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const SP_DARK = '#1a1a1a';
-
-// Google OAuth Client IDs
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
-const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
-const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
 
 // Floating Particle Component
 const FloatingParticle = ({ delay = 0, size = 60, left = '10%', duration = 8000 }: any) => {
@@ -100,24 +110,6 @@ export default function InteractiveGoogleSignupScreen() {
     const slideAnim = useRef(new Animated.Value(50)).current;
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
-    // Google OAuth configuration
-    const redirectUri = Platform.OS === 'web'
-        ? (typeof window !== 'undefined' ? `${window.location.origin}/auth` : AuthSession.makeRedirectUri({ path: 'auth' }))
-        : undefined;
-
-    const config: any = {
-        clientId: GOOGLE_WEB_CLIENT_ID,
-    };
-
-    if (redirectUri) {
-        config.redirectUri = redirectUri;
-    }
-
-    if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
-    if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
-
-    const [request, response, promptAsync] = Google.useAuthRequest(config);
-
     useEffect(() => {
         // Entrance animations
         Animated.parallel([
@@ -153,32 +145,73 @@ export default function InteractiveGoogleSignupScreen() {
         ).start();
     }, []);
 
-    // Handle Google Auth Response
-    useEffect(() => {
-        if (response?.type === 'success') {
-            const { authentication } = response;
-            if (authentication?.accessToken) {
-                handleGoogleBackendSync(authentication.accessToken);
-            }
-        } else if (response?.type === 'error') {
-            console.error('Google Auth Error:', response.error);
-            Alert.alert('Authentication Error', 'Could not sign in with Google. Please try again.');
-            setLoading(false);
+    // Native Google Sign-Up with Firebase
+    const handleGoogleSignup = async () => {
+        // Check if native modules are available (not in Expo Go)
+        if (!GoogleSignin || !auth) {
+            Alert.alert(
+                'Not Available in Expo Go',
+                'Google Sign-Up requires a development or production build. Please build with EAS to use this feature.',
+                [{ text: 'OK' }]
+            );
+            return;
         }
-    }, [response]);
 
-    const handleGoogleBackendSync = async (accessToken: string) => {
         try {
             setLoading(true);
 
-            // 1. Get User Details from Google
-            const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            const userInfo = await userInfoResponse.json();
-            console.log('🔹 Google User Info:', userInfo);
+            // Check if Google Play Services are available
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-            // 2. Call Backend API to register/login
+            // Sign in with Google (native - no browser redirect!)
+            const signInResult = await GoogleSignin.signIn();
+            console.log('🔹 Google Sign-In Result:', signInResult);
+
+            // Get the ID token
+            const idToken = signInResult.data?.idToken;
+            if (!idToken) {
+                throw new Error('No ID token received from Google');
+            }
+
+            // Create Firebase credential
+            const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+
+            // Sign in to Firebase with the credential
+            const firebaseUserCredential = await auth().signInWithCredential(googleCredential);
+            const firebaseUser = firebaseUserCredential.user;
+            console.log('🔹 Firebase User:', firebaseUser.email);
+
+            // Get user info for backend
+            const userInfo = {
+                email: firebaseUser.email || '',
+                name: firebaseUser.displayName || '',
+                photo: firebaseUser.photoURL || '',
+                googleId: firebaseUser.uid,
+                idToken: await firebaseUser.getIdToken(),
+            };
+
+            // Sync with backend
+            await handleBackendSync(userInfo);
+
+        } catch (error: any) {
+            console.error('Google Sign-Up Error:', error);
+
+            if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+                console.log('User cancelled sign-up');
+            } else if (error.code === statusCodes.IN_PROGRESS) {
+                Alert.alert('Sign Up In Progress', 'Please wait...');
+            } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+                Alert.alert('Google Play Services', 'Google Play Services is not available on this device.');
+            } else {
+                Alert.alert('Sign Up Failed', error.message || 'Could not sign up with Google.');
+            }
+            setLoading(false);
+        }
+    };
+
+    const handleBackendSync = async (userInfo: { email: string; name: string; photo: string; googleId: string; idToken: string }) => {
+        try {
+            // Call Backend API to register/login
             const apiUrl = getApiUrl();
             const backendResponse = await fetch(`${apiUrl}/auth/google`, {
                 method: 'POST',
@@ -186,8 +219,9 @@ export default function InteractiveGoogleSignupScreen() {
                 body: JSON.stringify({
                     email: userInfo.email,
                     name: userInfo.name,
-                    photo: userInfo.picture,
-                    googleId: userInfo.id
+                    photo: userInfo.photo,
+                    googleId: userInfo.googleId,
+                    idToken: userInfo.idToken,
                 })
             });
 
@@ -198,13 +232,13 @@ export default function InteractiveGoogleSignupScreen() {
                 throw new Error(backendData.message || 'Failed to sync with backend');
             }
 
-            // 3. Save Token
+            // Save Token
             if (backendData.token) {
                 await AsyncStorage.setItem('userToken', backendData.token);
                 await AsyncStorage.setItem('userInfo', JSON.stringify(backendData));
             }
 
-            // 4. Check if new user or existing user
+            // Check if new user or existing user
             if (backendData.isNewUser || backendResponse.status === 201) {
                 // New user → Go to Profile Setup
                 console.log('🔹 New User - Going to Profile Setup');
@@ -214,7 +248,7 @@ export default function InteractiveGoogleSignupScreen() {
                         googleData: JSON.stringify({
                             name: userInfo.name,
                             email: userInfo.email,
-                            photo: userInfo.picture
+                            photo: userInfo.photo
                         })
                     }
                 });
@@ -224,20 +258,10 @@ export default function InteractiveGoogleSignupScreen() {
                 router.replace('/(tabs)');
             }
         } catch (error: any) {
-            console.error('Error syncing Google user:', error);
-            Alert.alert('Sign Up Failed', error.message || 'Could not complete sign up. Please try again.');
+            console.error('Backend sync error:', error);
+            Alert.alert('Sign Up Failed', error.message || 'Could not complete sign up.');
             setLoading(false);
         }
-    };
-
-    const handleGoogleSignup = async () => {
-        if (!GOOGLE_WEB_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_IOS_CLIENT_ID) {
-            Alert.alert("Configuration Missing", "Google Client IDs are not configured.");
-            return;
-        }
-
-        setLoading(true);
-        await promptAsync();
     };
 
     return (
@@ -356,6 +380,17 @@ export default function InteractiveGoogleSignupScreen() {
                     <Text style={styles.termsLink}>Privacy Policy</Text>
                 </Text>
             </Animated.View>
+
+            {/* Full Screen Loading Overlay */}
+            <Modal visible={loading} transparent animationType="fade">
+                <View style={styles.loadingOverlay}>
+                    <View style={styles.loadingModal}>
+                        <ActivityIndicator size="large" color={SP_RED} />
+                        <Text style={styles.loadingText}>Creating your account...</Text>
+                        <Text style={styles.loadingSubText}>Please wait while we set up your profile</Text>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -466,21 +501,24 @@ const styles = StyleSheet.create({
         width: '100%',
         marginBottom: 24,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 6,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        elevation: 8,
+        borderRadius: 16,
+        overflow: 'hidden',
     },
     googleGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 16,
+        paddingVertical: 18,
         paddingHorizontal: 24,
         borderRadius: 16,
         gap: 12,
         borderWidth: 2,
-        borderColor: '#e5e7eb',
+        borderColor: '#EA4335',
+        backgroundColor: '#fff',
     },
     googleText: {
         fontSize: 16,
@@ -509,5 +547,36 @@ const styles = StyleSheet.create({
     termsLink: {
         color: SP_RED,
         fontWeight: '600',
+    },
+    loadingOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingModal: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 32,
+        alignItems: 'center',
+        marginHorizontal: 40,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    loadingText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: SP_DARK,
+        marginTop: 20,
+        textAlign: 'center',
+    },
+    loadingSubText: {
+        fontSize: 14,
+        color: '#64748b',
+        marginTop: 8,
+        textAlign: 'center',
     },
 });

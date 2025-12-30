@@ -131,24 +131,117 @@ const removeBackgroundWithHuggingFace = async (imageUri: string, apiToken: strin
 
 /**
  * Main function: Remove background
+ * Uses backend proxy for all platforms (web + mobile) for reliability
  */
 export const removeBackground = async (imageUri: string): Promise<BackgroundRemovalResult> => {
-    // 1. Try Hugging Face API (proxied on web, direct on mobile)
-    const HF_API_TOKEN = process.env.EXPO_PUBLIC_REMOVE_BG_API_KEY;
+    try {
+        console.log('🤗 Removing background...');
 
-    if ((HF_API_TOKEN && HF_API_TOKEN.startsWith('hf_')) || Platform.OS === 'web') {
-        try {
-            return await removeBackgroundWithHuggingFace(imageUri, HF_API_TOKEN || '');
-        } catch (error: any) {
-            console.warn('⚠️ Hugging Face failed:', error.message);
+        // Determine API URL
+        const isLocal = Platform.OS === 'web' && typeof window !== 'undefined' &&
+            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+        let API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+        if (isLocal) {
+            if (!API_URL || API_URL.includes('onrender.com')) {
+                API_URL = 'http://localhost:5001/api';
+            }
+        } else if (!API_URL) {
+            API_URL = 'https://api-samajwaditechforce.onrender.com/api';
         }
-    }
 
-    // 2. Fallback to original image
-    console.log('ℹ️ No background removal service available. Using original image.');
-    return {
-        url: imageUri,
-        success: false,
-        message: 'Background removal unavailable. Using original image.'
-    };
+        console.log(`🔗 Using API: ${API_URL}`);
+
+        // For mobile, we need to handle the image differently
+        if (Platform.OS !== 'web') {
+            console.log('📱 Mobile platform - using backend proxy');
+
+            // On mobile, send the image URI directly - backend will fetch it
+            // If it's a local file URI, we need to convert to base64
+            let base64Data: string | undefined;
+
+            if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
+                // For local files on mobile, read as base64
+                const response = await fetch(imageUri);
+                const blob = await response.blob();
+
+                base64Data = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const result = reader.result as string;
+                        resolve(result.split(',')[1] || result);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            }
+
+            const response = await fetch(`${API_URL}/background-removal/remove`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    imageUrl: imageUri,
+                    imageBase64: base64Data
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Background removal failed');
+            }
+
+            console.log('✅ Background removed via backend');
+            return {
+                url: data.imageUrl,
+                success: true,
+                message: data.message || 'Background removed successfully!'
+            };
+        }
+
+        // For web, use the existing logic
+        console.log('🌐 Web platform - using backend proxy');
+        const imgResponse = await fetch(imageUri);
+        const blob = await imgResponse.blob();
+        const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+        const base64Data = base64.split(',')[1];
+
+        const response = await fetch(`${API_URL}/background-removal/remove`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ imageUrl: imageUri, imageBase64: base64Data }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Background removal failed');
+        }
+
+        console.log('✅ Background removed via backend');
+        return {
+            url: data.imageUrl,
+            success: true,
+            message: data.message || 'Background removed successfully!'
+        };
+    } catch (error: any) {
+        console.error('❌ Background removal failed:', error);
+
+        // Fallback to original image
+        return {
+            url: imageUri,
+            success: false,
+            message: 'Background removal failed. Using original image.'
+        };
+    }
 };

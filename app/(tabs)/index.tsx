@@ -455,21 +455,15 @@ export default function HomeScreen() {
     { icon: 'image-multiple', title: 'Posters', subtitle: 'Download & customize', color: SP_GREEN, route: '/posters' },
     { icon: 'chart-bar', title: 'Leaderboard', subtitle: 'Check your rank', color: SP_GREEN, route: '/daily-work/leaderboard' },
     { icon: 'calendar-check', title: 'Daily Work', subtitle: 'Tasks & Rewards', color: '#F59E0B', route: '/daily-work' },
-    { icon: 'library', title: 'Resources', subtitle: 'Library & Tools', color: '#9333EA', route: '/resources' },
-    { icon: 'forum', title: 'Communication', subtitle: 'Discuss & Suggest', color: '#2563EB', route: '/communication' },
+
+
     { icon: 'newspaper', title: 'Samajwadi Updates', subtitle: 'Stay updated', color: SP_RED, route: '/news' },
     { icon: 'account-group', title: 'Nearby Volunteers', subtitle: 'Find help nearby', color: '#0891b2', route: '/nearby-volunteers' },
 
     { icon: 'school', title: 'Training', subtitle: 'Learn & grow', color: '#3B82F6', route: '/training' },
     { icon: 'card-account-details', title: 'ID Card', subtitle: 'Digital identity', color: '#EF4444', route: '/idcard' },
     { icon: 'play-box-multiple', title: 'Reels', subtitle: 'Watch & Share', color: '#E1306C', route: '/reels' },
-    ...dynamicPages.slice(0, 4).map((page) => ({
-      icon: 'web',
-      title: page.title,
-      subtitle: page.slug || 'Custom Page',
-      color: '#6366f1',
-      route: `/pages/${page._id}`
-    })),
+
     { icon: 'view-grid-plus', title: 'All Pages', subtitle: 'View Directory', color: '#111827', route: '/pages' }
   ];
 

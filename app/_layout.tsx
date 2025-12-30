@@ -129,7 +129,7 @@ export default function RootLayout() {
 
   // Hide WhatsApp button on these screens
   // Check if any segment matches the hidden list
-  const hideOnRoutes = ['onboarding', 'register', 'signin', 'admin'];
+  const hideOnRoutes = ['onboarding', 'register', 'signin', 'admin', 'poster-editor', 'news-detail'];
   const shouldHideWhatsApp = segments.some(seg => hideOnRoutes.includes(seg));
 
   // Debug log

@@ -475,8 +475,8 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             {/* User Photo - Above Frame - Right Side - Large Square */}
             <View style={{ position: 'absolute', right: photoX, top: photoY, height: 240, zIndex: 16 }}>
                 <View style={{
-                    width: 200,
-                    height: 287,
+                    width: 140,
+                    height: 200,
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
@@ -531,8 +531,8 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             {/* User Photo - ABOVE Frame - Right Side - Large Square */}
             <View style={{ position: 'absolute', right: photoX, top: -132, height: 240, zIndex: 16 }}>
                 <View style={{
-                    width: 190,
-                    height: 240,
+                    width: 130,
+                    height: 170,
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
@@ -587,8 +587,8 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             {/* User Photo - ABOVE Frame - Right Side - Large Square */}
             <View style={{ position: 'absolute', right: photoX, top: -130, height: 240, zIndex: 16 }}>
                 <View style={{
-                    width: 180,
-                    height: 240,
+                    width: 120,
+                    height: 170,
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>

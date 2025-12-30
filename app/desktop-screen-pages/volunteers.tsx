@@ -1,39 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, TextInput, ActivityIndicator, Image } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getApiUrl } from '../../utils/api';
+import DesktopHeader from '../../components/DesktopHeader';
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
-// Import the JSON data
-import volunteersData from '../(tabs)/समाजवादी टेक फोर्स से जुड़ें — बने समाजवाद की डिजिटल आवाज़! (Responses) (5).json';
-import DesktopHeader from '../../components/DesktopHeader';
+interface VerifiedMember {
+    _id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: any;
+    profileImage?: string;
+    verificationStatus: string;
+    role?: string;
+    createdAt: string;
+    district?: string;
+    vidhanSabha?: string;
+    isVolunteer?: boolean;
+}
 
 export default function DesktopVolunteers() {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [filterDistrict, setFilterDistrict] = useState('all');
-    const [volunteers, setVolunteers] = useState<any[]>([]);
+    const [volunteers, setVolunteers] = useState<VerifiedMember[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const API_URL = getApiUrl();
 
     useEffect(() => {
         loadVolunteers();
     }, []);
 
-    const loadVolunteers = () => {
+    const loadVolunteers = async () => {
         try {
-            // Handle potential default export from JSON import
-            const data = (volunteersData as any).default || volunteersData;
-            const safeData = Array.isArray(data) ? data : [];
+            setLoading(true);
+            console.log('Fetching verified members from:', `${API_URL}/auth/verified-members`);
 
-            // Filter only verified volunteers
-            const verified = safeData.filter((item: any) =>
-                item && item['वेरिफिकेशन स्टेटस ']?.trim() === 'Verified'
-            );
-            setVolunteers(verified);
+            const response = await fetch(`${API_URL}/auth/verified-members`);
+            const data = await response.json();
+
+            console.log('Verified members response:', data);
+
+            if (data.success && data.data) {
+                setVolunteers(data.data);
+            } else if (Array.isArray(data)) {
+                setVolunteers(data);
+            } else {
+                setVolunteers([]);
+            }
         } catch (error) {
             console.error('Error loading volunteers:', error);
             setVolunteers([]);
@@ -42,16 +62,26 @@ export default function DesktopVolunteers() {
         }
     };
 
+    // Helper to format address
+    const formatAddress = (addr: any) => {
+        if (!addr) return 'N/A';
+        if (typeof addr === 'string') return addr;
+        if (typeof addr === 'object') {
+            const parts = [addr.city, addr.state, addr.district].filter(Boolean);
+            return parts.length > 0 ? parts.join(', ') : 'N/A';
+        }
+        return 'N/A';
+    };
+
     // Get unique districts
     const districts = ['all', ...Array.from(new Set(
-        volunteers.map(v => v['Column4'] || v['जिला '])
-            .filter(Boolean)
-    ))];
+        volunteers.map(v => v.district).filter(Boolean)
+    ))] as string[];
 
     // Filter volunteers by search and district
     const filteredVolunteers = volunteers.filter(volunteer => {
-        const name = (volunteer['Column2'] || volunteer['आपका पूरा नाम क्या है? '] || '').toLowerCase();
-        const district = volunteer['Column4'] || volunteer['जिला '] || '';
+        const name = (volunteer.name || '').toLowerCase();
+        const district = volunteer.district || '';
         const matchesSearch = name.includes(searchQuery.toLowerCase());
         const matchesDistrict = filterDistrict === 'all' || district === filterDistrict;
         return matchesSearch && matchesDistrict;
@@ -63,11 +93,11 @@ export default function DesktopVolunteers() {
             <ScrollView>
                 {/* Hero */}
                 <View style={styles.hero}>
-                    <View style={styles.badge}><MaterialCommunityIcons name="account-group" size={18} color={SP_RED} /><Text style={styles.badgeText}>Verified Volunteers</Text></View>
+                    <View style={styles.badge}><MaterialCommunityIcons name="account-group" size={18} color={SP_RED} /><Text style={styles.badgeText}>Verified Members</Text></View>
                     <Text style={styles.heroTitle}>Our Dedicated Team</Text>
-                    <Text style={styles.heroSubtitle}>Meet our verified volunteers working towards a better tomorrow</Text>
+                    <Text style={styles.heroSubtitle}>Meet our verified members working towards a better tomorrow</Text>
                     <View style={styles.statsRow}>
-                        <View style={styles.statBox}><Text style={styles.statNumber}>{volunteers.length}</Text><Text style={styles.statLabel}>Verified Volunteers</Text></View>
+                        <View style={styles.statBox}><Text style={styles.statNumber}>{volunteers.length}</Text><Text style={styles.statLabel}>Verified Members</Text></View>
                         <View style={styles.statBox}><Text style={styles.statNumber}>{districts.length - 1}</Text><Text style={styles.statLabel}>Districts</Text></View>
                     </View>
                 </View>
@@ -84,70 +114,92 @@ export default function DesktopVolunteers() {
                             placeholderTextColor="#94a3b8"
                         />
                     </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.districtFilter}>
-                        {districts.map((district) => (
-                            <Pressable
-                                key={district}
-                                style={[styles.districtChip, filterDistrict === district && styles.districtChipActive]}
-                                onPress={() => setFilterDistrict(district)}
-                            >
-                                <Text style={[styles.districtChipText, filterDistrict === district && styles.districtChipTextActive]}>
-                                    {district === 'all' ? 'All Districts' : district}
-                                </Text>
-                            </Pressable>
-                        ))}
-                    </ScrollView>
-                </View>
-
-                {/* Volunteers Grid */}
-                <View style={styles.volunteersGrid}>
-                    {filteredVolunteers.map((volunteer, index) => (
-                        <View key={index} style={styles.volunteerCard}>
-                            <View style={styles.volunteerHeader}>
-                                <View style={styles.avatar}>
-                                    <MaterialCommunityIcons name="account" size={32} color={SP_RED} />
-                                </View>
-                                <View style={styles.verifiedBadge}>
-                                    <MaterialCommunityIcons name="check-decagram" size={16} color={SP_GREEN} />
-                                </View>
-                            </View>
-                            <Text style={styles.volunteerName}>{volunteer['Column2'] || volunteer["आपका पूरा नाम क्या है? "] || 'N/A'}</Text>
-                            <View style={styles.volunteerInfo}>
-                                <View style={styles.infoRow}>
-                                    <MaterialCommunityIcons name="map-marker" size={16} color="#64748b" />
-                                    <Text style={styles.infoText}>{volunteer['Column4'] || volunteer["जिला "] || 'N/A'}</Text>
-                                </View>
-                                <View style={styles.infoRow}>
-                                    <MaterialCommunityIcons name="office-building" size={16} color="#64748b" />
-                                    <Text style={styles.infoText} numberOfLines={1}>{volunteer['Column5'] || volunteer["आपकी विधानसभा (Vidhan Sabha) कौन सी है? "] || 'N/A'}</Text>
-                                </View>
-                                <View style={styles.infoRow}>
-                                    <MaterialCommunityIcons name="phone" size={16} color="#64748b" />
-                                    <Text style={styles.infoText}>{volunteer['Column3'] || volunteer["आपका मोबाइल नंबर "] || 'N/A'}</Text>
-                                </View>
-                                <View style={styles.infoRow}>
-                                    <MaterialCommunityIcons name="school" size={16} color="#64748b" />
-                                    <Text style={styles.infoText}>{volunteer['Column14'] || volunteer["क्वालिफिकेशन "] || 'N/A'}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.volunteerFooter}>
-                                <View style={styles.roleBadge}>
-                                    <Text style={styles.roleText}>{volunteer['Column9'] || volunteer["अगर हाँ, तो पार्टी से आपका संबंध क्या है? "] || 'समर्थक'}</Text>
-                                </View>
-                                <Pressable style={styles.contactBtn}>
-                                    <MaterialCommunityIcons name="message-text" size={16} color={SP_RED} />
+                    {districts.length > 1 && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.districtFilter}>
+                            {districts.map((district) => (
+                                <Pressable
+                                    key={district}
+                                    style={[styles.districtChip, filterDistrict === district && styles.districtChipActive]}
+                                    onPress={() => setFilterDistrict(district)}
+                                >
+                                    <Text style={[styles.districtChipText, filterDistrict === district && styles.districtChipTextActive]}>
+                                        {district === 'all' ? 'All Districts' : district}
+                                    </Text>
                                 </Pressable>
-                            </View>
-                        </View>
-                    ))}
+                            ))}
+                        </ScrollView>
+                    )}
                 </View>
 
-                {filteredVolunteers.length === 0 && (
+                {/* Loading State */}
+                {loading ? (
                     <View style={styles.emptyState}>
-                        <MaterialCommunityIcons name="account-search" size={64} color="#cbd5e1" />
-                        <Text style={styles.emptyTitle}>No Volunteers Found</Text>
-                        <Text style={styles.emptyText}>Try adjusting your search or filters</Text>
+                        <ActivityIndicator size="large" color={SP_RED} />
+                        <Text style={[styles.emptyTitle, { marginTop: 16 }]}>Loading verified members...</Text>
                     </View>
+                ) : (
+                    <>
+                        {/* Volunteers Grid */}
+                        <View style={styles.volunteersGrid}>
+                            {filteredVolunteers.map((volunteer, index) => (
+                                <View key={volunteer._id || index} style={styles.volunteerCard}>
+                                    <View style={styles.volunteerHeader}>
+                                        {volunteer.profileImage ? (
+                                            <Image source={{ uri: volunteer.profileImage }} style={styles.avatarImage} />
+                                        ) : (
+                                            <View style={styles.avatar}>
+                                                <Text style={styles.avatarText}>{volunteer.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+                                            </View>
+                                        )}
+                                        <View style={styles.verifiedBadge}>
+                                            <MaterialCommunityIcons name="check-decagram" size={16} color={SP_GREEN} />
+                                        </View>
+                                    </View>
+                                    <Text style={styles.volunteerName}>{volunteer.name || 'N/A'}</Text>
+                                    <View style={styles.volunteerInfo}>
+                                        <View style={styles.infoRow}>
+                                            <MaterialCommunityIcons name="map-marker" size={16} color="#64748b" />
+                                            <Text style={styles.infoText}>{volunteer.district || formatAddress(volunteer.address)}</Text>
+                                        </View>
+                                        {volunteer.vidhanSabha && (
+                                            <View style={styles.infoRow}>
+                                                <MaterialCommunityIcons name="office-building" size={16} color="#64748b" />
+                                                <Text style={styles.infoText} numberOfLines={1}>{volunteer.vidhanSabha}</Text>
+                                            </View>
+                                        )}
+                                        {volunteer.phone && (
+                                            <View style={styles.infoRow}>
+                                                <MaterialCommunityIcons name="phone" size={16} color="#64748b" />
+                                                <Text style={styles.infoText}>{volunteer.phone}</Text>
+                                            </View>
+                                        )}
+                                        {volunteer.email && (
+                                            <View style={styles.infoRow}>
+                                                <MaterialCommunityIcons name="email" size={16} color="#64748b" />
+                                                <Text style={styles.infoText} numberOfLines={1}>{volunteer.email}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <View style={styles.volunteerFooter}>
+                                        <View style={styles.roleBadge}>
+                                            <Text style={styles.roleText}>Verified Member</Text>
+                                        </View>
+                                        <Text style={styles.joinDate}>
+                                            Joined: {volunteer.createdAt ? new Date(volunteer.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'N/A'}
+                                        </Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+
+                        {filteredVolunteers.length === 0 && (
+                            <View style={styles.emptyState}>
+                                <MaterialCommunityIcons name="account-search" size={64} color="#cbd5e1" />
+                                <Text style={styles.emptyTitle}>No Members Found</Text>
+                                <Text style={styles.emptyText}>Try adjusting your search or filters</Text>
+                            </View>
+                        )}
+                    </>
                 )}
             </ScrollView>
         </View>
@@ -195,6 +247,8 @@ const styles = StyleSheet.create({
     volunteerCard: { width: '31%', backgroundColor: '#fff', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
     volunteerHeader: { alignItems: 'center', marginBottom: 16, position: 'relative' },
     avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center' },
+    avatarImage: { width: 80, height: 80, borderRadius: 40 },
+    avatarText: { fontSize: 32, fontWeight: '900', color: SP_RED },
     verifiedBadge: { position: 'absolute', bottom: 0, right: '35%', backgroundColor: '#fff', borderRadius: 12, padding: 4 },
     volunteerName: { fontSize: 18, fontWeight: '700', color: '#1e293b', textAlign: 'center', marginBottom: 16 },
     volunteerInfo: { gap: 12, marginBottom: 16 },
@@ -203,6 +257,7 @@ const styles = StyleSheet.create({
     volunteerFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e5e7eb' },
     roleBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
     roleText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+    joinDate: { fontSize: 12, color: '#94a3b8' },
     contactBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center' },
     emptyState: { alignItems: 'center', padding: 60 },
     emptyTitle: { fontSize: 24, fontWeight: '700', color: '#1e293b', marginTop: 16, marginBottom: 8 },

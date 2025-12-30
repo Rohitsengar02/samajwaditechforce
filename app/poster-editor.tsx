@@ -151,7 +151,7 @@ export default function PosterEditor() {
     const [showCustomizationModal, setShowCustomizationModal] = useState(false);
 
     // Footer Photo Controls
-    const [footerPhotoPosition, setFooterPhotoPosition] = useState({ x: 1, y: -180 });
+    const [footerPhotoPosition, setFooterPhotoPosition] = useState({ x: 10, y: -120 });
     const [isPhotoFlipped, setIsPhotoFlipped] = useState(false);
     const [isRemovingFooterPhotoBg, setIsRemovingFooterPhotoBg] = useState(false);
 
@@ -624,7 +624,10 @@ export default function PosterEditor() {
             isFlipped: false,
             color: '#000000',
             fontSize: 24,
-            fontFamily: 'System'
+            fontFamily: 'System',
+            // Set reasonable default size for images (small to fit poster well)
+            imageWidth: type === 'image' ? 50 : undefined,
+            imageHeight: type === 'image' ? 50 : undefined,
         };
         setElements([...elements, newElement]);
         setSelectedElementId(newElement.id); // Auto-select new element
@@ -2048,7 +2051,7 @@ export default function PosterEditor() {
                         activeOpacity={1}
                         onPress={() => setShowBottomBarEditForm(false)}
                     />
-                    <View style={[styles.bottomSheet2, { height: '75%' }]}>
+                    <View style={[styles.bottomSheet2, { height: '45%' }]}>
                         <View style={styles.modalHeader2}>
                             <Text style={styles.modalTitle2}>Edit Content</Text>
                             <TouchableOpacity
@@ -2259,7 +2262,7 @@ export default function PosterEditor() {
                                             </Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                                 <TouchableOpacity
-                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: prev.x - 5 }))}
+                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: Math.max(0, prev.x - 5) }))}
                                                     style={{
                                                         backgroundColor: '#e2e8f0',
                                                         width: 40,
@@ -2284,7 +2287,7 @@ export default function PosterEditor() {
                                                     </Text>
                                                 </View>
                                                 <TouchableOpacity
-                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: prev.x + 5 }))}
+                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: Math.min(80, prev.x + 5) }))}
                                                     style={{
                                                         backgroundColor: '#e2e8f0',
                                                         width: 40,
@@ -2306,7 +2309,7 @@ export default function PosterEditor() {
                                             </Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                                 <TouchableOpacity
-                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: prev.y - 5 }))}
+                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: Math.max(-180, prev.y - 5) }))}
                                                     style={{
                                                         backgroundColor: '#e2e8f0',
                                                         width: 40,
@@ -2331,7 +2334,7 @@ export default function PosterEditor() {
                                                     </Text>
                                                 </View>
                                                 <TouchableOpacity
-                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: prev.y + 5 }))}
+                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: Math.min(-80, prev.y + 5) }))}
                                                     style={{
                                                         backgroundColor: '#e2e8f0',
                                                         width: 40,

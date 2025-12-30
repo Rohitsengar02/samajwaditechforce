@@ -406,7 +406,7 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                             style={{ flex: 1 }}
                             keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
                         >
-                            <TouchableOpacity activeOpacity={1} style={{ flex: 1 }}>
+                            <View style={{ flex: 1 }}>
                                 <View style={styles.modalHandle} />
 
                                 <View style={styles.modalHeader}>
@@ -420,6 +420,9 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                                     style={styles.commentsScroll}
                                     contentContainerStyle={{ paddingBottom: 20 }}
                                     keyboardShouldPersistTaps="handled"
+                                    showsVerticalScrollIndicator={true}
+                                    nestedScrollEnabled={true}
+                                    bounces={true}
                                 >
                                     {localComments.length === 0 ? (
                                         <View style={{ padding: 20, alignItems: 'center' }}>
@@ -463,7 +466,7 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                                         )}
                                     </TouchableOpacity>
                                 </View>
-                            </TouchableOpacity>
+                            </View>
                         </KeyboardAvoidingView>
                     </Animated.View>
                 </TouchableOpacity>
@@ -1278,7 +1281,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        maxHeight: '85%',
+        height: '60%',
+        minHeight: 300,
         paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     },
     modalHandle: {
@@ -1305,7 +1309,7 @@ const styles = StyleSheet.create({
         color: '#1e293b',
     },
     commentsScroll: {
-        maxHeight: 500,
+        flex: 1,
         paddingHorizontal: 20,
         paddingTop: 16,
     },
