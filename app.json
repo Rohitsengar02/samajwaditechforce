@@ -2,7 +2,7 @@
   "expo": {
     "name": "STF",
     "slug": "samajwadi-party",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "samajwaditechforce",
@@ -29,7 +29,7 @@
     "android": {
       "package": "com.stf.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 7,
+      "versionCode": 11,
       "permissions": [
         "android.permission.NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -98,9 +98,8 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "11d74806-b997-4de9-a0b4-59b4588d0801"
+        "projectId": "4236b374-1227-4a2d-96d1-209d6b20e081"
       }
-    },
-    "owner": "patelpulse9967"
+    }
   }
 }

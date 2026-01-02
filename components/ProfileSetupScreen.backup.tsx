@@ -1,0 +1,999 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { registerWithEmail } from '../utils/firebase';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Animated, Easing, TextInput as RNTextInput, KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator } from 'react-native';
+import { Card, Title, Text, Chip } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { getApiUrl } from '../utils/api';
+import { useRouter } from 'expo-router';
+import { removeBackground } from '../utils/backgroundRemovalApi';
+
+const { width, height } = Dimensions.get('window');
+
+// Samajwadi Theme Colors
+const SP_RED = '#E30512';
+const SP_GREEN = '#009933';
+
+interface ProfileSetupProps {
+  navigation: any;
+  route: { params?: { phone?: string; mode?: 'edit'; googleData?: { name?: string; email?: string; photo?: string }; profileData?: any } };
+}
+
+// Floating Bubble Component
+const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 }: any) => {
+  const translateY = useRef(new Animated.Value(0)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(scale, {
+      toValue: 1,
+      duration: 1000,
+      delay,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.loop(
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: -height - 100,
+          duration,
+          delay,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.timing(translateX, {
+            toValue: 30,
+            duration: duration / 2,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateX, {
+            toValue: -30,
+            duration: duration / 2,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.bubble,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+          transform: [{ translateY }, { translateX }, { scale }],
+        },
+      ]}
+    />
+  );
+};
+
+// Custom Animated Input Component
+const AnimatedInput = ({ label, value, onChangeText, icon, error, ...props }: any) => {
+  const [focused, setFocused] = useState(false);
+  const focusAnim = useRef(new Animated.Value(0)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(focusAnim, {
+      toValue: focused || value ? 1 : 0,
+      friction: 8,
+      useNativeDriver: false,
+    }).start();
+  }, [focused, value]);
+
+  useEffect(() => {
+    if (error) {
+      Animated.sequence([
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [error]);
+
+  const labelStyle = {
+    top: focusAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [20, -10],
+    }),
+    fontSize: focusAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, 12],
+    }),
+    color: error ? '#ef4444' : (focused ? SP_RED : '#64748b'),
+  };
+
+  const containerStyle = {
+    borderColor: error ? '#ef4444' : (focused ? SP_RED : '#e2e8f0'),
+    borderWidth: focused ? 2 : 1,
+    backgroundColor: focused ? '#fff' : '#f8fafc',
+    transform: [{ translateX: shakeAnim }],
+  };
+
+  return (
+    <View style={styles.inputWrapper}>
+      <Animated.Text style={[styles.floatingLabel, labelStyle]} pointerEvents="none">
+        {label}
+      </Animated.Text>
+      <Animated.View style={[styles.animatedInputContainer, containerStyle]}>
+        {icon && (
+          <MaterialCommunityIcons
+            name={icon}
+            size={20}
+            color={focused ? SP_RED : '#94a3b8'}
+            style={styles.inputIcon}
+          />
+        )}
+        <RNTextInput
+          value={value}
+          onChangeText={onChangeText}
+          style={[styles.nativeInput, icon && { paddingLeft: 40 }]}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholderTextColor="transparent"
+          selectionColor={SP_RED}
+          {...props}
+        />
+      </Animated.View>
+    </View>
+  );
+};
+
+export default function ProfileSetupScreen({ navigation, route }: ProfileSetupProps) {
+  const profileData = route?.params?.profileData;
+  const phoneFromLogin = route?.params?.phone ?? profileData?.phone ?? '';
+  const mode = route?.params?.mode;
+  const googleData = route?.params?.googleData;
+
+  const isEditMode = mode === 'edit';
+
+  // Pre-fill from Google data or Profile Data if available
+  const [fullName, setFullName] = useState(googleData?.name || profileData?.name || '');
+  const [phone, setPhone] = useState(phoneFromLogin || '');
+  const [gender, setGender] = useState(profileData?.gender || '');
+  const [dob, setDob] = useState(profileData?.dob || '');
+  const [email, setEmail] = useState(googleData?.email || profileData?.email || '');
+  const [hasPhoto, setHasPhoto] = useState<boolean>(!!googleData?.photo || !!profileData?.profileImage);
+  const [photoUri, setPhotoUri] = useState<string | null>(googleData?.photo || profileData?.profileImage || null);
+  const [photoUriNoBg, setPhotoUriNoBg] = useState<string | null>(profileData?.profileImageNoBg || null);
+  const [isShowingNoBg, setIsShowingNoBg] = useState(false);
+  // If manual register, password exists but we might not want to show it or show it masked.
+  // User asked to "show email and password autofill and unchangable".
+  // Note: We typically don't get the plain password back from backend registration response.
+  // However, I just registered, so I know the password? 
+  // Actually, in `Step 4808`, I passed `data` which is the RESPONSE from backend. Does it contain `password`? Usually NOT.
+  // But the User request implies they want to see it.
+  // If I can't show it, I'll show "********".
+  const [password, setPassword] = useState('********');
+  const [showErrors, setShowErrors] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const photoScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Photo pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(photoScale, {
+          toValue: 1.05,
+          duration: 2000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(photoScale, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
+
+  const [uploading, setUploading] = useState(false);
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+
+  // Cloudinary Config
+  const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dssmutzly/image/upload";
+  const UPLOAD_PRESET = "multimallpro";
+
+  const uploadImageToCloudinary = async (uri: string) => {
+    try {
+      const data = new FormData();
+
+      // Check if it's a blob URL (from background removal)
+      if (uri.startsWith('blob:')) {
+        // For blob URLs, fetch the blob and append it directly
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        data.append('file', blob, 'profile_image.png');
+      } else {
+        // For regular URIs (mobile/native)
+        data.append('file', {
+          uri,
+          type: 'image/jpeg',
+          name: 'profile_image.jpg',
+        } as any);
+      }
+
+      data.append('upload_preset', UPLOAD_PRESET);
+      data.append('cloud_name', 'dssmutzly');
+
+      const res = await fetch(CLOUDINARY_URL, {
+        method: 'POST',
+        body: data,
+      });
+
+      const result = await res.json();
+
+      if (result.secure_url) {
+        return result.secure_url;
+      } else {
+        console.error('Cloudinary response:', result);
+        throw new Error(result.error?.message || 'Image upload failed');
+      }
+    } catch (error) {
+      console.error('Cloudinary Upload Error:', error);
+      return null;
+    }
+  };
+
+  const handleNext = async () => {
+    const valid =
+      !!fullName &&
+      phone.length === 10 &&
+      !!gender &&
+      !!dob &&
+      password.length >= 6;
+
+    if (!valid) {
+      setShowErrors(true);
+      return;
+    }
+
+    setShowLoadingModal(true);
+    setUploading(true);
+
+    try {
+      const apiUrl = getApiUrl();
+
+      // Check if user already exists (only for new registrations NOT coming from Google/Initial login)
+      // If googleData is present, it means the user was just synced/created from Google, so they definitely exist.
+      // If we are in the middle of a registration flow (not isEditMode), we should still allow completion.
+      if (!isEditMode && !googleData && !profileData) {
+        try {
+          const checkRes = await fetch(`${apiUrl}/auth/check-exists`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, phone: `+91${phone}` })
+          });
+          const checkData = await checkRes.json();
+
+          if (checkData.exists) {
+            setUploading(false);
+            setShowLoadingModal(false);
+            Alert.alert(
+              'Account Already Exists',
+              'An account with this email or phone already exists. Please sign in instead.',
+              [
+                {
+                  text: 'Sign In',
+                  onPress: () => {
+                    router.replace('/signin');
+                  }
+                },
+                { text: 'Cancel', style: 'cancel' }
+              ]
+            );
+            return;
+          }
+        } catch (error) {
+          console.log('Check exists error (ignoring):', error);
+        }
+      }
+
+      let uploadedImageUrl = photoUri;
+      let uploadedImageNoBgUrl = photoUriNoBg;
+
+      // Upload original image (with background)
+      if (photoUri && hasPhoto) {
+        const cloudUrl = await uploadImageToCloudinary(photoUri);
+        if (cloudUrl) {
+          uploadedImageUrl = cloudUrl;
+        }
+      }
+
+      // Upload background-removed image
+      if (photoUriNoBg) {
+        const cloudUrlNoBg = await uploadImageToCloudinary(photoUriNoBg);
+        if (cloudUrlNoBg) {
+          uploadedImageNoBgUrl = cloudUrlNoBg;
+        }
+      }
+
+      // Register with Firebase (only for new users NOT from Google)
+      // Google users are already authenticated in Firebase at this point
+      if (!isEditMode && !googleData) {
+        const { user, error } = await registerWithEmail(email, password);
+
+        if (error) {
+          // Check if it's because user already exists in Firebase
+          if (error.includes('already') || error.includes('exists') || error.includes('in-use')) {
+            console.log('User already exists in Firebase, continuing with flow...');
+            // Continue with the flow even if Firebase registration fails
+          } else {
+            // For other errors, show alert and stop
+            setUploading(false);
+            setShowLoadingModal(false);
+            Alert.alert('Registration Failed', error);
+            return;
+          }
+        }
+      }
+
+      const profileDataPayload: any = {
+        name: fullName,
+        email,
+        gender,
+        dob,
+        phone: `+91${phone}`,
+        password,
+        profileImage: uploadedImageUrl,
+        profileImageNoBg: uploadedImageNoBgUrl,
+      };
+
+      console.log('Profile data to save:', profileDataPayload);
+
+      setUploading(false);
+      setShowLoadingModal(false);
+
+      // Navigate to next step
+      if (isEditMode) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('AddressForm', { profileData: profileDataPayload });
+      }
+
+    } catch (error) {
+      console.error('Profile setup error:', error);
+      setUploading(false);
+      setShowLoadingModal(false);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handlePhotoPress = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const originalUri = result.assets[0].uri;
+      setPhotoUri(originalUri);
+      setHasPhoto(true);
+
+      // Reset BG Removal state for new photo
+      setPhotoUriNoBg(null);
+      setIsShowingNoBg(false);
+
+      // Auto-remove background using our utility function
+      try {
+        setUploading(true);
+        console.log('⏳ Removing background...');
+
+        const result = await removeBackground(originalUri);
+
+        if (result.success) {
+          setPhotoUriNoBg(result.url);
+          setIsShowingNoBg(true); // Auto-show result
+          console.log('✅ Background removed successfully');
+        } else {
+          console.warn('Background removal warning:', result.message);
+        }
+      } catch (error) {
+        console.error('Background removal error:', error);
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
+
+  const isValid =
+    !!fullName &&
+    phone.length === 10 &&
+    !!gender &&
+    !!dob &&
+    password.length >= 6;
+
+  const handleDobChange = (value: string) => {
+    let digits = value.replace(/[^0-9]/g, '').slice(0, 8);
+    if (digits.length >= 5) {
+      digits = `${digits.slice(0, 2)} /${digits.slice(2, 4)}/${digits.slice(4, 8)} `;
+    } else if (digits.length >= 3) {
+      digits = `${digits.slice(0, 2)}/${digits.slice(2, 4)}`;
+    }
+    setDob(digits);
+  };
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient colors={['#ffffff', '#f0fdf4', '#fef2f2']} style={styles.background} />
+
+      {/* Floating Bubbles */}
+      <View style={styles.bubblesContainer}>
+        <FloatingBubble delay={0} size={70} color={SP_RED} duration={10000} />
+        <FloatingBubble delay={1000} size={90} color={SP_GREEN} duration={11000} />
+        <FloatingBubble delay={500} size={60} color={SP_RED} duration={12000} />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>Complete Your Profile</Text>
+              <Text style={styles.headerSubtitle}>Just a few more details to get  started</Text>
+            </View>
+
+            {/* Photo Upload */}
+            <Animated.View style={[styles.photoSection, { transform: [{ scale: photoScale }] }]}>
+              <TouchableOpacity
+                style={styles.photoContainer}
+                onPress={handlePhotoPress}
+                activeOpacity={0.8}
+              >
+                {hasPhoto && photoUri ? (
+                  <View style={styles.photoPreview}>
+                    <Image source={{ uri: (isShowingNoBg && photoUriNoBg) ? photoUriNoBg : photoUri }} style={styles.photoImage} />
+                    <View style={styles.editBadge}>
+                      <MaterialCommunityIcons name="camera" size={16} color="#fff" />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.photoPlaceholder}>
+                    <LinearGradient
+                      colors={[SP_RED, '#b91c1c']}
+                      style={styles.photoGradient}
+                    >
+                      <MaterialCommunityIcons name="camera-plus" size={32} color="#fff" />
+                    </LinearGradient>
+                    <View style={styles.uploadRing} />
+                  </View>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.photoHint}>Upload Profile Photo</Text>
+
+              {photoUriNoBg && (
+                <TouchableOpacity
+                  onPress={() => setIsShowingNoBg(!isShowingNoBg)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginTop: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    backgroundColor: '#fee2e2',
+                    borderRadius: 16
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name={isShowingNoBg ? "image-off-outline" : "image-auto-adjust"}
+                    size={16}
+                    color={SP_RED}
+                  />
+                  <Text style={{ marginLeft: 6, color: SP_RED, fontSize: 13, fontWeight: '600' }}>
+                    {isShowingNoBg ? 'Show Original' : 'Show No Background'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </Animated.View>
+
+            {/* Form Card */}
+            <Card style={styles.formCard}>
+              <Card.Content style={styles.cardContent}>
+                <AnimatedInput
+                  label="Full Name"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  icon="account-outline"
+                  error={showErrors && !fullName}
+                />
+                {showErrors && !fullName && (
+                  <Text style={styles.errorText}>Full name is required</Text>
+                )}
+
+                <AnimatedInput
+                  label="Mobile Number"
+                  value={phone}
+                  onChangeText={(text: string) => setPhone(text.replace(/[^0-9]/g, '').slice(0, 10))}
+                  icon="phone-outline"
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  error={showErrors && phone.length !== 10}
+                />
+                {showErrors && phone.length !== 10 && (
+                  <Text style={styles.errorText}>Enter a valid 10-digit mobile number</Text>
+                )}
+
+                {/* Gender Selection */}
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.sectionLabel}>Gender</Text>
+                  <View style={styles.genderRow}>
+                    {[
+                      { label: 'Male', icon: 'gender-male' },
+                      { label: 'Female', icon: 'gender-female' },
+                      { label: 'Other', icon: 'gender-transgender' }
+                    ].map(option => {
+                      const selected = gender === option.label;
+                      return (
+                        <TouchableOpacity
+                          key={option.label}
+                          onPress={() => setGender(option.label)}
+                          activeOpacity={0.7}
+                          style={[styles.genderChip, selected && styles.genderChipSelected]}
+                        >
+                          <MaterialCommunityIcons
+                            name={option.icon as any}
+                            size={20}
+                            color={selected ? '#fff' : '#64748b'}
+                          />
+                          <Text style={[styles.genderText, selected && styles.genderTextSelected]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  {showErrors && !gender && (
+                    <Text style={styles.errorText}>Please select a gender</Text>
+                  )}
+                </View>
+
+                <AnimatedInput
+                  label="Date of Birth (DD/MM/YYYY)"
+                  value={dob}
+                  onChangeText={handleDobChange}
+                  icon="calendar-outline"
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  error={showErrors && (!dob || dob.length !== 10)}
+                />
+                {showErrors && (!dob || dob.length !== 10) && (
+                  <Text style={styles.errorText}>Enter a valid date</Text>
+                )}
+
+                {!(Platform.OS === 'web' && !isEditMode) && (
+                  <>
+                    <AnimatedInput
+                      label="Email Address"
+                      value={email}
+                      onChangeText={setEmail}
+                      icon="email-outline"
+                      keyboardType="email-address"
+                      editable={false} // Lock email
+                      error={showErrors && !isValidEmail(email)}
+                    />
+                    {showErrors && !isValidEmail(email) && (
+                      <Text style={styles.errorText}>A valid email is required</Text>
+                    )}
+
+                    <View style={styles.passwordWrapper}>
+                      <AnimatedInput
+                        label="Password"
+                        value={password}
+                        onChangeText={setPassword}
+                        icon="lock-outline"
+                        secureTextEntry={!showPassword}
+                        editable={false} // Lock password
+                        error={false}
+                      />
+                      <TouchableOpacity
+                        style={styles.passwordEyeButton}
+                        onPress={() => setShowPassword(!showPassword)}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialCommunityIcons
+                          name={showPassword ? 'eye-off' : 'eye'}
+                          size={20}
+                          color="#64748b"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={handleNext}
+                  disabled={(!isEditMode && !isValid) || uploading}
+                  style={[styles.submitButton, ((!isEditMode && !isValid) || uploading) && styles.submitButtonDisabled]}
+                >
+                  <LinearGradient
+                    colors={(!isEditMode && !isValid) ? ['#e5e7eb', '#d1d5db'] : [SP_GREEN, '#15803d']}
+                    style={styles.submitGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={[styles.submitText, (!isEditMode && !isValid) && styles.submitTextDisabled]}>
+                      {isEditMode ? 'Update Profile' : (uploading ? 'Uploading Image...' : 'Complete Setup')}
+                    </Text>
+                    {(isEditMode || isValid) && (
+                      <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </Card.Content>
+            </Card>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Progress Indicator */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressDot} />
+        <View style={styles.progressDot} />
+        <View style={[styles.progressDot, styles.activeDot]} />
+      </View>
+
+      {/* Loading Modal */}
+      <Modal
+        visible={showLoadingModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.loadingIconContainer}>
+              <ActivityIndicator size="large" color={SP_RED} />
+            </View>
+            <Text style={styles.modalTitle}>Setting Up Your Profile</Text>
+            <Text style={styles.modalSubtitle}>Please wait while we process your information...</Text>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  background: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  bubblesContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  bubble: {
+    position: 'absolute',
+    bottom: -100,
+    left: Math.random() * (width - 100),
+    opacity: 0.08,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  content: {
+    paddingHorizontal: 24,
+    paddingTop: height * 0.06,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#1e293b',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  photoSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  photoContainer: {
+    width: 120,
+    height: 120,
+    marginBottom: 12,
+  },
+  photoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: SP_RED,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  uploadRing: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 2,
+    borderColor: 'rgba(227, 5, 18, 0.2)',
+    borderStyle: 'dashed',
+  },
+  photoPreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+    overflow: 'hidden',
+    borderWidth: 4,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: SP_RED,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  photoHint: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  formCard: {
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  cardContent: {
+    padding: 24,
+  },
+  inputWrapper: {
+    marginBottom: 24,
+    position: 'relative',
+  },
+  floatingLabel: {
+    position: 'absolute',
+    left: 12,
+    fontWeight: '600',
+    backgroundColor: '#fff',
+    paddingHorizontal: 4,
+    zIndex: 1,
+  },
+  animatedInputContainer: {
+    borderRadius: 12,
+    height: 56,
+    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputIcon: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 1,
+  },
+  nativeInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#1e293b',
+    height: '100%',
+    fontWeight: '500',
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 12,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genderChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  genderChipSelected: {
+    backgroundColor: SP_RED,
+    borderColor: SP_RED,
+    shadowColor: SP_RED,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  genderText: {
+    color: '#64748b',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  genderTextSelected: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  passwordWrapper: {
+    position: 'relative',
+  },
+  passwordEyeButton: {
+    position: 'absolute',
+    right: 16,
+    top: 28,
+    zIndex: 2,
+    padding: 4,
+  },
+  errorText: {
+    marginTop: -16,
+    marginBottom: 16,
+    fontSize: 12,
+    color: '#ef4444',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  submitButton: {
+    height: 60,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 16,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  submitGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  submitText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  submitTextDisabled: {
+    color: '#94a3b8',
+  },
+  progressContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingBottom: 30,
+    gap: 8,
+    backgroundColor: 'transparent',
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#e2e8f0',
+  },
+  activeDot: {
+    backgroundColor: SP_RED,
+    width: 24,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 400,
+  },
+  loadingIconContainer: {
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+});

@@ -468,12 +468,11 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
 // Template 7: Bold STF - Image Frame (frame1)
 const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
     const photoX = photoPosition?.x ?? 1;
-    const photoY = photoPosition?.y ?? -180;
 
     return (
         <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
-            {/* User Photo - Above Frame - Right Side - Large Square */}
-            <View style={{ position: 'absolute', right: photoX, top: photoY, height: 240, zIndex: 16 }}>
+            {/* User Photo - Absolute Bottom - Right Side */}
+            <View style={{ position: 'absolute', right: 0, bottom: 0, height: 220, zIndex: 16 }}>
                 <View style={{
                     width: 140,
                     height: 200,
@@ -512,8 +511,8 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             </View>
 
             {/* Address at Bottom of Frame */}
-            <View style={{ position: 'absolute', bottom: 19, left: 80, right: 5, zIndex: 20 }}>
-                <Text style={[styles.textBold, { fontSize: 11, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>
+            <View style={{ position: 'absolute', bottom: 24, left: 80, right: 5, zIndex: 20 }}>
+                <Text style={[styles.textBold, { fontSize: 10, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
             </View>
@@ -524,12 +523,11 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
 // Template 8: Rounded STF - Image Frame (frame2)
 const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
     const photoX = photoPosition?.x ?? 1;
-    const photoY = photoPosition?.y ?? -240;
 
     return (
         <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
-            {/* User Photo - ABOVE Frame - Right Side - Large Square */}
-            <View style={{ position: 'absolute', right: photoX, top: -132, height: 240, zIndex: 16 }}>
+            {/* User Photo - Absolute Bottom - Right Side */}
+            <View style={{ position: 'absolute', right: 0, bottom: 0, height: 190, zIndex: 16 }}>
                 <View style={{
                     width: 130,
                     height: 170,
@@ -568,8 +566,8 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             </View>
 
             {/* Address at Bottom of Frame */}
-            <View style={{ position: 'absolute', bottom: 20, left: 100, right: 5, zIndex: 20 }}>
-                <Text style={[styles.textBold, { fontSize: 11, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>
+            <View style={{ position: 'absolute', bottom: 25, left: 100, right: 5, zIndex: 20 }}>
+                <Text style={[styles.textBold, { fontSize: 10, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
             </View>
@@ -580,12 +578,11 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
 // Template 9: Tabbed STF - Image Frame (frame3)
 const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
     const photoX = photoPosition?.x ?? 1;
-    const photoY = photoPosition?.y ?? -240;
 
     return (
         <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
-            {/* User Photo - ABOVE Frame - Right Side - Large Square */}
-            <View style={{ position: 'absolute', right: photoX, top: -130, height: 240, zIndex: 16 }}>
+            {/* User Photo - Absolute Bottom - Right Side */}
+            <View style={{ position: 'absolute', right: 0, bottom: 0, height: 193, zIndex: 16 }}>
                 <View style={{
                     width: 120,
                     height: 170,

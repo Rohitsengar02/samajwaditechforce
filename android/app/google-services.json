@@ -1,0 +1,39 @@
+{
+    "project_info": {
+        "project_number": "905993531472",
+        "project_id": "samajwaditechforce",
+        "storage_bucket": "samajwaditechforce.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:905993531472:android:8bbba5894973785750a155",
+                "android_client_info": {
+                    "package_name": "com.stf.app"
+                }
+            },
+            "oauth_client": [
+                {
+                    "client_id": "905993531472-8nh7kkchsn6rvgba1ss7oq3jabtf4std.apps.googleusercontent.com",
+                    "client_type": 3
+                }
+            ],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyBgPGdfF1Y9ub-0jopTnSBLrnphzX7_IFw"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": [
+                        {
+                            "client_id": "905993531472-8nh7kkchsn6rvgba1ss7oq3jabtf4std.apps.googleusercontent.com",
+                            "client_type": 3
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}

@@ -253,9 +253,31 @@ export default function InteractiveGoogleSigninScreen() {
                 await AsyncStorage.setItem('userInfo', JSON.stringify(backendData));
             }
 
-            // Navigate to Dashboard
-            console.log('🔹 Sign in successful - Going to Dashboard');
-            router.replace('/(tabs)');
+            // Check if new user or existing user
+            setLoading(false); // Clear loading before navigation
+
+            if (backendData.isNewUser || backendResponse.status === 201) {
+                // New user → Go to Profile Setup
+                console.log('🔹 New User Detected during Sign In - Going to Profile Setup');
+                setTimeout(() => {
+                    router.replace({
+                        pathname: '/profile-setup',
+                        params: {
+                            googleData: JSON.stringify({
+                                name: userInfo.name,
+                                email: userInfo.email,
+                                photo: userInfo.photo
+                            })
+                        }
+                    } as any);
+                }, 800);
+            } else {
+                // Existing user → Go to Dashboard
+                console.log('🔹 Existing User - Going to Dashboard');
+                setTimeout(() => {
+                    router.replace('/(tabs)');
+                }, 800);
+            }
         } catch (error: any) {
             console.error('Backend sync error:', error);
             Alert.alert('Sign In Failed', error.message || 'Could not complete sign in.');

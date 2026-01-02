@@ -70,7 +70,8 @@ export default function RootLayout() {
         initGoogleAnalytics();
 
         const userToken = await AsyncStorage.getItem('userToken');
-        const inAuthGroup = ['signin', 'register', 'onboarding'].includes(currentRoute as string);
+        // NOTE: We allow 'register' even if userToken exists to support the multi-step profile setup flow
+        const inAuthGroup = ['signin', 'onboarding'].includes(currentRoute as string);
 
         if (userToken && inAuthGroup) {
           // User is logged in but trying to access auth screens, redirect to tabs
@@ -88,7 +89,29 @@ export default function RootLayout() {
     };
 
     prepareApp();
-  }, [segments]);
+  }, []); // Run only once on mount
+
+  // Check auth on route changes
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const userToken = await AsyncStorage.getItem('userToken');
+        // NOTE: We allow 'register' even if userToken exists to support the multi-step profile setup flow
+        const inAuthGroup = ['signin', 'onboarding'].includes(currentRoute as string);
+
+        if (userToken && inAuthGroup) {
+          // User is logged in but trying to access auth screens, redirect to tabs
+          router.replace('/(tabs)');
+        }
+      } catch (e) {
+        console.error('Auth check failed:', e);
+      }
+    };
+
+    if (appIsReady) {
+      checkAuth();
+    }
+  }, [segments, appIsReady]);
 
   // Setup global notification handling
   useEffect(() => {
@@ -143,6 +166,10 @@ export default function RootLayout() {
             {!appIsReady ? null : (
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="onboarding" />
+                <Stack.Screen name="signin" />
+                <Stack.Screen name="register" />
+                <Stack.Screen name="google-signup" />
+                <Stack.Screen name="google-signin" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="+not-found" />
               </Stack>

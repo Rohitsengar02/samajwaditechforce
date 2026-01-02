@@ -1,687 +1,267 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { registerWithEmail } from '../utils/firebase';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Animated, Easing, TextInput as RNTextInput, KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator } from 'react-native';
-import { Card, Title, Text, Chip } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { getApiUrl } from '../utils/api';
-import { useRouter } from 'expo-router';
-import { removeBackground } from '../utils/backgroundRemovalApi';
 
-const { width, height } = Dimensions.get('window');
-
-// Samajwadi Theme Colors
-const SP_RED = '#E30512';
-const SP_GREEN = '#009933';
+// Colors
+const GREEN = '#009933';
+const RED = '#E30512';
+const DARK = '#1a1a1a';
 
 interface ProfileSetupProps {
   navigation: any;
-  route: { params?: { phone?: string; mode?: 'edit'; googleData?: { name?: string; email?: string; photo?: string }; profileData?: any } };
+  route?: {
+    params?: {
+      phone?: string;
+      googleData?: {
+        name?: string;
+        email?: string;
+        photo?: string;
+      };
+    };
+  };
 }
 
-// Floating Bubble Component
-const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 }: any) => {
-  const translateY = useRef(new Animated.Value(0)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(scale, {
-      toValue: 1,
-      duration: 1000,
-      delay,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.loop(
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: -height - 100,
-          duration,
-          delay,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        Animated.sequence([
-          Animated.timing(translateX, {
-            toValue: 30,
-            duration: duration / 2,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateX, {
-            toValue: -30,
-            duration: duration / 2,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    ).start();
-  }, []);
-
-  return (
-    <Animated.View
-      style={[
-        styles.bubble,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: color,
-          transform: [{ translateY }, { translateX }, { scale }],
-        },
-      ]}
-    />
-  );
-};
-
-// Custom Animated Input Component
-const AnimatedInput = ({ label, value, onChangeText, icon, error, ...props }: any) => {
-  const [focused, setFocused] = useState(false);
-  const focusAnim = useRef(new Animated.Value(0)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.spring(focusAnim, {
-      toValue: focused || value ? 1 : 0,
-      friction: 8,
-      useNativeDriver: false,
-    }).start();
-  }, [focused, value]);
-
-  useEffect(() => {
-    if (error) {
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [error]);
-
-  const labelStyle = {
-    top: focusAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [20, -10],
-    }),
-    fontSize: focusAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [16, 12],
-    }),
-    color: error ? '#ef4444' : (focused ? SP_RED : '#64748b'),
-  };
-
-  const containerStyle = {
-    borderColor: error ? '#ef4444' : (focused ? SP_RED : '#e2e8f0'),
-    borderWidth: focused ? 2 : 1,
-    backgroundColor: focused ? '#fff' : '#f8fafc',
-    transform: [{ translateX: shakeAnim }],
-  };
-
-  return (
-    <View style={styles.inputWrapper}>
-      <Animated.Text style={[styles.floatingLabel, labelStyle]} pointerEvents="none">
-        {label}
-      </Animated.Text>
-      <Animated.View style={[styles.animatedInputContainer, containerStyle]}>
-        {icon && (
-          <MaterialCommunityIcons
-            name={icon}
-            size={20}
-            color={focused ? SP_RED : '#94a3b8'}
-            style={styles.inputIcon}
-          />
-        )}
-        <RNTextInput
-          value={value}
-          onChangeText={onChangeText}
-          style={[styles.nativeInput, icon && { paddingLeft: 40 }]}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          placeholderTextColor="transparent"
-          selectionColor={SP_RED}
-          {...props}
-        />
-      </Animated.View>
-    </View>
-  );
-};
-
 export default function ProfileSetupScreen({ navigation, route }: ProfileSetupProps) {
-  const profileData = route?.params?.profileData;
-  const phoneFromLogin = route?.params?.phone ?? profileData?.phone ?? '';
-  const mode = route?.params?.mode;
-  const googleData = route?.params?.googleData;
+  // Defensive parameter access
+  const params = route?.params || {};
+  const googleData = params.googleData;
+  const initialPhone = params.phone ? params.phone.replace('+91', '') : '';
 
-  const isEditMode = mode === 'edit';
+  // Safe State Initialization
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState(initialPhone);
+  const [gender, setGender] = useState('');
+  const [dob, setDob] = useState('');
 
-  // Pre-fill from Google data or Profile Data if available
-  const [fullName, setFullName] = useState(googleData?.name || profileData?.name || '');
-  const [phone, setPhone] = useState(phoneFromLogin || '');
-  const [gender, setGender] = useState(profileData?.gender || '');
-  const [dob, setDob] = useState(profileData?.dob || '');
-  const [email, setEmail] = useState(googleData?.email || profileData?.email || '');
-  const [hasPhoto, setHasPhoto] = useState<boolean>(!!googleData?.photo || !!profileData?.profileImage);
-  const [photoUri, setPhotoUri] = useState<string | null>(googleData?.photo || profileData?.profileImage || null);
-  const [photoUriNoBg, setPhotoUriNoBg] = useState<string | null>(profileData?.profileImageNoBg || null);
-  const [isShowingNoBg, setIsShowingNoBg] = useState(false);
-  // If manual register, password exists but we might not want to show it or show it masked.
-  // User asked to "show email and password autofill and unchangable".
-  // Note: We typically don't get the plain password back from backend registration response.
-  // However, I just registered, so I know the password? 
-  // Actually, in `Step 4808`, I passed `data` which is the RESPONSE from backend. Does it contain `password`? Usually NOT.
-  // But the User request implies they want to see it.
-  // If I can't show it, I'll show "********".
-  const [password, setPassword] = useState('********');
-  const [showErrors, setShowErrors] = useState(false);
+  // Password State
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const router = useRouter();
 
-  // Animations
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const photoScale = useRef(new Animated.Value(1)).current;
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
+  // Load data safely on mount
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Photo pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(photoScale, {
-          toValue: 1.05,
-          duration: 2000,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(photoScale, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
-
-  const [uploading, setUploading] = useState(false);
-  const [showLoadingModal, setShowLoadingModal] = useState(false);
-
-  // Cloudinary Config
-  const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dssmutzly/image/upload";
-  const UPLOAD_PRESET = "multimallpro";
-
-  const uploadImageToCloudinary = async (uri: string) => {
     try {
-      const data = new FormData();
-
-      // Check if it's a blob URL (from background removal)
-      if (uri.startsWith('blob:')) {
-        // For blob URLs, fetch the blob and append it directly
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        data.append('file', blob, 'profile_image.png');
-      } else {
-        // For regular URIs (mobile/native)
-        data.append('file', {
-          uri,
-          type: 'image/jpeg',
-          name: 'profile_image.jpg',
-        } as any);
+      console.log('🟢 ProfileSetupScreen: Mounting...');
+      if (googleData) {
+        console.log('📦 Setting Google Data:', googleData);
+        if (googleData.name) setName(googleData.name);
+        if (googleData.email) setEmail(googleData.email);
+        if (googleData.photo) setPhoto(googleData.photo);
       }
+    } catch (error) {
+      console.error('Error in ProfileSetup useEffect:', error);
+    }
+  }, [googleData]);
 
-      data.append('upload_preset', UPLOAD_PRESET);
-      data.append('cloud_name', 'dssmutzly');
-
-      const res = await fetch(CLOUDINARY_URL, {
-        method: 'POST',
-        body: data,
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
       });
 
-      const result = await res.json();
-
-      if (result.secure_url) {
-        return result.secure_url;
-      } else {
-        console.error('Cloudinary response:', result);
-        throw new Error(result.error?.message || 'Image upload failed');
+      if (!result.canceled && result.assets?.[0]) {
+        setPhoto(result.assets[0].uri);
       }
-    } catch (error) {
-      console.error('Cloudinary Upload Error:', error);
-      return null;
+    } catch (e) {
+      Alert.alert('Error', 'Could not select image');
     }
   };
 
-  const handleNext = async () => {
-    const valid =
-      !!fullName &&
-      phone.length === 10 &&
-      !!gender &&
-      !!dob &&
-      password.length >= 6;
-
-    if (!valid) {
-      setShowErrors(true);
-      return;
-    }
-
-    setShowLoadingModal(true);
-    setUploading(true);
-
-    try {
-      const apiUrl = getApiUrl();
-
-      // Check if user already exists (only for new registrations)
-      if (!isEditMode) {
-        try {
-          const checkRes = await fetch(`${apiUrl}/auth/check-exists`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, phone: `+91${phone}` })
-          });
-          const checkData = await checkRes.json();
-
-          if (checkData.exists) {
-            setUploading(false);
-            setShowLoadingModal(false);
-            Alert.alert(
-              'Account Already Exists',
-              'An account with this email or phone already exists. Redirecting you to home page...',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    // Redirect to home page (tabs)
-                    router.replace('/(tabs)');
-                  }
-                }
-              ]
-            );
-            return;
-          }
-        } catch (error) {
-          console.log('Check exists error:', error);
-          // Continue with registration if check fails
-        }
-      }
-
-      let uploadedImageUrl = photoUri;
-      let uploadedImageNoBgUrl = photoUriNoBg;
-
-      // Upload original image (with background)
-      if (photoUri && hasPhoto) {
-        const cloudUrl = await uploadImageToCloudinary(photoUri);
-        if (cloudUrl) {
-          uploadedImageUrl = cloudUrl;
-        }
-      }
-
-      // Upload background-removed image
-      if (photoUriNoBg) {
-        const cloudUrlNoBg = await uploadImageToCloudinary(photoUriNoBg);
-        if (cloudUrlNoBg) {
-          uploadedImageNoBgUrl = cloudUrlNoBg;
-        }
-      }
-
-      // Register with Firebase (only for new users)
-      if (!isEditMode) {
-        const { user, error } = await registerWithEmail(email, password);
-
-        if (error) {
-          // Check if it's because user already exists in Firebase
-          if (error.includes('already') || error.includes('exists') || error.includes('in-use')) {
-            console.log('User already exists in Firebase, continuing with flow...');
-            // Continue with the flow even if Firebase registration fails
-          } else {
-            // For other errors, show alert and stop
-            setUploading(false);
-            setShowLoadingModal(false);
-            Alert.alert('Registration Failed', error);
-            return;
-          }
-        }
-      }
-
-      const profileDataPayload: any = {
-        name: fullName,
-        email,
-        gender,
-        dob,
-        phone: `+91${phone}`,
-        password,
-        profileImage: uploadedImageUrl,
-        profileImageNoBg: uploadedImageNoBgUrl,
-      };
-
-      console.log('Profile data to save:', profileDataPayload);
-
-      setUploading(false);
-      setShowLoadingModal(false);
-
-      // Navigate to next step
-      if (isEditMode) {
-        navigation.goBack();
-      } else {
-        navigation.navigate('AddressForm', { profileData: profileDataPayload });
-      }
-
-    } catch (error) {
-      console.error('Profile setup error:', error);
-      setUploading(false);
-      setShowLoadingModal(false);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    }
-  };
-
-  const handlePhotoPress = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const originalUri = result.assets[0].uri;
-      setPhotoUri(originalUri);
-      setHasPhoto(true);
-
-      // Reset BG Removal state for new photo
-      setPhotoUriNoBg(null);
-      setIsShowingNoBg(false);
-
-      // Auto-remove background using our utility function
-      try {
-        setUploading(true);
-        console.log('⏳ Removing background...');
-
-        const result = await removeBackground(originalUri);
-
-        if (result.success) {
-          setPhotoUriNoBg(result.url);
-          setIsShowingNoBg(true); // Auto-show result
-          console.log('✅ Background removed successfully');
-        } else {
-          console.warn('Background removal warning:', result.message);
-        }
-      } catch (error) {
-        console.error('Background removal error:', error);
-      } finally {
-        setUploading(false);
-      }
-    }
+  const formatDob = (text: string) => {
+    const nums = text.replace(/\D/g, '');
+    if (nums.length <= 2) return nums;
+    if (nums.length <= 4) return `${nums.slice(0, 2)}/${nums.slice(2)}`;
+    return `${nums.slice(0, 2)}/${nums.slice(2, 4)}/${nums.slice(4, 8)}`;
   };
 
   const isValid =
-    !!fullName &&
+    name.trim().length > 0 &&
     phone.length === 10 &&
-    !!gender &&
-    !!dob &&
-    password.length >= 6;
+    gender.length > 0 &&
+    dob.length === 10 &&
+    password.length >= 6 &&
+    password === confirmPassword;
 
-  const handleDobChange = (value: string) => {
-    let digits = value.replace(/[^0-9]/g, '').slice(0, 8);
-    if (digits.length >= 5) {
-      digits = `${digits.slice(0, 2)} /${digits.slice(2, 4)}/${digits.slice(4, 8)} `;
-    } else if (digits.length >= 3) {
-      digits = `${digits.slice(0, 2)}/${digits.slice(2, 4)}`;
+  const handleContinue = () => {
+    if (!isValid) {
+      if (password.length < 6) {
+        Alert.alert('Invalid Password', 'Password must be at least 6 characters');
+        return;
+      }
+      if (password !== confirmPassword) {
+        Alert.alert('Mismatch', 'Passwords do not match');
+        return;
+      }
+      Alert.alert('Incomplete', 'Please fill all fields correctly');
+      return;
     }
-    setDob(digits);
+
+    setLoading(true);
+
+    const profileData = {
+      name: name.trim(),
+      email: email.trim(),
+      phone: `+91${phone}`,
+      gender,
+      dob,
+      password, // Include password
+      profileImage: photo,
+      isGoogleUser: !!googleData,
+    };
+
+    // Simulate async processing
+    setTimeout(() => {
+      setLoading(false);
+      try {
+        navigation.navigate('AddressForm', { profileData });
+      } catch (err) {
+        Alert.alert('Navigation Error', 'Could not navigate to Address Form.');
+      }
+    }, 500);
   };
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#ffffff', '#f0fdf4', '#fef2f2']} style={styles.background} />
-
-      {/* Floating Bubbles */}
-      <View style={styles.bubblesContainer}>
-        <FloatingBubble delay={0} size={70} color={SP_RED} duration={10000} />
-        <FloatingBubble delay={1000} size={90} color={SP_GREEN} duration={11000} />
-        <FloatingBubble delay={500} size={60} color={SP_RED} duration={12000} />
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Complete Profile</Text>
+        <Text style={styles.subtitle}>Help us know you better</Text>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={0}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Complete Your Profile</Text>
-              <Text style={styles.headerSubtitle}>Just a few more details to get  started</Text>
+        {/* Photo Upload */}
+        <View style={styles.photoContainer}>
+          <TouchableOpacity onPress={pickImage} style={styles.photoWrapper}>
+            {photo ? (
+              <Image source={{ uri: photo }} style={styles.photo} />
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <MaterialCommunityIcons name="camera" size={32} color="#666" />
+              </View>
+            )}
+            <View style={styles.editBadge}>
+              <MaterialCommunityIcons name="pencil" size={14} color="#fff" />
             </View>
-
-            {/* Photo Upload */}
-            <Animated.View style={[styles.photoSection, { transform: [{ scale: photoScale }] }]}>
-              <TouchableOpacity
-                style={styles.photoContainer}
-                onPress={handlePhotoPress}
-                activeOpacity={0.8}
-              >
-                {hasPhoto && photoUri ? (
-                  <View style={styles.photoPreview}>
-                    <Image source={{ uri: (isShowingNoBg && photoUriNoBg) ? photoUriNoBg : photoUri }} style={styles.photoImage} />
-                    <View style={styles.editBadge}>
-                      <MaterialCommunityIcons name="camera" size={16} color="#fff" />
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.photoPlaceholder}>
-                    <LinearGradient
-                      colors={[SP_RED, '#b91c1c']}
-                      style={styles.photoGradient}
-                    >
-                      <MaterialCommunityIcons name="camera-plus" size={32} color="#fff" />
-                    </LinearGradient>
-                    <View style={styles.uploadRing} />
-                  </View>
-                )}
-              </TouchableOpacity>
-              <Text style={styles.photoHint}>Upload Profile Photo</Text>
-
-              {photoUriNoBg && (
-                <TouchableOpacity
-                  onPress={() => setIsShowingNoBg(!isShowingNoBg)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginTop: 12,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    backgroundColor: '#fee2e2',
-                    borderRadius: 16
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name={isShowingNoBg ? "image-off-outline" : "image-auto-adjust"}
-                    size={16}
-                    color={SP_RED}
-                  />
-                  <Text style={{ marginLeft: 6, color: SP_RED, fontSize: 13, fontWeight: '600' }}>
-                    {isShowingNoBg ? 'Show Original' : 'Show No Background'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </Animated.View>
-
-            {/* Form Card */}
-            <Card style={styles.formCard}>
-              <Card.Content style={styles.cardContent}>
-                <AnimatedInput
-                  label="Full Name"
-                  value={fullName}
-                  onChangeText={setFullName}
-                  icon="account-outline"
-                  error={showErrors && !fullName}
-                />
-                {showErrors && !fullName && (
-                  <Text style={styles.errorText}>Full name is required</Text>
-                )}
-
-                <AnimatedInput
-                  label="Mobile Number"
-                  value={phone}
-                  onChangeText={(text: string) => setPhone(text.replace(/[^0-9]/g, '').slice(0, 10))}
-                  icon="phone-outline"
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  error={showErrors && phone.length !== 10}
-                />
-                {showErrors && phone.length !== 10 && (
-                  <Text style={styles.errorText}>Enter a valid 10-digit mobile number</Text>
-                )}
-
-                {/* Gender Selection */}
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.sectionLabel}>Gender</Text>
-                  <View style={styles.genderRow}>
-                    {[
-                      { label: 'Male', icon: 'gender-male' },
-                      { label: 'Female', icon: 'gender-female' },
-                      { label: 'Other', icon: 'gender-transgender' }
-                    ].map(option => {
-                      const selected = gender === option.label;
-                      return (
-                        <TouchableOpacity
-                          key={option.label}
-                          onPress={() => setGender(option.label)}
-                          activeOpacity={0.7}
-                          style={[styles.genderChip, selected && styles.genderChipSelected]}
-                        >
-                          <MaterialCommunityIcons
-                            name={option.icon as any}
-                            size={20}
-                            color={selected ? '#fff' : '#64748b'}
-                          />
-                          <Text style={[styles.genderText, selected && styles.genderTextSelected]}>
-                            {option.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  {showErrors && !gender && (
-                    <Text style={styles.errorText}>Please select a gender</Text>
-                  )}
-                </View>
-
-                <AnimatedInput
-                  label="Date of Birth (DD/MM/YYYY)"
-                  value={dob}
-                  onChangeText={handleDobChange}
-                  icon="calendar-outline"
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  error={showErrors && (!dob || dob.length !== 10)}
-                />
-                {showErrors && (!dob || dob.length !== 10) && (
-                  <Text style={styles.errorText}>Enter a valid date</Text>
-                )}
-
-                {/* Hide Email/Password on Desktop Registration Flow */}
-                {!(Platform.OS === 'web' && !isEditMode) && (
-                  <>
-
-
-
-                    <View style={styles.passwordWrapper}>
-                      <AnimatedInput
-                        label="Password"
-                        value={password}
-                        onChangeText={setPassword}
-                        icon="lock-outline"
-                        secureTextEntry={!showPassword}
-                        editable={false} // Lock password
-                        error={false}
-                      />
-                      <TouchableOpacity
-                        style={styles.passwordEyeButton}
-                        onPress={() => setShowPassword(!showPassword)}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialCommunityIcons
-                          name={showPassword ? 'eye-off' : 'eye'}
-                          size={20}
-                          color="#64748b"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={handleNext}
-                  disabled={(!isEditMode && !isValid) || uploading}
-                  style={[styles.submitButton, ((!isEditMode && !isValid) || uploading) && styles.submitButtonDisabled]}
-                >
-                  <LinearGradient
-                    colors={(!isEditMode && !isValid) ? ['#e5e7eb', '#d1d5db'] : [SP_GREEN, '#15803d']}
-                    style={styles.submitGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={[styles.submitText, (!isEditMode && !isValid) && styles.submitTextDisabled]}>
-                      {isEditMode ? 'Update Profile' : (uploading ? 'Uploading Image...' : 'Complete Setup')}
-                    </Text>
-                    {(isEditMode || isValid) && (
-                      <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </Card.Content>
-            </Card>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* Progress Indicator */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressDot} />
-        <View style={styles.progressDot} />
-        <View style={[styles.progressDot, styles.activeDot]} />
-      </View>
-
-      {/* Loading Modal */}
-      <Modal
-        visible={showLoadingModal}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.loadingIconContainer}>
-              <ActivityIndicator size="large" color={SP_RED} />
-            </View>
-            <Text style={styles.modalTitle}>Setting Up Your Profile</Text>
-            <Text style={styles.modalSubtitle}>Please wait while we process your information...</Text>
-          </View>
+          </TouchableOpacity>
         </View>
-      </Modal>
+
+        {/* Inputs */}
+        <View style={styles.form}>
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Enter full name"
+          />
+
+          <Text style={styles.label}>Phone Number</Text>
+          <View style={styles.phoneInputContainer}>
+            <Text style={styles.prefix}>+91</Text>
+            <TextInput
+              style={styles.phoneInput}
+              value={phone}
+              onChangeText={(t) => setPhone(t.replace(/\D/g, '').slice(0, 10))}
+              keyboardType="number-pad"
+              placeholder="0000000000"
+            />
+          </View>
+
+          <Text style={styles.label}>Create Password</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Min 6 characters"
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
+              <MaterialCommunityIcons name={showPassword ? "eye" : "eye-off"} size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>Confirm Password</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm password"
+              secureTextEntry={!showPassword}
+            />
+          </View>
+
+          <Text style={styles.label}>Gender</Text>
+          <View style={styles.genderRow}>
+            {['Male', 'Female', 'Other'].map((g) => (
+              <TouchableOpacity
+                key={g}
+                style={[styles.genderChip, gender === g && styles.genderChipSelected]}
+                onPress={() => setGender(g)}
+              >
+                <MaterialCommunityIcons
+                  name={g === 'Male' ? 'gender-male' : g === 'Female' ? 'gender-female' : 'gender-transgender'}
+                  size={20}
+                  color={gender === g ? '#fff' : '#666'}
+                />
+                <Text style={[styles.genderText, gender === g && styles.genderTextSelected]}>{g}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Date of Birth (DD/MM/YYYY)</Text>
+          <TextInput
+            style={styles.input}
+            value={dob}
+            onChangeText={(t) => setDob(formatDob(t))}
+            placeholder="DD/MM/YYYY"
+            keyboardType="number-pad"
+            maxLength={10}
+          />
+
+          <Text style={styles.label}>Email (Optional)</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: '#f0f0f0', color: '#666' }]}
+            value={email}
+            editable={false}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.button, !isValid && styles.buttonDisabled]}
+          onPress={handleContinue}
+          disabled={!isValid || loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Continue</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -689,173 +269,130 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  background: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-  bubblesContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    overflow: 'hidden',
-  },
-  bubble: {
-    position: 'absolute',
-    bottom: -100,
-    left: Math.random() * (width - 100),
-    opacity: 0.08,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  content: {
-    paddingHorizontal: 24,
-    paddingTop: height * 0.06,
+    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? 40 : 20,
   },
   header: {
+    paddingHorizontal: 24,
+    marginBottom: 20,
     alignItems: 'center',
-    marginBottom: 32,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#1e293b',
-    marginBottom: 8,
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: DARK,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
   },
-  photoSection: {
-    alignItems: 'center',
-    marginBottom: 32,
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   photoContainer: {
-    width: 120,
-    height: 120,
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  photoWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  photo: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   photoPlaceholder: {
-    width: '100%',
-    height: '100%',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f0f0f0',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  photoGradient: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: SP_RED,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  uploadRing: {
-    position: 'absolute',
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    borderWidth: 2,
-    borderColor: 'rgba(227, 5, 18, 0.2)',
-    borderStyle: 'dashed',
-  },
-  photoPreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 60,
-    overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
   },
   editBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: SP_RED,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    backgroundColor: RED,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#fff',
   },
-  photoHint: {
+  form: {
+    gap: 16,
+  },
+  label: {
     fontSize: 14,
-    color: '#64748b',
     fontWeight: '600',
+    color: DARK,
+    marginBottom: 4,
   },
-  formCard: {
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  cardContent: {
-    padding: 24,
-  },
-  inputWrapper: {
-    marginBottom: 24,
-    position: 'relative',
-  },
-  floatingLabel: {
-    position: 'absolute',
-    left: 12,
-    fontWeight: '600',
-    backgroundColor: '#fff',
-    paddingHorizontal: 4,
-    zIndex: 1,
-  },
-  animatedInputContainer: {
+  input: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     borderRadius: 12,
-    height: 56,
-    justifyContent: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: 16,
-    zIndex: 1,
-  },
-  nativeInput: {
-    flex: 1,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#1e293b',
-    height: '100%',
-    fontWeight: '500',
+    color: DARK,
+    backgroundColor: '#fff',
   },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 12,
+  passwordContainer: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+  },
+  passwordInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 16,
+    color: DARK,
+  },
+  eyeIcon: {
+    padding: 4,
+  },
+  phoneInputContainer: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  prefix: {
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#666',
+    backgroundColor: '#f9fafb',
+    height: '100%',
+    textAlignVertical: 'center',
+    lineHeight: 50,
+  },
+  phoneInput: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: DARK,
   },
   genderRow: {
     flexDirection: 'row',
@@ -866,123 +403,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f1f5f9',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
     gap: 8,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
   },
   genderChipSelected: {
-    backgroundColor: SP_RED,
-    borderColor: SP_RED,
-    shadowColor: SP_RED,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    borderColor: GREEN,
+    backgroundColor: GREEN,
   },
   genderText: {
-    color: '#64748b',
-    fontWeight: '600',
     fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
   },
   genderTextSelected: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  passwordWrapper: {
-    position: 'relative',
-  },
-  passwordEyeButton: {
-    position: 'absolute',
-    right: 16,
-    top: 28,
-    zIndex: 2,
-    padding: 4,
-  },
-  errorText: {
-    marginTop: -16,
-    marginBottom: 16,
-    fontSize: 12,
-    color: '#ef4444',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  submitButton: {
-    height: 60,
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginTop: 16,
-  },
-  submitButtonDisabled: {
-    opacity: 0.7,
-  },
-  submitGradient: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  submitText: {
-    fontSize: 18,
-    fontWeight: '800',
     color: '#fff',
   },
-  submitTextDisabled: {
-    color: '#94a3b8',
-  },
-  progressContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingBottom: 30,
-    gap: 8,
-    backgroundColor: 'transparent',
-  },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#e2e8f0',
-  },
-  activeDot: {
-    backgroundColor: SP_RED,
-    width: 24,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
+  button: {
+    marginTop: 40,
+    height: 54,
+    backgroundColor: RED,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: RED,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 32,
-    alignItems: 'center',
-    width: '85%',
-    maxWidth: 400,
+  buttonDisabled: {
+    backgroundColor: '#e5e7eb',
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  loadingIconContainer: {
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 20,
+  buttonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });

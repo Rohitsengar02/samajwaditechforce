@@ -170,7 +170,7 @@ const MinimalWhiteBar = ({ details, width, customization }: TemplateProps) => {
             {/* Top accent line */}
             <View style={{ height: 4, width: '100%', backgroundColor: 'rgba(255,255,255,0.3)' }} />
 
-            <View style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ padding: 12, paddingVertical: 0, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 {/* Compact square-ish photo */}
                 <View style={[styles.photoContainer, {
                     width: customization?.imageSize || 100,

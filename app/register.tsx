@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getApiUrl } from '../utils/api';
@@ -23,6 +23,7 @@ import ProfileSetupScreen from '../components/ProfileSetupScreen';
 import InteractiveCompleteScreen from '../components/InteractiveCompleteScreen';
 import AddressFormScreen from '../components/AddressFormScreen';
 import EmailVerificationScreen from '../components/EmailVerificationScreen';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const STEPS = {
   LOGIN: 0,
@@ -42,6 +43,26 @@ export default function RegisterScreen() {
   const [googleData, setGoogleData] = useState<any>(null);
 
   const [profileData, setProfileData] = useState<any>(null);
+
+  const params = useLocalSearchParams();
+
+  useEffect(() => {
+    if (params?.googleData && step === STEPS.LOGIN) {
+      try {
+        const googleDataRaw = params.googleData;
+        const googleDataStr = Array.isArray(googleDataRaw) ? googleDataRaw[0] : googleDataRaw;
+
+        if (googleDataStr) {
+          const parsed = JSON.parse(googleDataStr);
+          setGoogleData(parsed);
+          setStep(STEPS.PROFILE);
+          console.log('🔹 Redirection Success: Starting Profile Setup from Google Data');
+        }
+      } catch (e) {
+        console.error('Failed to parse initial googleData:', e);
+      }
+    }
+  }, [params?.googleData, step]);
 
   const { width } = Dimensions.get('window');
   const isWideLayout = width >= 768;
@@ -132,6 +153,7 @@ export default function RegisterScreen() {
   };
 
   const renderStep = () => {
+    console.log('🔵 Register: Current step =', step, 'Google Data =', !!googleData);
     try {
       switch (step) {
         case STEPS.LOGIN:
@@ -144,6 +166,7 @@ export default function RegisterScreen() {
             />
           );
         case STEPS.PROFILE:
+          console.log('🟣 Rendering ProfileSetupScreen with googleData:', JSON.stringify(googleData));
           return (
             <ProfileSetupScreen
               navigation={profileNavigation}
@@ -191,7 +214,11 @@ export default function RegisterScreen() {
     }
   };
 
-  return <View style={styles.container}>{renderStep()}</View>;
+  return (
+    <ErrorBoundary>
+      <View style={styles.container}>{renderStep()}</View>
+    </ErrorBoundary>
+  );
 }
 
 import * as Google from 'expo-auth-session/providers/google';
@@ -443,8 +470,9 @@ function DesktopRegisterScreen() {
           setProfileData(data);
         }
 
-        // Proceed to Dashboard directly (Skip Profile Setup)
-        router.replace('/(tabs)');
+        // Proceed to Profile Setup
+        console.log('🔹 Account Created - Going to Profile Setup');
+        setStep(STEPS.PROFILE);
       } else {
         Alert.alert('Registration Failed', data.message || 'Something went wrong');
       }
@@ -495,7 +523,7 @@ function DesktopRegisterScreen() {
           <View style={{ flex: 1, padding: 20 }}>
             <ProfileSetupScreen
               navigation={profileNavigation}
-              route={{ params: { googleData, mode: 'edit' } }}
+              route={{ params: { googleData } }}
             />
           </View>
         );

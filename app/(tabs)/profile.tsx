@@ -184,12 +184,12 @@ export default function ProfileScreen() {
       // Clear local storage (removed signOutUser import that was causing crashes)
       await AsyncStorage.removeItem('userInfo');
       await AsyncStorage.removeItem('userToken');
-      // Navigate to google-signin (the mobile login page, not /signin which is for web)
-      router.replace('/google-signin');
+      // Navigate to signin (handles both web desktop and mobile layouts)
+      router.replace('/signin');
     } catch (error) {
       console.error('Logout error:', error);
       // Fallback navigation even on error
-      router.replace('/google-signin');
+      router.replace('/signin');
     }
   };
 

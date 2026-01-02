@@ -498,6 +498,8 @@ export default function PosterEditor() {
         setShowLayoutModal(false);
     };
 
+
+
     const pickImageForModal = async (crop = false) => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -508,6 +510,55 @@ export default function PosterEditor() {
         if (!result.canceled) {
             setSelectedImageUri(result.assets[0].uri);
             setProcessedImageUri(null); // Reset processed image when new one picked
+
+            // Auto-trigger background removal logic immediately
+            // We use a slight timeout to allow state to settle
+            setTimeout(() => {
+                // Reuse existing removeBackground function but we need to ensure state is set
+                // Since setState is async, we might need to pass URI directly or use a ref
+                // For simplicity, we'll assume the component re-renders quickly or we call a version that takes URI
+                triggerAutoBgRemoval(result.assets[0].uri);
+            }, 100);
+        }
+    };
+
+    // Helper to trigger BG removal automatically
+    const triggerAutoBgRemoval = async (uri: string) => {
+        try {
+            setIsProcessingBg(true);
+            const { removeBackground } = require('../utils/backgroundRemovalApi');
+
+            if (Platform.OS === 'web') {
+                // Web implementation (simplified)
+                const blob = await imglyRemoveBackground(uri);
+                const url = URL.createObjectURL(blob);
+                setProcessedImageUri(url);
+                setIsProcessingBg(false);
+                return;
+            }
+
+            // Mobile Implementation
+            const formData = new FormData();
+            formData.append('image', {
+                uri: uri,
+                name: 'image.jpg',
+                type: 'image/jpeg',
+            } as any);
+
+            const response = await fetch(`${API_URL}/ai-gemini/remove-background`, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' },
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setProcessedImageUri(data.image);
+            }
+        } catch (e) {
+            console.log("Auto BG Remove Failed", e);
+        } finally {
+            setIsProcessingBg(false);
         }
     };
 
@@ -565,9 +616,10 @@ export default function PosterEditor() {
     };
 
     // Remove Background from Footer User Photo (Free Local Service)
-    const handleRemoveFooterPhotoBg = async () => {
+    const handleRemoveFooterPhotoBg = async (arg?: boolean | any) => {
+        const silent = typeof arg === 'boolean' ? arg : false;
         if (!bottomBarDetails.photo) {
-            Alert.alert('No Photo', 'Please upload a photo first');
+            if (!silent) Alert.alert('No Photo', 'Please upload a photo first');
             return;
         }
 
@@ -577,26 +629,40 @@ export default function PosterEditor() {
             const { removeBackground } = require('../utils/backgroundRemovalApi');
             const result = await removeBackground(bottomBarDetails.photo);
 
-            setBottomBarDetails({
-                ...bottomBarDetails,
+            setBottomBarDetails(prev => ({
+                ...prev,
                 photoNoBg: result.url,
-            });
+            }));
 
-            Alert.alert(
-                result.success ? 'Success' : 'Info',
-                result.message
-            );
+            if (!silent) {
+                Alert.alert(
+                    result.success ? 'Success' : 'Info',
+                    result.message
+                );
+            }
         } catch (error: any) {
             console.error('Background removal error:', error);
-            Alert.alert(
-                'Service Not Running',
-                'Background removal service is not running.\n\nTo start it:\n1. Open Terminal in project folder\n2. Run: ./start_bg_service.sh',
-                [{ text: 'OK' }]
-            );
+            if (!silent) {
+                Alert.alert(
+                    'Service Not Running',
+                    'Background removal service is not running.\n\nTo start it:\n1. Open Terminal in project folder\n2. Run: ./start_bg_service.sh',
+                    [{ text: 'OK' }]
+                );
+            }
         } finally {
             setIsRemovingFooterPhotoBg(false);
         }
     };
+
+    // Auto-trigger BG removal for footer photo if present
+    useEffect(() => {
+        if (bottomBarDetails.photo && !bottomBarDetails.photoNoBg) {
+            const timer = setTimeout(() => {
+                handleRemoveFooterPhotoBg(true);
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [bottomBarDetails.photo]);
 
 
     // Legacy direct pick (not used for 'image' tool anymore, but kept if needed)
@@ -617,8 +683,8 @@ export default function PosterEditor() {
             id: Date.now().toString(),
             type,
             content,
-            x: 50,
-            y: 50,
+            x: type === 'image' ? (width - 120) : 50, // Extreme Right
+            y: type === 'image' ? (MAX_CANVAS_HEIGHT - 100) : 50, // Extreme Bottom
             scale: 1,
             rotation: 0,
             isFlipped: false,
@@ -1904,9 +1970,9 @@ export default function PosterEditor() {
                         </View>
 
                         <TouchableOpacity
-                            style={[styles.modalButtonAdd, (!selectedImageUri && !processedImageUri) && styles.disabledButton]}
+                            style={[styles.modalButtonAdd, ((!selectedImageUri && !processedImageUri) || isProcessingBg) && styles.disabledButton]}
                             onPress={addImageToPoster}
-                            disabled={!selectedImageUri && !processedImageUri}
+                            disabled={(!selectedImageUri && !processedImageUri) || isProcessingBg}
                         >
                             <Text style={styles.modalButtonTextAdd}>Add to Poster</Text>
                         </TouchableOpacity>

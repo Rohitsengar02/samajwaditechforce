@@ -11,6 +11,7 @@ import {
     Alert,
     Modal,
     ActivityIndicator,
+    TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -104,6 +105,7 @@ const FloatingParticle = ({ delay = 0, size = 60, left = '10%', duration = 8000 
 export default function InteractiveGoogleSignupScreen() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [testEmail, setTestEmail] = useState('');
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -239,24 +241,35 @@ export default function InteractiveGoogleSignupScreen() {
             }
 
             // Check if new user or existing user
-            if (backendData.isNewUser || backendResponse.status === 201) {
-                // New user → Go to Profile Setup
-                console.log('🔹 New User - Going to Profile Setup');
-                router.replace({
+            setLoading(false); // Clear loading before navigation
+
+            setTimeout(() => {
+                const navParams = {
                     pathname: '/register',
                     params: {
                         googleData: JSON.stringify({
-                            name: userInfo.name,
+                            name: userInfo.name, // Ensure this maps correctly from backendData if needed, but userInfo is from Google
                             email: userInfo.email,
                             photo: userInfo.photo
                         })
                     }
-                });
-            } else {
-                // Existing user → Go to Dashboard
-                console.log('🔹 Existing User - Going to Dashboard');
-                router.replace('/(tabs)');
-            }
+                };
+
+                if (backendData.isNewUser || backendResponse.status === 201) {
+                    // New user → Go to Profile Setup
+                    console.log('🔹 New User - Going to Profile Setup with:', navParams);
+                    // Update pathname to direct route
+                    const directNavParams = {
+                        pathname: '/profile-setup',
+                        params: navParams.params
+                    };
+                    router.replace(directNavParams as any);
+                } else {
+                    // Existing user → Go to Dashboard
+                    console.log('🔹 Existing User - Going to Dashboard');
+                    router.replace('/(tabs)');
+                }
+            }, 800); // 800ms delay to ensure modal is dismissed completely
         } catch (error: any) {
             console.error('Backend sync error:', error);
             Alert.alert('Sign Up Failed', error.message || 'Could not complete sign up.');
@@ -335,7 +348,7 @@ export default function InteractiveGoogleSignupScreen() {
                 </View>
 
                 {/* Google Sign Up Button */}
-                <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%' }}>
                     <TouchableOpacity
                         style={styles.googleButton}
                         onPress={handleGoogleSignup}
@@ -361,6 +374,8 @@ export default function InteractiveGoogleSignupScreen() {
                         </LinearGradient>
                     </TouchableOpacity>
                 </Animated.View>
+
+                {/* Test Email Section Removed */}
 
                 {/* Already have account */}
                 <TouchableOpacity
@@ -578,5 +593,48 @@ const styles = StyleSheet.create({
         color: '#64748b',
         marginTop: 8,
         textAlign: 'center',
+    },
+    testSection: {
+        width: '100%',
+        marginTop: 16,
+        marginBottom: 16,
+    },
+    dividerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#e0e0e0',
+    },
+    dividerText: {
+        paddingHorizontal: 12,
+        fontSize: 12,
+        color: '#999',
+        fontWeight: '600',
+    },
+    testInput: {
+        height: 50,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        fontSize: 15,
+        backgroundColor: '#fff',
+        marginBottom: 12,
+    },
+    testBtn: {
+        height: 50,
+        backgroundColor: SP_DARK,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    testBtnText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '600',
     },
 });
