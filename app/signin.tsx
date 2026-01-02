@@ -148,7 +148,17 @@ function MobileSignInScreen() {
       }
 
       setLoading(false);
-      router.push('/(tabs)');
+      setLoading(false);
+
+      if (backendData.isNewUser || backendResponse.status === 201) {
+        // Redirect to Profile Setup for new users
+        router.push({
+          pathname: '/profile-setup',
+          params: { googleData: JSON.stringify({ name: userInfo.name, email: userInfo.email, photo: userInfo.picture }) }
+        });
+      } else {
+        router.push('/(tabs)');
+      }
 
     } catch (error: any) {
       console.error('Error syncing Google user:', error);
@@ -410,7 +420,17 @@ function DesktopSignInScreen() {
       }
 
       setLoading(false);
-      router.push('/(tabs)');
+      setLoading(false);
+
+      if (backendData.isNewUser || backendResponse.status === 201) {
+        // Redirect to Profile Setup for new users
+        router.push({
+          pathname: '/profile-setup',
+          params: { googleData: JSON.stringify({ name: userInfo.name, email: userInfo.email, photo: userInfo.picture }) }
+        });
+      } else {
+        router.push('/(tabs)');
+      }
     } catch (error: any) {
       console.error('Error syncing Google user:', error);
       Alert.alert('Sign In Failed', 'Could not sync with server. ' + error.message);

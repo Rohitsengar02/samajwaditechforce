@@ -326,14 +326,23 @@ function DesktopRegisterScreen() {
       // 4. Check if new user
       // We check explicit flag OR status 201
       if (backendData.isNewUser || backendResponse.status === 201) {
-        // Redirect to Dashboard directly, skipping Profile Setup as requested
-        console.log('🔹 New User Detected - Skipping Profile Setup, Going to Tabs');
-        router.replace('/(tabs)');
+        // New user detected - Go to Profile Setup
+        console.log('🔹 New User Detected - Going to Profile Setup');
+
+        // Prepare data for Profile Setup
+        const googleProfile = {
+          name: userInfo.name,
+          email: userInfo.email,
+          photo: userInfo.picture
+        };
+
+        setGoogleData(googleProfile);
+        setStep(STEPS.PROFILE);
       } else {
         // Existing user, go to tabs
         console.log('🔹 Existing User - Going to Tabs');
         setLoading(false);
-        router.push('/(tabs)');
+        router.replace('/(tabs)');
       }
     } catch (error: any) {
       console.error('Error syncing Google user:', error);

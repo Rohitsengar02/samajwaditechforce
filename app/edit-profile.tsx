@@ -286,8 +286,16 @@ export default function EditProfileScreen() {
                                 <TextInput
                                     style={styles.input}
                                     value={dob}
-                                    onChangeText={setDob}
-                                    placeholder="DD/MM/YYYY"
+                                    onChangeText={(text) => {
+                                        const nums = text.replace(/\D/g, '');
+                                        let formatted = nums;
+                                        if (nums.length > 2) formatted = `${nums.slice(0, 2)}/${nums.slice(2)}`;
+                                        if (nums.length > 4) formatted = `${nums.slice(0, 2)}/${nums.slice(2, 4)}/${nums.slice(4, 6)}`;
+                                        setDob(formatted);
+                                    }}
+                                    placeholder="DD/MM/YY"
+                                    keyboardType="numeric"
+                                    maxLength={8}
                                 />
                             </View>
                         </View>
