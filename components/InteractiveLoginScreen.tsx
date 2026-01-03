@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing, Keyboard, Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator, Text, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../utils/api';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
@@ -86,6 +88,7 @@ const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 
 };
 
 export default function InteractiveLoginScreen({ navigation }: any) {
+  const router = useRouter(); // Initialize router
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -122,8 +125,6 @@ export default function InteractiveLoginScreen({ navigation }: any) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const bgGradientAnim = useRef(new Animated.Value(0)).current;
   const particlesAnim = useRef(new Animated.Value(0)).current;
-
-  const isWideLayout = width >= 768;
 
   // Animation effects
   useEffect(() => {
@@ -171,25 +172,62 @@ export default function InteractiveLoginScreen({ navigation }: any) {
 
   const fetchGoogleUserInfo = async (accessToken: string) => {
     try {
+      setLoading(true);
+      // 1. Get Google User Info
       const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const userInfo = await userInfoResponse.json();
+      console.log('🔹 Google User Info:', userInfo);
+
+      // 2. Call Backend to Check User Status
+      const apiUrl = getApiUrl();
+      const backendResponse = await fetch(`${apiUrl}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userInfo.email,
+          name: userInfo.name,
+          photo: userInfo.picture,
+          googleId: userInfo.id
+        })
+      });
+
+      const backendData = await backendResponse.json();
+      console.log('🔹 Backend Response:', backendData);
 
       setLoading(false);
 
-      // Navigate to Profile Setup with Google data pre-filled
-      navigation.navigate('ProfileSetup', {
-        googleData: {
-          name: userInfo.name || '',
-          email: userInfo.email || '',
-          photo: userInfo.picture || '',
+      if (!backendResponse.ok) {
+        throw new Error(backendData.message || 'Backend sync failed');
+      }
+
+      // 3. Logic: Existing vs New
+      if (backendData.isNewUser || backendResponse.status === 201) {
+        // NEW USER -> Profile Setup
+        console.log('🔹 New User -> Profile Setup');
+        navigation.navigate('ProfileSetup', {
+          googleData: {
+            name: userInfo.name,
+            email: userInfo.email,
+            photo: userInfo.picture,
+          }
+        });
+      } else {
+        // EXISTING USER -> Dashboard
+        console.log('🔹 Existing User -> Dashboard');
+        // Save Auth Data
+        await AsyncStorage.setItem('userInfo', JSON.stringify(backendData));
+        if (backendData.token) {
+          await AsyncStorage.setItem('userToken', backendData.token);
         }
-      });
+        router.replace('/(tabs)');
+      }
+
     } catch (error) {
       setLoading(false);
       console.error('Error fetching Google user info:', error);
-      Alert.alert('Error', 'Failed to get user information from Google.');
+      Alert.alert('Error', 'Failed to verify user with server.');
     }
   };
 
