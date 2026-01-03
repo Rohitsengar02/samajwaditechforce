@@ -202,7 +202,15 @@ export default function InteractiveLoginScreen({ navigation }: any) {
         throw new Error(backendData.message || 'Backend sync failed');
       }
 
-      // 3. Logic: Existing vs New
+      // 3. Save Auth Data (for both new and existing users)
+      if (backendData) {
+        await AsyncStorage.setItem('userInfo', JSON.stringify(backendData));
+        if (backendData.token) {
+          await AsyncStorage.setItem('userToken', backendData.token);
+        }
+      }
+
+      // 4. Logic: Existing vs New
       if (backendData.isNewUser || backendResponse.status === 201) {
         // NEW USER -> Profile Setup
         console.log('🔹 New User -> Profile Setup');
@@ -216,11 +224,6 @@ export default function InteractiveLoginScreen({ navigation }: any) {
       } else {
         // EXISTING USER -> Dashboard
         console.log('🔹 Existing User -> Dashboard');
-        // Save Auth Data
-        await AsyncStorage.setItem('userInfo', JSON.stringify(backendData));
-        if (backendData.token) {
-          await AsyncStorage.setItem('userToken', backendData.token);
-        }
         router.replace('/(tabs)');
       }
 
