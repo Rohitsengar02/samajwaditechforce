@@ -1162,65 +1162,14 @@ export default function PosterEditor() {
                     <Ionicons name="close" size={24} color="#1e293b" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{posterName}</Text>
+
+                {/* Download PDF Button */}
                 <TouchableOpacity
-                    onPress={async () => {
-                        try {
-                            setSelectedElementId(null); // Deselect before capturing
-                            await new Promise(resolve => setTimeout(resolve, 100));
-
-                            if (Platform.OS === 'web') {
-                                // Web: Use html2canvas for HD quality
-                                const canvasElement = canvasRef.current as any;
-                                if (!canvasElement) {
-                                    Alert.alert('Error', 'Canvas not found');
-                                    return;
-                                }
-
-                                // Dynamically load html2canvas if not available
-                                if (typeof window !== 'undefined' && !(window as any).html2canvas) {
-                                    const script = document.createElement('script');
-                                    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-                                    await new Promise((resolve, reject) => {
-                                        script.onload = resolve;
-                                        script.onerror = reject;
-                                        document.head.appendChild(script);
-                                    });
-                                }
-
-                                const html2canvas = (window as any).html2canvas;
-                                const canvas = await html2canvas(canvasElement, {
-                                    useCORS: true,
-                                    allowTaint: false,
-                                    backgroundColor: '#ffffff',
-                                    scale: 4, // HD Quality - 4x resolution
-                                    logging: false,
-                                });
-
-                                const uri = canvas.toDataURL('image/png');
-                                setPreviewImageUri(uri);
-                                setShowPreviewModal(true);
-                            } else {
-                                // Mobile: Use captureRef with HIGH QUALITY settings
-                                const uri = await captureRef(canvasRef, {
-                                    format: 'png',                    // PNG for maximum quality
-                                    quality: 1,                       // No compression
-                                    result: 'tmpfile',                // Better performance
-                                    width: canvasSize.w,              // Original width
-                                    height: canvasSize.h,             // Original height  
-                                    pixelRatio: PixelRatio.get() * 2, // 🔥 Retina quality (2x device pixel ratio)
-                                } as any);
-                                setPreviewImageUri(uri);
-                                setShowPreviewModal(true);
-                            }
-                        } catch (error) {
-                            console.error('Preview generation error:', error);
-                            Alert.alert('Error', 'Failed to generate preview');
-                        }
-                    }}
+                    onPress={handleDownloadPDF}
                     style={styles.saveButton}
                 >
-                    <MaterialCommunityIcons name="eye" size={18} color="#fff" style={{ marginRight: 4 }} />
-                    <Text style={styles.saveButtonText}>Preview</Text>
+                    <MaterialCommunityIcons name="file-pdf-box" size={18} color="#fff" style={{ marginRight: 4 }} />
+                    <Text style={styles.saveButtonText}>Download PDF</Text>
                 </TouchableOpacity>
             </View>
 
