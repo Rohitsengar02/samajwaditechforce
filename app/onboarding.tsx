@@ -326,7 +326,7 @@ export default function OnboardingScreen() {
 
     const handleNext = () => {
         if (currentIndex === slides.length - 1) {
-            router.replace('/google-signup');
+            router.replace('/register');
         } else {
             setCurrentIndex(prev => prev + 1);
         }
@@ -339,7 +339,7 @@ export default function OnboardingScreen() {
     };
 
     const handleSkip = () => {
-        router.replace('/google-signup');
+        router.replace('/register');
     };
 
     if (isSplashVisible) {

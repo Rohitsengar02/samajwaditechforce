@@ -9,6 +9,7 @@ export default function AddressSetupRoute() {
     const params = useLocalSearchParams();
 
     const navigationAdapter = {
+        goBack: () => router.back(),
         navigate: (screen: string, navParams: any) => {
             // AddressForm usually navigates to ServiceSelection or just completes.
             // We'll direct to 'completed' or Tabs.
