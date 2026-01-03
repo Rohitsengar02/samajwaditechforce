@@ -24,6 +24,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import * as Print from 'expo-print';
 import { captureRef } from 'react-native-view-shot';
 import { removeBackground as imglyRemoveBackground } from '../utils/backgroundRemoval';
 import { getApiUrl } from '../utils/api';
@@ -846,6 +847,161 @@ export default function PosterEditor() {
             setIsSaving(false);
         }
     };
+
+    const handleDownloadPDF = async () => {
+        try {
+            setSelectedElementId(null); // Deselect before saving to hide border
+            setIsSaving(true);
+
+            // Wait for state updates and images to fully load
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            if (Platform.OS === 'web') {
+                // For web, use html2pdf.js for high quality HTML to PDF conversion
+                const canvasElement = canvasRef.current as any;
+                if (!canvasElement) {
+                    throw new Error('Canvas ref not found');
+                }
+
+                // Load html2pdf library dynamically
+                if (!(window as any).html2pdf) {
+                    console.log('Loading html2pdf from CDN...');
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+
+                if ((window as any).html2pdf) {
+                    const html2pdf = (window as any).html2pdf;
+
+                    // Calculate optimal PDF dimensions based on canvas
+                    const aspectRatio = canvasSize.h / canvasSize.w;
+                    let pdfWidth = 210; // A4 width in mm
+                    let pdfHeight = pdfWidth * aspectRatio;
+
+                    // Adjust if height exceeds A4
+                    if (pdfHeight > 297) { // A4 height in mm
+                        pdfHeight = 297;
+                        pdfWidth = pdfHeight / aspectRatio;
+                    }
+
+                    // Configure html2pdf options for maximum quality
+                    const opt = {
+                        margin: 0,
+                        filename: `${posterName.replace(/\s+/g, '-').toLowerCase()}-hq.pdf`,
+                        image: {
+                            type: 'jpeg',
+                            quality: 1.0  // Maximum quality
+                        },
+                        html2canvas: {
+                            scale: 4,  // Very high scale for maximum quality (4x resolution)
+                            useCORS: true,
+                            allowTaint: false,
+                            backgroundColor: null,
+                            logging: false,
+                            letterRendering: true,
+                        },
+                        jsPDF: {
+                            unit: 'mm',
+                            format: [pdfWidth, pdfHeight],
+                            orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
+                            compress: false  // Don't compress for maximum quality
+                        },
+                        pagebreak: { mode: 'avoid-all' }
+                    };
+
+                    // Generate and download PDF
+                    await html2pdf().set(opt).from(canvasElement).save();
+
+                    Alert.alert('Success', 'High-quality PDF downloaded successfully!');
+                } else {
+                    throw new Error('html2pdf failed to load');
+                }
+            } else {
+                // For mobile, use captureRef with high quality
+                const imageDataUri = await captureRef(canvasRef, {
+                    format: 'png',
+                    quality: 1.0,
+                    result: 'data-uri',
+                });
+
+                // Calculate PDF dimensions based on canvas size
+                const aspectRatio = canvasSize.h / canvasSize.w;
+                let pdfWidth = 595; // A4 width in points
+                let pdfHeight = pdfWidth * aspectRatio;
+
+                // If height exceeds A4, scale down
+                if (pdfHeight > 842) { // A4 height in points
+                    pdfHeight = 842;
+                    pdfWidth = pdfHeight / aspectRatio;
+                }
+
+                // Create HTML content for PDF with the captured image
+                const htmlContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <style>
+                            * {
+                                margin: 0;
+                                padding: 0;
+                                box-sizing: border-box;
+                            }
+                            body {
+                                width: 100%;
+                                height: 100%;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                            }
+                            img {
+                                max-width: 100%;
+                                max-height: 100%;
+                                object-fit: contain;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <img src="${imageDataUri}" alt="Poster" />
+                    </body>
+                    </html>
+                `;
+
+                // Generate PDF using expo-print
+                const { uri } = await Print.printToFileAsync({
+                    html: htmlContent,
+                    width: pdfWidth,
+                    height: pdfHeight,
+                });
+
+                // Share or save the PDF
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(uri, {
+                        mimeType: 'application/pdf',
+                        dialogTitle: `${posterName} - High Quality PDF`,
+                        UTI: 'com.adobe.pdf'
+                    });
+                    Alert.alert('Success', 'PDF generated and ready to share!');
+                } else {
+                    Alert.alert('Success', `PDF saved at: ${uri}`);
+                }
+            }
+
+        } catch (error: any) {
+            console.error('PDF generation error:', error);
+            Alert.alert('Error', `Failed to generate PDF: ${error?.message || 'Unknown error'}`);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
+
 
     // Draggable Element Component
     const DraggableItem = ({ element }: { element: EditorElement }) => {
@@ -2626,6 +2782,28 @@ export default function PosterEditor() {
                             <MaterialCommunityIcons name="download" size={20} color="#fff" />
                             <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
                                 Download HD
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* PDF Download Button */}
+                        <TouchableOpacity
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: '#16a34a',
+                                borderRadius: 25,
+                                paddingVertical: 14,
+                                paddingHorizontal: 28,
+                                gap: 8,
+                            }}
+                            onPress={() => {
+                                setShowPreviewModal(false);
+                                handleDownloadPDF();
+                            }}
+                        >
+                            <MaterialCommunityIcons name="file-pdf-box" size={20} color="#fff" />
+                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                                Download PDF
                             </Text>
                         </TouchableOpacity>
 
