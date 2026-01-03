@@ -14,7 +14,7 @@ export default function AddressSetupRoute() {
             // AddressForm usually navigates to ServiceSelection or just completes.
             // We'll direct to 'completed' or Tabs.
             if (screen === 'ServiceSelection' || screen === 'Dashboard') {
-                router.replace('/(tabs)');
+                router.replace('/complete');
             }
         }
     };
