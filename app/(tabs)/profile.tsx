@@ -97,6 +97,8 @@ export default function ProfileScreen() {
 
   const currentLanguageName = availableLanguages.find((l: any) => l.code === language)?.name || 'English';
 
+  const [showVerifiedSuccess, setShowVerifiedSuccess] = useState(false);
+
   useFocusEffect(
     React.useCallback(() => {
       loadUserProfile();
@@ -235,12 +237,16 @@ export default function ProfileScreen() {
           >
             <View style={styles.headerContent}>
               <TouchableOpacity
-                style={[styles.settingsButton, user?.verified && styles.verifiedButton]}
+                style={[styles.settingsButton, user?.verificationStatus === 'Verified' && styles.verifiedButton]}
                 onPress={() => {
-                  router.push('/verified-member');
+                  if (user?.verificationStatus === 'Verified') {
+                    setShowVerifiedSuccess(true);
+                  } else {
+                    router.push('/verified-member');
+                  }
                 }}
               >
-                {user?.verified ? (
+                {user?.verificationStatus === 'Verified' ? (
                   <>
                     <MaterialCommunityIcons name="check-decagram" size={20} color="#fff" />
                     <Text style={styles.verifyButtonText}>Verified</Text>
@@ -600,6 +606,65 @@ export default function ProfileScreen() {
               )}
             />
           </View>
+        </View>
+      </Modal>
+
+      {/* Already Verified Success Modal */}
+      <Modal
+        visible={showVerifiedSuccess}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowVerifiedSuccess(false)}
+      >
+        <View style={styles.verifiedModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowVerifiedSuccess(false)}
+          />
+          <Animated.View style={styles.verifiedModalContent}>
+            <LinearGradient
+              colors={['#f0fdf4', '#ffffff']}
+              style={styles.verifiedModalGradient}
+            >
+              <View style={styles.verifiedSuccessIcon}>
+                <MaterialCommunityIcons name="check-decagram" size={80} color={SP_GREEN} />
+                <View style={styles.verifiedIconBadge}>
+                  <MaterialCommunityIcons name="star" size={24} color="#FFD700" />
+                </View>
+              </View>
+
+              <Text style={styles.verifiedSuccessTitle}>Identity Verified!</Text>
+              <Text style={styles.verifiedSuccessSubtitle}>
+                You are a recognized member of the Samajwadi Party. Your dedication and support are highly appreciated.
+              </Text>
+
+              <View style={styles.verifiedBadgeRow}>
+                <View style={styles.verifiedInfoItem}>
+                  <MaterialCommunityIcons name="shield-check" size={20} color={SP_GREEN} />
+                  <Text style={styles.verifiedInfoText}>Official Member</Text>
+                </View>
+                <View style={styles.verifiedInfoItem}>
+                  <MaterialCommunityIcons name="medal" size={20} color="#FFB800" />
+                  <Text style={styles.verifiedInfoText}>Authentic Profile</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.verifiedCloseBtn}
+                onPress={() => setShowVerifiedSuccess(false)}
+              >
+                <LinearGradient
+                  colors={[SP_GREEN, '#15803d']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.verifiedCloseGradient}
+                >
+                  <Text style={styles.verifiedCloseText}>Great!</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </LinearGradient>
+          </Animated.View>
         </View>
       </Modal>
     </View >
@@ -1052,5 +1117,93 @@ const styles = StyleSheet.create({
   },
   languageSubNameSelected: {
     color: SP_RED,
+  },
+  // Verified Success Modal Styles
+  verifiedModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  verifiedModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 32,
+    overflow: 'hidden',
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  verifiedModalGradient: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  verifiedSuccessIcon: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  verifiedIconBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 2,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  verifiedSuccessTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#065f46',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  verifiedSuccessSubtitle: {
+    fontSize: 16,
+    color: '#065f46',
+    textAlign: 'center',
+    lineHeight: 24,
+    opacity: 0.8,
+    marginBottom: 24,
+  },
+  verifiedBadgeRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 32,
+  },
+  verifiedInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
+  },
+  verifiedInfoText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  verifiedCloseBtn: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  verifiedCloseGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  verifiedCloseText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
   },
 });

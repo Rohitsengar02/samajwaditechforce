@@ -112,6 +112,46 @@ export default function DesktopPosterEditor() {
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
     const previewRef = useRef(null);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Toast State
+    const [toastVisible, setToastVisible] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        setToastVisible(true);
+    };
+
+    const awardPoints = async (activityType: string, points: number, description: string) => {
+        try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (!userInfoStr) {
+                console.log('User not logged in, points not awarded');
+                return;
+            }
+            const userInfo = JSON.parse(userInfoStr);
+            const username = userInfo.username || userInfo.phone || userInfo.email;
+
+            const res = await fetch(`${API_URL}/points/award`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    activityType,
+                    points,
+                    description,
+                    relatedId: imageUrl && imageUrl.length === 24 ? (imageUrl as string) : undefined
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(`🎉 +${points} points for ${activityType === 'poster_create' ? 'creating' : 'sharing'} a poster!`);
+            }
+        } catch (error) {
+            console.error('Error awarding points:', error);
+        }
+    };
 
     // Footer User Photo Position State
     const [footerPhotoPosition, setFooterPhotoPosition] = useState({ x: 1, y: -180 });
@@ -500,8 +540,11 @@ export default function DesktopPosterEditor() {
 
                         const link = document.createElement('a');
                         link.href = uri;
-                        link.download = `poster - ${Date.now()}.jpg`;
+                        link.download = `poster-${Date.now()}.jpg`;
+                        document.body.appendChild(link);
                         link.click();
+                        document.body.removeChild(link);
+                        awardPoints('poster_create', 10, `Created poster: ${title || 'Untitled'}`);
                     } else {
                         // Fallback: Simple approach for basic images
                         Alert.alert('Info', 'For best results, please refresh the page. Using fallback download method.');
@@ -633,6 +676,7 @@ export default function DesktopPosterEditor() {
 
                     setShowPreviewModal(false);
                     Alert.alert('Success', 'Poster PDF downloaded successfully!');
+                    awardPoints('poster_create', 10, `Created PDF poster: ${title || 'Untitled'}`);
 
                 } catch (innerError) {
                     // Ensure cleanup on error
@@ -677,6 +721,7 @@ export default function DesktopPosterEditor() {
                                 link.click();
                                 setShowPreviewModal(false);
                                 Alert.alert('Success', 'Poster downloaded successfully!');
+                                awardPoints('poster_create', 10, `Created PNG poster: ${title || 'Untitled'}`);
                             }
                         }, 'image/png');
                     } else {
@@ -724,6 +769,7 @@ export default function DesktopPosterEditor() {
                                             title: 'Poster',
                                             text: 'Check out my poster!',
                                         });
+                                        awardPoints('poster_share', 10, `Shared poster: ${title || 'Untitled'}`);
                                         setShowPreviewModal(false);
                                     } catch (shareError) {
                                         console.log('Share cancelled or failed:', shareError);
@@ -2766,6 +2812,7 @@ export default function DesktopPosterEditor() {
                                         link.download = `poster-${Date.now()}.png`;
                                         link.click();
                                         Alert.alert('Success', 'Poster downloaded successfully!');
+                                        awardPoints('poster_create', 10, `Created poster from preview: ${title || 'Untitled'}`);
                                         setShowPreviewModal(false);
                                     }
                                 }}
@@ -2784,10 +2831,85 @@ export default function DesktopPosterEditor() {
                         </View>
                     </View>
                 </View>
-            </Modal >
-        </View >
+            </Modal>
+
+            {/* Point Award Toast */}
+            <PosterToast
+                visible={toastVisible}
+                message={toastMessage}
+                onHide={() => setToastVisible(false)}
+            />
+        </View>
     );
 }
+
+// Toast Notification Component
+const PosterToast = ({ visible, message, onHide }: any) => {
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (visible) {
+            Animated.sequence([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+                Animated.delay(2000),
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => onHide());
+        }
+    }, [visible]);
+
+    if (!visible) return null;
+
+    return (
+        <Animated.View style={[toastStyles.toastContainer, { opacity: fadeAnim }]}>
+            <LinearGradient
+                colors={['#8b5cf6', '#7c3aed']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={toastStyles.toastGradient}
+            >
+                <MaterialCommunityIcons name="star-circle" size={24} color="#fff" />
+                <Text style={toastStyles.toastText}>{message}</Text>
+            </LinearGradient>
+        </Animated.View>
+    );
+};
+
+const toastStyles = StyleSheet.create({
+    toastContainer: {
+        position: 'absolute',
+        bottom: 80,
+        left: 20,
+        right: 20,
+        zIndex: 9999,
+        alignItems: 'center',
+    },
+    toastGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 30,
+        gap: 10,
+        shadowColor: '#7c3aed',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    toastText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+});
 
 const styles = StyleSheet.create({
     container: {

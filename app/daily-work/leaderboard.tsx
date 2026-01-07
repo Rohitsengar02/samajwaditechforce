@@ -1,14 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Alert, Dimensions } from 'react-native';
-import { Text } from 'react-native-paper';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    View,
+    StyleSheet,
+    TouchableOpacity,
+    Image,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    TextInput,
+    FlatList,
+    Platform,
+    Animated,
+    StatusBar
+} from 'react-native';
+import { Text, Surface } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../../utils/api';
 
-const SP_RED = '#E30512';
 const { width } = Dimensions.get('window');
+
+const SP_RED = '#E30512';
+const SP_DARK_RED = '#8B0000';
+const SP_GOLD = '#FFD700';
+const SP_SILVER = '#E2E8F0';
+const SP_BRONZE = '#CD7F32';
 
 interface LeaderboardUser {
     _id: string;
@@ -25,17 +43,28 @@ export default function LeaderboardScreen() {
     const [leaderboardData, setLeaderboardData] = useState<LeaderboardUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showSearch, setShowSearch] = useState(false);
+
+    // Animation values
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const scrollY = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         fetchData();
+        Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+        }).start();
     }, []);
 
     const fetchData = async () => {
+        if (leaderboardData.length === 0) setLoading(true);
         try {
             const token = await AsyncStorage.getItem('userToken');
             const url = getApiUrl();
 
-            // Fetch Current User Profile to identify "You"
             const profileRes = await fetch(`${url}/auth/profile`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -44,158 +73,219 @@ export default function LeaderboardScreen() {
                 setCurrentUserId(profileData._id);
             }
 
-            // Fetch Leaderboard
             const leaderboardRes = await fetch(`${url}/auth/leaderboard`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             const data = await leaderboardRes.json();
 
             if (Array.isArray(data)) {
-                const formattedData = data.map((user: any, index: number) => ({
+                const formattedData: LeaderboardUser[] = data.map((user: any) => ({
                     _id: user._id,
                     name: user.name,
                     profileImage: user.profileImage,
-                    district: user.district || 'Unknown District',
+                    district: user.district || 'Unknown',
                     points: user.points || 0,
-                    rank: index + 1,
                     isUser: user._id === profileData._id
                 }));
+
+                formattedData.sort((a, b) => b.points - a.points);
+                formattedData.forEach((user, index) => {
+                    user.rank = index + 1;
+                });
+
                 setLeaderboardData(formattedData);
             }
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
-            Alert.alert('Error', 'Failed to load leaderboard');
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading) {
+    const filteredData = leaderboardData.filter(user =>
+        user.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const firstPlace = filteredData.find(u => u.rank === 1);
+    const secondPlace = filteredData.find(u => u.rank === 2);
+    const thirdPlace = filteredData.find(u => u.rank === 3);
+    const restOfList = filteredData.filter(u => (u.rank || 0) > 3);
+
+    const renderPodiumItem = (user: LeaderboardUser | undefined, position: 'first' | 'second' | 'third') => {
+        if (!user) return <View style={styles.podiumItem} />;
+
+        const isFirst = position === 'first';
+        const pillarHeight = isFirst ? 160 : (position === 'second' ? 120 : 90);
+        const borderColor = isFirst ? SP_GOLD : (position === 'second' ? '#CBD5E1' : SP_BRONZE);
+
         return (
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color={SP_RED} />
+            <View style={[styles.podiumItem, isFirst && styles.podiumFirst]}>
+                {isFirst && (
+                    <Animated.View style={{
+                        transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 50], outputRange: [0, -10], extrapolate: 'clamp' }) }]
+                    }}>
+                        <MaterialCommunityIcons name="crown" size={42} color={SP_GOLD} style={styles.crown} />
+                    </Animated.View>
+                )}
+
+                <View style={[styles.avatarContainer, isFirst && styles.firstAvatarContainer]}>
+                    <Surface style={[
+                        styles.podiumAvatarSurface,
+                        { borderColor: borderColor, width: isFirst ? 100 : 76, height: isFirst ? 100 : 76, borderRadius: isFirst ? 50 : 38 }
+                    ]} elevation={4}>
+                        <Image
+                            source={{ uri: user.profileImage || 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png' }}
+                            style={[
+                                styles.podiumAvatar,
+                                { width: isFirst ? 92 : 68, height: isFirst ? 92 : 68, borderRadius: isFirst ? 46 : 34 }
+                            ]}
+                        />
+                    </Surface>
+                    <LinearGradient
+                        colors={[borderColor, isFirst ? '#9A7B0C' : '#475569']}
+                        style={[styles.rankBadge, { backgroundColor: borderColor }]}
+                    >
+                        <Text style={styles.rankBadgeText}>{user.rank}</Text>
+                    </LinearGradient>
+                </View>
+
+                <Text style={[styles.podiumName, isFirst && styles.podiumNameFirst]} numberOfLines={1}>{user.name}</Text>
+
+                <View style={styles.podiumPointsRow}>
+                    <MaterialCommunityIcons name="fire" size={14} color={SP_GOLD} />
+                    <Text style={[styles.podiumPoints, isFirst && styles.firstPoints]}>{user.points}</Text>
+                    <Text style={[styles.ptsLabelPodium, isFirst && { fontSize: 10 }]}> pts</Text>
+                </View>
+
+                <LinearGradient
+                    colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.05)']}
+                    style={[styles.podiumPillar, { height: pillarHeight }]}
+                />
             </View>
         );
-    }
-
-    const firstPlace = leaderboardData[0];
-    const secondPlace = leaderboardData[1];
-    const thirdPlace = leaderboardData[2];
-    const restOfList = leaderboardData.slice(3);
+    };
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" />
             <LinearGradient
-                colors={[SP_RED, '#b91c1c', '#991b1b']}
-                style={styles.header}
+                colors={[SP_RED, SP_DARK_RED]}
+                style={styles.headerBackground}
             >
-                <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+                <View style={[styles.navBar, { paddingTop: Platform.OS === 'ios' ? 60 : 30 }]}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.glassButton}>
+                        <MaterialCommunityIcons name="chevron-left" size={28} color="#fff" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Leaderboard</Text>
-                    <View style={{ width: 40 }} />
+
+                    {!showSearch ? (
+                        <Text style={styles.headerTitle}>Leaderboard</Text>
+                    ) : (
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search leaders..."
+                            placeholderTextColor="rgba(255,255,255,0.6)"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            autoFocus
+                        />
+                    )}
+
+                    <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={styles.glassButton}>
+                        <MaterialCommunityIcons name={showSearch ? "close" : "magnify"} size={24} color="#fff" />
+                    </TouchableOpacity>
                 </View>
 
+
+
                 <View style={styles.podiumContainer}>
-                    {/* Second Place */}
-                    <View style={[styles.podiumItem, styles.podiumSecond]}>
-                        {secondPlace ? (
-                            <>
-                                <View style={styles.avatarContainer}>
-                                    <Image
-                                        source={{ uri: secondPlace.profileImage || 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png' }}
-                                        style={styles.podiumAvatar}
-                                    />
-                                    <View style={[styles.rankBadge, { backgroundColor: '#C0C0C0' }]}>
-                                        <Text style={styles.rankBadgeText}>2</Text>
-                                    </View>
-                                </View>
-                                <Text style={styles.podiumName} numberOfLines={1}>{secondPlace.name}</Text>
-                                <Text style={styles.podiumPoints}>{secondPlace.points} pts</Text>
-                                <View style={[styles.podiumBar, { height: 100, backgroundColor: 'rgba(255,255,255,0.15)' }]} />
-                            </>
-                        ) : <View style={{ height: 140 }} />}
-                    </View>
-
-                    {/* First Place */}
-                    <View style={[styles.podiumItem, styles.podiumFirst]}>
-                        {firstPlace ? (
-                            <>
-                                <MaterialCommunityIcons name="crown" size={32} color="#FFD700" style={styles.crown} />
-                                <View style={[styles.avatarContainer, styles.avatarFirstContainer]}>
-                                    <Image
-                                        source={{ uri: firstPlace.profileImage || 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png' }}
-                                        style={[styles.podiumAvatar, styles.avatarFirst]}
-                                    />
-                                    <View style={[styles.rankBadge, { backgroundColor: '#FFD700', bottom: -5 }]}>
-                                        <Text style={styles.rankBadgeText}>1</Text>
-                                    </View>
-                                </View>
-                                <Text style={[styles.podiumName, styles.nameFirst]} numberOfLines={1}>{firstPlace.name}</Text>
-                                <Text style={[styles.podiumPoints, styles.pointsFirst]}>{firstPlace.points} pts</Text>
-                                <View style={[styles.podiumBar, { height: 130, backgroundColor: 'rgba(255,255,255,0.25)' }]} />
-                            </>
-                        ) : <View style={{ height: 160 }} />}
-                    </View>
-
-                    {/* Third Place */}
-                    <View style={[styles.podiumItem, styles.podiumThird]}>
-                        {thirdPlace ? (
-                            <>
-                                <View style={styles.avatarContainer}>
-                                    <Image
-                                        source={{ uri: thirdPlace.profileImage || 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png' }}
-                                        style={styles.podiumAvatar}
-                                    />
-                                    <View style={[styles.rankBadge, { backgroundColor: '#CD7F32' }]}>
-                                        <Text style={styles.rankBadgeText}>3</Text>
-                                    </View>
-                                </View>
-                                <Text style={styles.podiumName} numberOfLines={1}>{thirdPlace.name}</Text>
-                                <Text style={styles.podiumPoints}>{thirdPlace.points} pts</Text>
-                                <View style={[styles.podiumBar, { height: 80, backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-                            </>
-                        ) : <View style={{ height: 120 }} />}
-                    </View>
+                    {renderPodiumItem(secondPlace, 'second')}
+                    {renderPodiumItem(firstPlace, 'first')}
+                    {renderPodiumItem(thirdPlace, 'third')}
                 </View>
             </LinearGradient>
 
-            <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-                {restOfList.map((user) => (
-                    <View key={user._id} style={[styles.rankRow, user.isUser && styles.userRow]}>
-                        <View style={styles.rankNumberContainer}>
-                            <Text style={[styles.rankNumber, user.rank && user.rank <= 10 ? styles.topRank : null]}>
-                                #{user.rank}
-                            </Text>
-                        </View>
+            <Animated.View style={[styles.listWrapper, { opacity: fadeAnim }]}>
+                <FlatList
+                    data={restOfList}
+                    keyExtractor={item => item._id}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.listContent}
+                    onScroll={Animated.event(
+                        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                        { useNativeDriver: false }
+                    )}
+                    renderItem={({ item, index }) => (
+                        <TouchableOpacity activeOpacity={0.9}>
+                            <Surface style={[styles.rankRow, item.isUser && styles.userRowSurface]} elevation={item.isUser ? 4 : 1}>
+                                <View style={styles.rankNumberCircle}>
+                                    <Text style={styles.rankNumberText}>{item.rank}</Text>
+                                </View>
 
+                                <View style={styles.avatarWrapper}>
+                                    <Image
+                                        source={{ uri: item.profileImage || 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png' }}
+                                        style={styles.listAvatar}
+                                    />
+                                    {item.rank && item.rank <= 10 && (
+                                        <View style={styles.topTenBadge}>
+                                            <MaterialCommunityIcons name="star" size={10} color={SP_GOLD} />
+                                        </View>
+                                    )}
+                                </View>
+
+                                <View style={styles.userInfo}>
+                                    <Text style={styles.userName} numberOfLines={1}>
+                                        {item.name}
+                                    </Text>
+                                    <Text style={styles.userDistrict}>{item.district}</Text>
+                                </View>
+
+                                <View style={styles.pointsAction}>
+                                    <Text style={styles.listScore}>{item.points}</Text>
+                                    <Text style={styles.ptsLabelList}>pts</Text>
+                                </View>
+                            </Surface>
+                        </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={
+                        !loading ? (
+                            <View style={styles.emptyState}>
+                                <MaterialCommunityIcons name="trophy-outline" size={80} color="#E2E8F0" />
+                                <Text style={styles.emptyText}>Keep participating to climb the ranks!</Text>
+                            </View>
+                        ) : (
+                            <ActivityIndicator color={SP_RED} style={{ marginTop: 40 }} />
+                        )
+                    }
+                />
+            </Animated.View>
+
+            {/* Sticky bottom for current user if not in view (Rank 30+) - Improved UI */}
+            {currentUserId && !filteredData.slice(0, 10).some(u => u._id === currentUserId) && (
+                <Surface style={styles.currentUserSticky} elevation={5}>
+                    <LinearGradient
+                        colors={[SP_RED, SP_DARK_RED]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.stickyGradient}
+                    >
+                        <Text style={styles.rankNumberSticky}>
+                            #{leaderboardData.find(u => u._id === currentUserId)?.rank || 'N/A'}
+                        </Text>
                         <Image
-                            source={{ uri: user.profileImage || 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png' }}
-                            style={styles.listAvatar}
+                            source={{ uri: leaderboardData.find(u => u._id === currentUserId)?.profileImage || 'https://cdn.7boats.com/academy/wp-content/uploads/2022/02/avatar-new.png' }}
+                            style={styles.stickyAvatar}
                         />
-
-                        <View style={styles.userInfo}>
-                            <Text style={[styles.userName, user.isUser && styles.userText]} numberOfLines={1}>
-                                {user.name} {user.isUser && '(You)'}
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                            <Text style={styles.stickyName}>Your Standing</Text>
+                            <Text style={styles.stickyPoints}>
+                                {leaderboardData.find(u => u._id === currentUserId)?.points || 0} Points
                             </Text>
-                            <Text style={styles.userDistrict} numberOfLines={1}>{user.district}</Text>
                         </View>
-
-                        <View style={styles.pointsContainer}>
-                            <Text style={styles.userPoints}>{user.points}</Text>
-                            <Text style={styles.ptsLabel}>pts</Text>
-                        </View>
-                    </View>
-                ))}
-
-                {leaderboardData.length === 0 && (
-                    <View style={styles.emptyState}>
-                        <MaterialCommunityIcons name="trophy-outline" size={64} color="#cbd5e1" />
-                        <Text style={styles.emptyText}>No participants yet</Text>
-                    </View>
-                )}
-            </ScrollView>
+                        <MaterialCommunityIcons name="chevron-up" size={24} color="#fff" />
+                    </LinearGradient>
+                </Surface>
+            )}
         </View>
     );
 }
@@ -203,91 +293,108 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8fafc',
+        backgroundColor: '#F8FAFC',
     },
-    header: {
-        paddingTop: 60,
+    headerBackground: {
         paddingBottom: 20,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
+        borderBottomLeftRadius: 40,
+        borderBottomRightRadius: 40,
+        zIndex: 10,
     },
-    headerTop: {
+    navBar: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: 20,
-        marginBottom: 30,
-    },
-    backButton: {
-        padding: 8,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 12,
+        paddingBottom: 40,
     },
     headerTitle: {
         fontSize: 24,
-        fontWeight: '800',
+        fontWeight: '900',
         color: '#fff',
+        letterSpacing: 0.5,
+    },
+    glassButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    searchInput: {
+        flex: 1,
+        height: 44,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 22,
+        paddingHorizontal: 20,
+        marginHorizontal: 15,
+        color: '#fff',
+        fontSize: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
     },
     podiumContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'flex-end',
-        gap: 12,
-        paddingHorizontal: 10,
         height: 240,
+        paddingHorizontal: 15,
+        gap: 10,
+        marginTop: 70,
     },
     podiumItem: {
         alignItems: 'center',
-        width: width / 3.5,
+        width: width / 3.6,
         justifyContent: 'flex-end',
     },
     podiumFirst: {
-        marginBottom: 0,
+        paddingBottom: 0,
         zIndex: 10,
     },
-    podiumSecond: {
-        marginBottom: 0,
-    },
-    podiumThird: {
-        marginBottom: 0,
+    podiumPillar: {
+        width: '90%',
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        borderTopLeftRadius: 15,
+        borderTopRightRadius: 15,
+        marginTop: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
     crown: {
-        marginBottom: -12,
+        marginBottom: -15,
         zIndex: 20,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 5 }
     },
     avatarContainer: {
         position: 'relative',
         marginBottom: 8,
         alignItems: 'center',
     },
-    avatarFirstContainer: {
+    firstAvatarContainer: {
         marginBottom: 12,
     },
-    podiumAvatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+    podiumAvatarSurface: {
         borderWidth: 3,
-        borderColor: '#fff',
-        backgroundColor: '#e2e8f0',
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#fff',
     },
-    avatarFirst: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        borderWidth: 4,
-        borderColor: '#FFD700',
+    podiumAvatar: {
+        backgroundColor: '#F1F5F9',
     },
     rankBadge: {
         position: 'absolute',
         bottom: -8,
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
@@ -295,123 +402,180 @@ const styles = StyleSheet.create({
     },
     rankBadgeText: {
         color: '#fff',
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: 'bold',
     },
     podiumName: {
         color: 'rgba(255,255,255,0.9)',
-        fontSize: 13,
-        fontWeight: '600',
-        marginBottom: 2,
-        textAlign: 'center',
-    },
-    nameFirst: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#fff',
-    },
-    podiumPoints: {
-        color: 'rgba(255,255,255,0.8)',
         fontSize: 12,
         fontWeight: '700',
-        marginBottom: 8,
+        marginBottom: 4,
+        textAlign: 'center',
     },
-    pointsFirst: {
-        fontSize: 14,
-        color: '#FFD700',
+    podiumNameFirst: {
+        fontSize: 15,
+        color: '#fff',
+        textShadowColor: 'rgba(0,0,0,0.3)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
     },
-    podiumBar: {
-        width: '100%',
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
+    podiumPointsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.2)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
     },
-    listContainer: {
+    podiumPoints: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '900',
+        marginLeft: 4,
+    },
+    firstPoints: {
+        fontSize: 16,
+        color: SP_GOLD,
+    },
+    ptsLabelPodium: {
+        fontSize: 9,
+        color: 'rgba(255,255,255,0.6)',
+        fontWeight: '600',
+    },
+    listWrapper: {
         flex: 1,
-        marginTop: -20,
+        marginTop: -30,
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 35,
+        borderTopRightRadius: 35,
         paddingTop: 20,
     },
     listContent: {
         paddingHorizontal: 20,
-        paddingBottom: 40,
+        paddingBottom: 100,
     },
     rankRow: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#fff',
-        padding: 12,
-        borderRadius: 16,
-        marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-        borderWidth: 1,
-        borderColor: '#f1f5f9',
+        padding: 15,
+        borderRadius: 20,
+        marginBottom: 15,
     },
-    userRow: {
-        borderWidth: 2,
+    userRowSurface: {
+        borderWidth: 1.5,
         borderColor: SP_RED,
-        backgroundColor: '#fff1f2',
+        backgroundColor: '#FFF5F5',
     },
-    rankNumberContainer: {
-        width: 40,
+    rankNumberCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#F1F5F9',
         alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 15,
     },
-    rankNumber: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#94a3b8',
+    rankNumberText: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#64748B',
     },
-    topRank: {
-        color: '#1e293b',
-        fontWeight: '900',
+    avatarWrapper: {
+        position: 'relative',
     },
     listAvatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        marginRight: 12,
-        backgroundColor: '#f1f5f9',
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        marginRight: 15,
+        backgroundColor: '#F1F5F9',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    topTenBadge: {
+        position: 'absolute',
+        top: -3,
+        right: 12,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 2,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
     },
     userInfo: {
         flex: 1,
     },
     userName: {
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: '700',
-        color: '#1e293b',
-        marginBottom: 2,
-    },
-    userText: {
-        color: SP_RED,
+        color: '#1E293B',
     },
     userDistrict: {
-        fontSize: 12,
-        color: '#64748b',
+        fontSize: 13,
+        color: '#64748B',
+        marginTop: 2,
     },
-    pointsContainer: {
+    pointsAction: {
         alignItems: 'flex-end',
-        minWidth: 60,
     },
-    userPoints: {
-        fontSize: 16,
-        fontWeight: '800',
+    listScore: {
+        fontSize: 18,
+        fontWeight: '900',
         color: SP_RED,
     },
-    ptsLabel: {
-        fontSize: 10,
-        color: '#64748b',
+    ptsLabelList: {
+        fontSize: 11,
+        color: '#94A3B8',
         fontWeight: '600',
     },
     emptyState: {
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 40,
+        marginTop: 60,
     },
     emptyText: {
-        color: '#94a3b8',
+        color: '#94A3B8',
         fontSize: 16,
-        marginTop: 12,
+        fontWeight: '600',
+        marginTop: 15,
+        textAlign: 'center',
+    },
+    currentUserSticky: {
+        position: 'absolute',
+        bottom: 25,
+        left: 20,
+        right: 20,
+        borderRadius: 25,
+        overflow: 'hidden',
+    },
+    stickyGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 15,
+        paddingHorizontal: 20,
+    },
+    rankNumberSticky: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: '#fff',
+        width: 45,
+    },
+    stickyAvatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.5)',
+    },
+    stickyName: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    stickyPoints: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '900',
     },
 });

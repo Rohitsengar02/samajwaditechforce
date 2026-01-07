@@ -137,6 +137,7 @@ export default function PosterEditor() {
 
     // Bottom Bar Template Modal State
     const [showBottomBarModal, setShowBottomBarModal] = useState(false);
+    const [isCapturing, setIsCapturing] = useState(false);
     const [selectedBottomBarTemplate, setSelectedBottomBarTemplate] = useState(TEMPLATES[0].id);
     const [bottomBarDetails, setBottomBarDetails] = useState({
         name: 'Your Name',
@@ -148,6 +149,47 @@ export default function PosterEditor() {
         photo: null as string | null,
         photoNoBg: null as string | null,
     });
+
+    // Toast State
+    const [toastVisible, setToastVisible] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        setToastVisible(true);
+    };
+
+    const awardPoints = async (activityType: string, points: number, description: string) => {
+        try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (!userInfoStr) {
+                console.log('User not logged in, points not awarded');
+                return;
+            }
+            const userInfo = JSON.parse(userInfoStr);
+            const userId = userInfo._id || userInfo.id;
+            const username = userInfo.username || userInfo.phone || userInfo.email;
+
+            const res = await fetch(`${API_URL}/points/award`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    activityType,
+                    points,
+                    description,
+                    relatedId: imageUrl && imageUrl.length === 24 ? imageUrl : undefined
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(`🎉 +${points} points for ${activityType === 'poster_create' ? 'creating' : 'sharing'} a poster!`);
+            }
+        } catch (error) {
+            console.error('Error awarding points:', error);
+        }
+    };
+
     const [showBottomBarEditForm, setShowBottomBarEditForm] = useState(false);
     const [showCustomizationModal, setShowCustomizationModal] = useState(false);
 
@@ -791,6 +833,7 @@ export default function PosterEditor() {
                         document.body.removeChild(link);
 
                         Alert.alert('Success', 'Poster downloaded successfully!');
+                        awardPoints('poster_create', 10, `Created poster on web: ${posterName}`);
                     } else {
                         throw new Error('html2canvas failed to load');
                     }
@@ -803,12 +846,14 @@ export default function PosterEditor() {
 
                     if (action === 'share') {
                         await Sharing.shareAsync(uri);
+                        awardPoints('poster_share', 10, `Shared poster: ${posterName}`);
                     } else {
                         // Save to Gallery
                         const { status } = await MediaLibrary.requestPermissionsAsync(true);
                         if (status === 'granted') {
                             await MediaLibrary.saveToLibraryAsync(uri);
                             Alert.alert('Success', 'Poster saved to gallery!');
+                            awardPoints('poster_create', 10, `Created poster: ${posterName}`);
                         } else {
                             Alert.alert('Permission Required', 'Please grant permission to save photos to your gallery.');
                         }
@@ -848,157 +893,88 @@ export default function PosterEditor() {
         }
     };
 
-    const handleDownloadPDF = async () => {
+    const handleDownloadImage = async () => {
         try {
-            setSelectedElementId(null); // Deselect before saving to hide border
-            setIsSaving(true);
+            // 1. Check Permissions first (Mobile)
+            if (Platform.OS !== 'web') {
+                const { status } = await MediaLibrary.requestPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Permission Required', 'Please grant permission to save the poster to your gallery.');
+                    return;
+                }
+            }
 
-            // Wait for state updates and images to fully load
-            await new Promise(resolve => setTimeout(resolve, 800));
+            setSelectedElementId(null); // Deselect to hide borders
+            setIsSaving(true);
+            setIsCapturing(true); // Enable capture mode for smaller fonts
+
+            // Wait for UI to update
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             if (Platform.OS === 'web') {
-                // For web, use html2pdf.js for high quality HTML to PDF conversion
+                // WEB: High Quality Download
                 const canvasElement = canvasRef.current as any;
-                if (!canvasElement) {
-                    throw new Error('Canvas ref not found');
-                }
+                if (!canvasElement) throw new Error('Canvas not found');
 
-                // Load html2pdf library dynamically
-                if (!(window as any).html2pdf) {
-                    console.log('Loading html2pdf from CDN...');
+                // Load html2canvas dynamically
+                if (typeof window !== 'undefined' && !(window as any).html2canvas) {
                     await new Promise((resolve, reject) => {
                         const script = document.createElement('script');
-                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+                        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
                         script.onload = resolve;
                         script.onerror = reject;
                         document.head.appendChild(script);
                     });
                 }
 
-                if ((window as any).html2pdf) {
-                    const html2pdf = (window as any).html2pdf;
+                const html2canvas = (window as any).html2canvas;
+                const canvas = await html2canvas(canvasElement, {
+                    useCORS: true,
+                    allowTaint: false,
+                    backgroundColor: null,
+                    scale: 4, // 4x Resolution for Web
+                    logging: false,
+                });
 
-                    // Calculate optimal PDF dimensions based on canvas
-                    const aspectRatio = canvasSize.h / canvasSize.w;
-                    let pdfWidth = 210; // A4 width in mm
-                    let pdfHeight = pdfWidth * aspectRatio;
+                const uri = canvas.toDataURL('image/jpeg', 1.0);
 
-                    // Adjust if height exceeds A4
-                    if (pdfHeight > 297) { // A4 height in mm
-                        pdfHeight = 297;
-                        pdfWidth = pdfHeight / aspectRatio;
-                    }
+                // Trigger Download
+                const link = document.createElement('a');
+                link.href = uri;
+                link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}-poster.jpg`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
 
-                    // Configure html2pdf options for maximum quality
-                    const opt = {
-                        margin: 0,
-                        filename: `${posterName.replace(/\s+/g, '-').toLowerCase()}-hq.pdf`,
-                        image: {
-                            type: 'jpeg',
-                            quality: 1.0  // Maximum quality
-                        },
-                        html2canvas: {
-                            scale: 4,  // Very high scale for maximum quality (4x resolution)
-                            useCORS: true,
-                            allowTaint: false,
-                            backgroundColor: null,
-                            logging: false,
-                            letterRendering: true,
-                        },
-                        jsPDF: {
-                            unit: 'mm',
-                            format: [pdfWidth, pdfHeight],
-                            orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
-                            compress: false  // Don't compress for maximum quality
-                        },
-                        pagebreak: { mode: 'avoid-all' }
-                    };
+                Alert.alert('Success', 'Poster downloaded successfully!');
+                awardPoints('poster_create', 10, `Created poster on web: ${posterName}`);
 
-                    // Generate and download PDF
-                    await html2pdf().set(opt).from(canvasElement).save();
-
-                    Alert.alert('Success', 'High-quality PDF downloaded successfully!');
-                } else {
-                    throw new Error('html2pdf failed to load');
-                }
             } else {
-                // For mobile, use captureRef with high quality
-                const imageDataUri = await captureRef(canvasRef, {
-                    format: 'png',
+                // MOBILE: Capture and Save to Gallery
+                const uri = await captureRef(canvasRef, {
+                    format: 'jpg',
                     quality: 1.0,
-                    result: 'data-uri',
+                    result: 'tmpfile',
                 });
 
-                // Calculate PDF dimensions based on canvas size
-                const aspectRatio = canvasSize.h / canvasSize.w;
-                let pdfWidth = 595; // A4 width in points
-                let pdfHeight = pdfWidth * aspectRatio;
+                // Move to document directory (Optional, but good practice per your snippet implies usage of file system)
+                // However, saveToLibraryAsync works with tmpfile too. 
+                // We will save directly to library for "Expo App (Easy & Safe)" approach.
 
-                // If height exceeds A4, scale down
-                if (pdfHeight > 842) { // A4 height in points
-                    pdfHeight = 842;
-                    pdfWidth = pdfHeight / aspectRatio;
-                }
-
-                // Create HTML content for PDF with the captured image
-                const htmlContent = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="utf-8">
-                        <style>
-                            * {
-                                margin: 0;
-                                padding: 0;
-                                box-sizing: border-box;
-                            }
-                            body {
-                                width: 100%;
-                                height: 100%;
-                                display: flex;
-                                justify-content: center;
-                                align-items: center;
-                            }
-                            img {
-                                max-width: 100%;
-                                max-height: 100%;
-                                object-fit: contain;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <img src="${imageDataUri}" alt="Poster" />
-                    </body>
-                    </html>
-                `;
-
-                // Generate PDF using expo-print
-                const { uri } = await Print.printToFileAsync({
-                    html: htmlContent,
-                    width: pdfWidth,
-                    height: pdfHeight,
-                });
-
-                // Share or save the PDF
-                if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(uri, {
-                        mimeType: 'application/pdf',
-                        dialogTitle: `${posterName} - High Quality PDF`,
-                        UTI: 'com.adobe.pdf'
-                    });
-                    Alert.alert('Success', 'PDF generated and ready to share!');
-                } else {
-                    Alert.alert('Success', `PDF saved at: ${uri}`);
-                }
+                await MediaLibrary.saveToLibraryAsync(uri);
+                Alert.alert('Success', 'Poster saved to gallery!');
+                awardPoints('poster_create', 10, `Created poster: ${posterName}`);
             }
 
         } catch (error: any) {
-            console.error('PDF generation error:', error);
-            Alert.alert('Error', `Failed to generate PDF: ${error?.message || 'Unknown error'}`);
+            console.error('Download error:', error);
+            Alert.alert('Error', `Failed to save poster: ${error?.message}`);
         } finally {
             setIsSaving(false);
+            setIsCapturing(false); // Disable capture mode
         }
     };
+
 
 
 
@@ -1163,14 +1139,25 @@ export default function PosterEditor() {
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{posterName}</Text>
 
-                {/* Download PDF Button */}
-                <TouchableOpacity
-                    onPress={handleDownloadPDF}
-                    style={styles.saveButton}
-                >
-                    <MaterialCommunityIcons name="file-pdf-box" size={18} color="#fff" style={{ marginRight: 4 }} />
-                    <Text style={styles.saveButtonText}>Download PDF</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {/* Share Button */}
+                    <TouchableOpacity
+                        onPress={() => handleSave('share')}
+                        style={[styles.saveButton, { backgroundColor: '#16a34a' }]}
+                    >
+                        <MaterialCommunityIcons name="share-variant" size={18} color="#fff" style={{ marginRight: 4 }} />
+                        <Text style={styles.saveButtonText}>Share</Text>
+                    </TouchableOpacity>
+
+                    {/* Save Poster Button */}
+                    <TouchableOpacity
+                        onPress={handleDownloadImage}
+                        style={styles.saveButton}
+                    >
+                        <MaterialCommunityIcons name="download" size={18} color="#fff" style={{ marginRight: 4 }} />
+                        <Text style={styles.saveButtonText}>Save</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Main Canvas Area */}
@@ -1196,6 +1183,7 @@ export default function PosterEditor() {
                     >
                         <View
                             ref={canvasRef}
+                            collapsable={false}
                             style={[
                                 styles.canvas,
                                 { height: canvasSize.h, width: canvasSize.w }
@@ -1236,12 +1224,18 @@ export default function PosterEditor() {
                                     maxHeight: canvasSize.h * 0.25,
                                     width: '100%',
                                     zIndex: 10,
+                                    overflow: 'visible',
                                 }}>
                                 <RenderBottomBar
                                     template={selectedBottomBarTemplate}
                                     details={bottomBarDetails}
                                     width={canvasSize.w}
-                                    customization={frameCustomization}
+                                    customization={isCapturing ? {
+                                        ...frameCustomization,
+                                        nameFontSize: (frameCustomization.nameFontSize || 16) * 0.75,
+                                        designationFontSize: (frameCustomization.designationFontSize || 12) * 0.8,
+                                        addressFontSize: 9,
+                                    } : frameCustomization}
                                     photoPosition={footerPhotoPosition}
                                     isPhotoFlipped={isPhotoFlipped}
                                 />
@@ -2705,6 +2699,7 @@ export default function PosterEditor() {
                                         link.click();
                                         document.body.removeChild(link);
                                         Alert.alert('Success', 'HD Poster downloaded successfully!');
+                                        awardPoints('poster_create', 10, `Created HD poster on web: ${posterName}`);
                                         setShowPreviewModal(false);
                                     } else {
                                         // Mobile: Save HD image
@@ -2714,6 +2709,7 @@ export default function PosterEditor() {
                                                 if (status === 'granted') {
                                                     await MediaLibrary.saveToLibraryAsync(previewImageUri);
                                                     Alert.alert('Success', 'HD Poster saved to gallery!');
+                                                    awardPoints('poster_create', 10, `Created HD poster: ${posterName}`);
                                                     setShowPreviewModal(false);
                                                 } else {
                                                     Alert.alert('Permission Required', 'Please grant permission to save photos.');
@@ -2734,7 +2730,7 @@ export default function PosterEditor() {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* PDF Download Button */}
+                        {/* Save Image Button */}
                         <TouchableOpacity
                             style={{
                                 flexDirection: 'row',
@@ -2747,12 +2743,12 @@ export default function PosterEditor() {
                             }}
                             onPress={() => {
                                 setShowPreviewModal(false);
-                                handleDownloadPDF();
+                                handleDownloadImage();
                             }}
                         >
-                            <MaterialCommunityIcons name="file-pdf-box" size={20} color="#fff" />
+                            <MaterialCommunityIcons name="download" size={20} color="#fff" />
                             <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-                                Download PDF
+                                Save Poster
                             </Text>
                         </TouchableOpacity>
 
@@ -2774,6 +2770,7 @@ export default function PosterEditor() {
                                     if (previewImageUri) {
                                         try {
                                             await Sharing.shareAsync(previewImageUri);
+                                            awardPoints('poster_share', 10, `Shared poster: ${posterName}`);
                                         } catch (error) {
                                             console.error('Share error:', error);
                                             Alert.alert('Error', 'Failed to share poster');
@@ -2948,6 +2945,74 @@ export default function PosterEditor() {
     );
 }
 
+// Toast Notification Component
+const PosterToast = ({ visible, message, onHide }: any) => {
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (visible) {
+            Animated.sequence([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+                Animated.delay(2000),
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => onHide());
+        }
+    }, [visible]);
+
+    if (!visible) return null;
+
+    return (
+        <Animated.View style={[toastStyles.toastContainer, { opacity: fadeAnim }]}>
+            <LinearGradient
+                colors={['#8b5cf6', '#7c3aed']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={toastStyles.toastGradient}
+            >
+                <MaterialCommunityIcons name="star-circle" size={24} color="#fff" />
+                <Text style={toastStyles.toastText}>{message}</Text>
+            </LinearGradient>
+        </Animated.View>
+    );
+};
+
+const toastStyles = StyleSheet.create({
+    toastContainer: {
+        position: 'absolute',
+        bottom: 120,
+        left: 20,
+        right: 20,
+        zIndex: 9999,
+        alignItems: 'center',
+    },
+    toastGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 30,
+        gap: 10,
+        shadowColor: '#7c3aed',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    toastText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+});
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -2995,13 +3060,14 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
     },
     canvas: {
-        backgroundColor: SP_RED,
+        backgroundColor: '#ffffff',
         elevation: 5,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
         position: 'relative',
+        overflow: 'visible',
     },
     baseImage: {
         width: '100%',

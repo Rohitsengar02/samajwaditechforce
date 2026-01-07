@@ -495,7 +495,7 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             </View>
 
             {/* Content Layer (Top - Above Frame) */}
-            <View style={{ position: 'absolute', left: '20%', top: -10, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '20%', top: -20, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
                     <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
                     <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
@@ -511,8 +511,8 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             </View>
 
             {/* Address at Bottom of Frame */}
-            <View style={{ position: 'absolute', bottom: 24, left: 80, right: 5, zIndex: 20 }}>
-                <Text style={[styles.textBold, { fontSize: 10, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
+            <View style={{ position: 'absolute', bottom: 32, left: 80, right: 10, zIndex: 20 }}>
+                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
             </View>
@@ -550,7 +550,7 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             </View>
 
             {/* Content Layer (Top - Above Frame) - LEFT ALIGNED */}
-            <View style={{ position: 'absolute', left: '25%', top: -1, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '25%', top: -11, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
                     <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
                     <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
@@ -566,8 +566,8 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             </View>
 
             {/* Address at Bottom of Frame */}
-            <View style={{ position: 'absolute', bottom: 25, left: 100, right: 5, zIndex: 20 }}>
-                <Text style={[styles.textBold, { fontSize: 10, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
+            <View style={{ position: 'absolute', bottom: 32, left: 100, right: 10, zIndex: 20 }}>
+                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
             </View>
@@ -605,7 +605,7 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             </View>
 
             {/* Content Layer (Top - Above Frame) - LEFT ALIGNED */}
-            <View style={{ position: 'absolute', left: '25%', top: -35, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '25%', top: -45, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
                     <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
                     <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
@@ -621,8 +621,8 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             </View>
 
             {/* Address at Bottom of Frame */}
-            <View style={{ position: 'absolute', bottom: 25, left: 99, right: 5, zIndex: 20 }}>
-                <Text style={[styles.textBold, { fontSize: 11, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>
+            <View style={{ position: 'absolute', bottom: 36, left: 99, right: 10, zIndex: 20 }}>
+                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
             </View>
@@ -780,8 +780,8 @@ export const RenderBottomBar = renderTemplate;
 
 const styles = StyleSheet.create({
     bottomBar: {
-        borderRadius: 12,
-        overflow: 'hidden',
+        borderRadius: 0,
+        overflow: 'visible',
         justifyContent: 'center',
     },
     photoContainer: {

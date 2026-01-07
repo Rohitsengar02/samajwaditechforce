@@ -229,7 +229,7 @@ export default function VerifiedMemberScreen() {
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
                     {/* Verification Status Badge */}
-                    {user?.verified && (
+                    {user?.verificationStatus === 'Verified' && (
                         <Card style={[styles.card, styles.verifiedCard]}>
                             <Card.Content>
                                 <View style={styles.verifiedBadge}>
@@ -245,7 +245,7 @@ export default function VerifiedMemberScreen() {
                         </Card>
                     )}
 
-                    {user?.verificationStatus === 'pending' && !user?.verified && (
+                    {user?.verificationStatus === 'Pending' && user?.verificationStatus !== 'Verified' && (
                         <Card style={[styles.card, styles.pendingCard]}>
                             <Card.Content>
                                 <View style={styles.verifiedBadge}>
