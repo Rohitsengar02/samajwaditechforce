@@ -538,7 +538,7 @@ export default function ProfileScreen() {
             <View style={styles.footer}>
               <MaterialCommunityIcons name="bicycle" size={32} color="#cbd5e1" />
               <Text style={styles.footerText}>साइकिल चलाओ देश बचाओ</Text>
-              <Text style={styles.footerSubtext}>Samajwadi Party © 2024</Text>
+              <Text style={styles.footerSubtext}>Samajwadi Tech Force © 2024</Text>
             </View>
           </View>
         </Animated.View >
@@ -636,7 +636,7 @@ export default function ProfileScreen() {
 
               <Text style={styles.verifiedSuccessTitle}>Identity Verified!</Text>
               <Text style={styles.verifiedSuccessSubtitle}>
-                You are a recognized member of the Samajwadi Party. Your dedication and support are highly appreciated.
+                You are a recognized member of the Samajwadi Tech Force. Your dedication and support are highly appreciated.
               </Text>
 
               <View style={styles.verifiedBadgeRow}>
