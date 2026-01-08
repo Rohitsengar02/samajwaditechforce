@@ -27,3 +27,13 @@ export const getApiUrl = () => {
     // 3. In Production (EAS Build / Release), default to Render URL
     return 'https://api-samajwaditechforce.onrender.com/api';
 };
+
+export const getBaseUrl = () => {
+    const apiUrl = getApiUrl();
+    if (apiUrl.includes('localhost')) {
+        // Use production URL for sharing links even in local dev
+        // so that WhatsApp/social media can reach the preview page
+        return 'https://api-samajwaditechforce.onrender.com';
+    }
+    return apiUrl.replace(/\/api\/?$/, '');
+};

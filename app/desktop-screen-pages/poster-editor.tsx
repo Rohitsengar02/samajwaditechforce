@@ -23,7 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { captureRef } from 'react-native-view-shot';
 import { removeBackground as imglyRemoveBackground } from '../../utils/backgroundRemovalBuildora';
-import { getApiUrl } from '../../utils/api';
+import { getApiUrl, getBaseUrl } from '../../utils/api';
 import { TEMPLATES, RenderBottomBar } from '../../components/posteredit/BottomBarTemplates';
 import FrameSelector from '../../components/posteredit/FrameSelector';
 import * as Print from 'expo-print';
@@ -39,6 +39,7 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 const BANNER_HEIGHT = 80;
 const API_URL = getApiUrl();
+const BASE_URL = getBaseUrl();
 
 import DesktopHeader from '../../components/DesktopHeader';
 
@@ -178,6 +179,10 @@ export default function DesktopPosterEditor() {
 
     // State for footer photo BG removal
     const [isRemovingFooterPhotoBg, setIsRemovingFooterPhotoBg] = useState(false);
+    const [showBgWaitModal, setShowBgWaitModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [isUploadingForShare, setIsUploadingForShare] = useState(false);
+    const [sharedImageUrl, setSharedImageUrl] = useState<string | null>(null);
 
     // Remove Background from Footer User Photo
     // Remove Background from Footer User Photo
@@ -544,6 +549,10 @@ export default function DesktopPosterEditor() {
 
 
     const handleSave = async () => {
+        if (isRemovingFooterPhotoBg) {
+            setShowBgWaitModal(true);
+            return;
+        }
         try {
             setSelectedElementId(null);
             setTimeout(async () => {
@@ -602,6 +611,10 @@ export default function DesktopPosterEditor() {
 
 
     const handleDownloadPDF = async () => {
+        if (isRemovingFooterPhotoBg) {
+            setShowBgWaitModal(true);
+            return;
+        }
         try {
             setSelectedElementId(null);
 
@@ -721,6 +734,10 @@ export default function DesktopPosterEditor() {
     };
 
     const handleDownloadPNG = async () => {
+        if (isRemovingFooterPhotoBg) {
+            setShowBgWaitModal(true);
+            return;
+        }
         try {
             setSelectedElementId(null);
             setTimeout(async () => {
@@ -766,6 +783,10 @@ export default function DesktopPosterEditor() {
     };
 
     const handleSharePoster = async () => {
+        if (isRemovingFooterPhotoBg) {
+            setShowBgWaitModal(true);
+            return;
+        }
         try {
             setSelectedElementId(null);
             setTimeout(async () => {
@@ -789,7 +810,28 @@ export default function DesktopPosterEditor() {
                             if (blob) {
                                 const file = new File([blob], `poster-${Date.now()}.png`, { type: 'image/png' });
 
-                                if (navigator.share && navigator.canShare({ files: [file] })) {
+                                // Try to upload for better link sharing (previews)
+                                setIsUploadingForShare(true);
+                                let remoteUrl = null;
+                                try {
+                                    const imageData = canvas.toDataURL('image/png');
+                                    const uploadResponse = await fetch(`${API_URL}/api/upload/poster-share`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ image: imageData }),
+                                    });
+                                    const uploadResult = await uploadResponse.json();
+                                    if (uploadResult.success) {
+                                        remoteUrl = uploadResult.data.url;
+                                        setSharedImageUrl(remoteUrl);
+                                    }
+                                } catch (uerr) {
+                                    console.error('Cloudinary upload error:', uerr);
+                                } finally {
+                                    setIsUploadingForShare(false);
+                                }
+
+                                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                                     try {
                                         await navigator.share({
                                             files: [file],
@@ -800,10 +842,10 @@ export default function DesktopPosterEditor() {
                                         setShowPreviewModal(false);
                                     } catch (shareError) {
                                         console.log('Share cancelled or failed:', shareError);
+                                        setShowShareModal(true);
                                     }
                                 } else {
-                                    Alert.alert('Info', 'Sharing not supported. Downloading instead...');
-                                    handleDownloadPNG();
+                                    setShowShareModal(true);
                                 }
                             }
                         }, 'image/png');
@@ -2840,6 +2882,10 @@ export default function DesktopPosterEditor() {
                             <TouchableOpacity
                                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#10b981', padding: 14, borderRadius: 8 }}
                                 onPress={() => {
+                                    if (isRemovingFooterPhotoBg) {
+                                        setShowBgWaitModal(true);
+                                        return;
+                                    }
                                     if (previewImageUri) {
                                         const link = document.createElement('a');
                                         link.href = previewImageUri;
@@ -2861,6 +2907,144 @@ export default function DesktopPosterEditor() {
                             >
                                 <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
                                 <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Edit</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* BG Removal Wait Modal */}
+            <Modal
+                visible={showBgWaitModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowBgWaitModal(false)}
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', width: 320, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 }}>
+                        <ActivityIndicator size="large" color={SP_RED} style={{ marginBottom: 16 }} />
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 8, textAlign: 'center' }}>
+                            Please Wait
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
+                            Background removal is working...{'\n'}Please wait for it to finish.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={() => setShowBgWaitModal(false)}
+                            style={{ backgroundColor: '#f1f5f9', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, width: '100%' }}
+                        >
+                            <Text style={{ color: '#475569', fontSize: 15, fontWeight: '600', textAlign: 'center' }}>
+                                Okay
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Share Options Modal (Web Fallback) */}
+            <Modal
+                visible={showShareModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowShareModal(false)}
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 24, padding: 32, alignItems: 'center', width: '90%', maxWidth: 400, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 }}>
+                        <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginBottom: 8, textAlign: 'center' }}>
+                            Share Poster
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 16 }}>
+                            {isUploadingForShare ? 'Preparing your poster...' : 'Share your poster link with friends'}
+                        </Text>
+
+                        {isUploadingForShare ? (
+                            <View style={{ padding: 40, alignItems: 'center' }}>
+                                <ActivityIndicator size="large" color={SP_RED} />
+                                <Text style={{ marginTop: 16, color: '#64748b' }}>Uploading to share...</Text>
+                            </View>
+                        ) : (
+                            <>
+                                { /* WhatsApp */}
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#25D366', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
+                                    onPress={() => {
+                                        const sharePageUrl = `${BASE_URL}/share/poster?image=${encodeURIComponent(sharedImageUrl || "")}`;
+                                        const text = encodeURIComponent("Check out my poster! ✨\n\n" + sharePageUrl);
+                                        window.open(`https://wa.me/?text=${text}`, '_blank');
+                                        setShowShareModal(false);
+                                    }}
+                                >
+                                    <MaterialCommunityIcons name="whatsapp" size={24} color="#fff" />
+                                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Share to WhatsApp</Text>
+                                </TouchableOpacity>
+
+                                {/* Copy Link */}
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#6366f1', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
+                                    onPress={() => {
+                                        const sharePageUrl = `${BASE_URL}/share/poster?image=${encodeURIComponent(sharedImageUrl || "")}`;
+                                        if (navigator.clipboard) {
+                                            navigator.clipboard.writeText(sharePageUrl);
+                                            Alert.alert('Success', 'Link copied to clipboard!');
+                                        }
+                                    }}
+                                >
+                                    <MaterialCommunityIcons name="content-copy" size={24} color="#fff" />
+                                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Copy Link</Text>
+                                </TouchableOpacity>
+
+                                {/* Twitter */}
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1DA1F2', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
+                                    onPress={() => {
+                                        const sharePageUrl = `${BASE_URL}/share/poster?image=${encodeURIComponent(sharedImageUrl || "")}`;
+                                        const text = encodeURIComponent("Check out my poster! ✨");
+                                        const url = `&url=${encodeURIComponent(sharePageUrl)}`;
+                                        window.open(`https://twitter.com/intent/tweet?text=${text}${url}`, '_blank');
+                                        setShowShareModal(false);
+                                    }}
+                                >
+                                    <MaterialCommunityIcons name="twitter" size={24} color="#fff" />
+                                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Twitter</Text>
+                                </TouchableOpacity>
+
+                                {/* Facebook */}
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1877F2', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
+                                    onPress={() => {
+                                        const sharePageUrl = `${BASE_URL}/share/poster?image=${encodeURIComponent(sharedImageUrl || "")}`;
+                                        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(sharePageUrl)}`, '_blank');
+                                        setShowShareModal(false);
+                                    }}
+                                >
+                                    <MaterialCommunityIcons name="facebook" size={24} color="#fff" />
+                                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Facebook</Text>
+                                </TouchableOpacity>
+
+                                <View style={{ backgroundColor: '#f0fdf4', padding: 12, borderRadius: 10, marginTop: 8, marginBottom: 16, width: '100%' }}>
+                                    <Text style={{ fontSize: 12, color: '#166534', textAlign: 'center', lineHeight: 18 }}>
+                                        ✅ Done! When you paste the link in WhatsApp, the image preview will appear after a second.
+                                    </Text>
+                                </View>
+                            </>
+                        )}
+
+                        <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+                            <TouchableOpacity
+                                style={{ flex: 1, backgroundColor: '#f1f5f9', padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
+                                onPress={() => setShowShareModal(false)}
+                            >
+                                <Text style={{ color: '#64748b', fontWeight: '600' }}>Close</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{ flex: 1, backgroundColor: SP_RED, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
+                                onPress={() => {
+                                    handleDownloadPNG();
+                                    setShowShareModal(false);
+                                }}
+                            >
+                                <MaterialCommunityIcons name="download" size={20} color="#fff" />
+                                <Text style={{ color: '#fff', fontWeight: '600' }}>Download Image</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
