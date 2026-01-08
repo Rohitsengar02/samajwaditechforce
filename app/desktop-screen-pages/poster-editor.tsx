@@ -2957,10 +2957,12 @@ export default function DesktopPosterEditor() {
                             {isUploadingForShare ? 'Preparing your poster...' : 'Share your poster link with friends'}
                         </Text>
 
-                        {isUploadingForShare ? (
+                        {isUploadingForShare || !sharedImageUrl ? (
                             <View style={{ padding: 40, alignItems: 'center' }}>
                                 <ActivityIndicator size="large" color={SP_RED} />
-                                <Text style={{ marginTop: 16, color: '#64748b' }}>Uploading to share...</Text>
+                                <Text style={{ marginTop: 16, color: '#64748b', textAlign: 'center' }}>
+                                    {isUploadingForShare ? 'Uploading your poster...' : 'Finalizing share link...'}
+                                </Text>
                             </View>
                         ) : (
                             <>
