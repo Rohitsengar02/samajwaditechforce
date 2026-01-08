@@ -180,6 +180,9 @@ export default function DesktopPosterEditor() {
     const [isRemovingFooterPhotoBg, setIsRemovingFooterPhotoBg] = useState(false);
 
     // Remove Background from Footer User Photo
+    // Remove Background from Footer User Photo
+    const [bgRemovalProgress, setBgRemovalProgress] = useState(0);
+
     const handleRemoveFooterPhotoBg = async () => {
         if (!bottomBarDetails.photo) {
             Alert.alert('No Photo', 'Please upload a photo first');
@@ -187,6 +190,16 @@ export default function DesktopPosterEditor() {
         }
 
         setIsRemovingFooterPhotoBg(true);
+        setBgRemovalProgress(0); // Start at 0
+
+        // Fake progress animation
+        const progressInterval = setInterval(() => {
+            setBgRemovalProgress(prev => {
+                if (prev >= 90) return prev; // Stall at 90% until done
+                return prev + 5; // Increment by 5%
+            });
+        }, 100);
+
         try {
             // Updated to use the new Buildora API utility
             const result = await imglyRemoveBackground(bottomBarDetails.photo);
@@ -194,23 +207,36 @@ export default function DesktopPosterEditor() {
             if (result) {
                 // Determine if we need to prepend the data scheme
                 const finalUri = result.startsWith('data:image') ? result : `data:image/png;base64,${result}`;
-                setBottomBarDetails({
-                    ...bottomBarDetails,
-                    photoNoBg: finalUri,
-                });
-                Alert.alert('Success', 'Background removed successfully!');
+
+                // Complete progress
+                clearInterval(progressInterval);
+                setBgRemovalProgress(100);
+
+                // Small delay to let user see 100%
+                setTimeout(() => {
+                    setBottomBarDetails({
+                        ...bottomBarDetails,
+                        photoNoBg: finalUri,
+                    });
+                    setIsRemovingFooterPhotoBg(false);
+                    setBgRemovalProgress(0);
+                    Alert.alert('Success', 'Background removed successfully!');
+                }, 500);
+
             } else {
                 throw new Error('Failed to process image');
             }
         } catch (error: any) {
+            clearInterval(progressInterval);
+            setIsRemovingFooterPhotoBg(false);
+            setBgRemovalProgress(0);
+
             console.error('Background removal error:', error);
             Alert.alert(
                 'Error',
                 'Failed to remove background. Please try again.',
                 [{ text: 'OK' }]
             );
-        } finally {
-            setIsRemovingFooterPhotoBg(false);
         }
     };
 
@@ -1926,8 +1952,13 @@ export default function DesktopPosterEditor() {
 
                                             {/* Change Photo Button */}
                                             <TouchableOpacity
-                                                style={[styles.toolActionButton, { marginBottom: 16 }]}
+                                                style={[
+                                                    styles.toolActionButton,
+                                                    { marginBottom: 16 },
+                                                    isRemovingFooterPhotoBg && { opacity: 0.5 }
+                                                ]}
                                                 onPress={pickFooterUserPhoto}
+                                                disabled={isRemovingFooterPhotoBg}
                                             >
                                                 <MaterialCommunityIcons name="camera" size={24} color="#fff" />
                                                 <Text style={styles.toolActionText}>
@@ -1953,7 +1984,9 @@ export default function DesktopPosterEditor() {
                                                             <MaterialCommunityIcons name="image-off" size={24} color="#fff" />
                                                         )}
                                                         <Text style={styles.toolActionText}>
-                                                            {isRemovingFooterPhotoBg ? 'Removing BG...' : 'Remove Background'}
+                                                            {isRemovingFooterPhotoBg
+                                                                ? `Processing... ${bgRemovalProgress}%`
+                                                                : 'Remove Background'}
                                                         </Text>
                                                     </View>
                                                 </TouchableOpacity>

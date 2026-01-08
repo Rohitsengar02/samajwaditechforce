@@ -149,6 +149,7 @@ export default function PosterEditor() {
         photo: null as string | null,
         photoNoBg: null as string | null,
     });
+    const [bgRemovalProgress, setBgRemovalProgress] = useState(0); // For progress animation
 
     // Toast State
     const [toastVisible, setToastVisible] = useState(false);
@@ -629,6 +630,16 @@ export default function PosterEditor() {
         }
 
         setIsRemovingFooterPhotoBg(true);
+        setBgRemovalProgress(0);
+
+        // Fake progress animation
+        const progressInterval = setInterval(() => {
+            setBgRemovalProgress(prev => {
+                if (prev >= 90) return prev;
+                return prev + 5;
+            });
+        }, 100);
+
         try {
             const { removeBackground } = require('../utils/backgroundRemovalBuildora');
             const result = await removeBackground(bottomBarDetails.photo);
@@ -636,24 +647,35 @@ export default function PosterEditor() {
             if (result) {
                 const finalUri = result.startsWith('data:image') ? result : `data:image/png;base64,${result}`;
 
-                setBottomBarDetails(prev => ({
-                    ...prev,
-                    photoNoBg: finalUri,
-                }));
+                // Complete progress
+                clearInterval(progressInterval);
+                setBgRemovalProgress(100);
 
-                if (!silent) {
-                    Alert.alert('Success', 'Background removed successfully!');
-                }
+                setTimeout(() => {
+                    setBottomBarDetails(prev => ({
+                        ...prev,
+                        photoNoBg: finalUri,
+                    }));
+
+                    setIsRemovingFooterPhotoBg(false);
+                    setBgRemovalProgress(0);
+
+                    if (!silent) {
+                        Alert.alert('Success', 'Background removed successfully!');
+                    }
+                }, 500);
             } else {
                 throw new Error('Failed to process image');
             }
         } catch (error: any) {
+            clearInterval(progressInterval);
+            setIsRemovingFooterPhotoBg(false);
+            setBgRemovalProgress(0);
+
             console.error('Background removal error:', error);
             if (!silent) {
                 Alert.alert('Error', 'Failed to remove background. Please try again.');
             }
-        } finally {
-            setIsRemovingFooterPhotoBg(false);
         }
     };
 
@@ -2297,13 +2319,18 @@ export default function PosterEditor() {
                                             aspect: [1, 1],
                                             quality: 1,
                                         });
+
                                         if (!result.canceled) {
                                             setBottomBarDetails(prev => ({ ...prev, photo: result.assets[0].uri, photoNoBg: null }));
                                         }
                                     }}
+                                    disabled={isRemovingFooterPhotoBg}
                                 >
                                     {bottomBarDetails.photo || bottomBarDetails.photoNoBg ? (
-                                        <Image source={{ uri: (bottomBarDetails.photoNoBg || bottomBarDetails.photo) as string }} style={styles.photoPreviewSmall} />
+                                        <Image
+                                            source={{ uri: (bottomBarDetails.photoNoBg || bottomBarDetails.photo) as string }}
+                                            style={[styles.photoPreviewSmall, isRemovingFooterPhotoBg && { opacity: 0.5 }]}
+                                        />
                                     ) : (
                                         <View style={styles.photoPlaceholderSmall}>
                                             <MaterialCommunityIcons name="camera-plus" size={32} color="#94a3b8" />
@@ -2342,7 +2369,7 @@ export default function PosterEditor() {
                                                 <MaterialCommunityIcons name="eraser" size={18} color={SP_RED} />
                                             )}
                                             <Text style={{ fontSize: 12, color: SP_RED, fontWeight: '600' }}>
-                                                {isRemovingFooterPhotoBg ? 'Removing...' : 'Remove BG'}
+                                                {isRemovingFooterPhotoBg ? `${bgRemovalProgress}%` : 'Remove BG'}
                                             </Text>
                                         </TouchableOpacity>
 
@@ -2478,7 +2505,7 @@ export default function PosterEditor() {
                             <View style={{ height: 20 }} />
                         </ScrollView>
                     </View>
-                </View>
+                </View >
             </Modal >
 
             {/* Filter Carousel Modal */}
@@ -2486,7 +2513,8 @@ export default function PosterEditor() {
                 visible={showFilterModal}
                 animationType="slide"
                 transparent={true}
-                onRequestClose={() => setShowFilterModal(false)}
+                onRequestClose={() => setShowFilterModal(false)
+                }
             >
                 <View style={styles.modalOverlay2}>
                     <TouchableOpacity
@@ -2552,7 +2580,7 @@ export default function PosterEditor() {
             </Modal >
 
             {/* Preview Modal - Desktop-like preview with download */}
-            <Modal
+            < Modal
                 visible={showPreviewModal}
                 animationType="fade"
                 transparent={true}
@@ -2743,10 +2771,10 @@ export default function PosterEditor() {
                         )}
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Frame Customization Modal */}
-            <Modal
+            < Modal
                 visible={showCustomizationModal}
                 animationType="slide"
                 transparent={true}
@@ -2898,7 +2926,7 @@ export default function PosterEditor() {
                         </ScrollView>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
         </View >
     );
 }

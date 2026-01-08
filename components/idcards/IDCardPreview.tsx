@@ -104,9 +104,7 @@ export default function IDCardPreview({ memberData, showBack }: IDCardPreviewPro
                                     </View>
                                 </LinearGradient>
 
-                                <View style={styles.marqueeContainer}>
-                                    <Text style={styles.marqueeText}>पहचान एवं सम्मान कार्यक्रम</Text>
-                                </View>
+
 
                                 <View style={styles.cardBody}>
                                     <View style={styles.profileCard}>
@@ -189,9 +187,7 @@ export default function IDCardPreview({ memberData, showBack }: IDCardPreviewPro
                                     </View>
                                 </LinearGradient>
 
-                                <View style={styles.marqueeContainer}>
-                                    <Text style={styles.marqueeText}>पहचान एवं सम्मान कार्यक्रम</Text>
-                                </View>
+
 
                                 <View style={styles.cardBody}>
                                     <View style={styles.infoList}>
@@ -469,18 +465,5 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
         fontWeight: '700'
-    },
-    marqueeContainer: {
-        backgroundColor: 'green',
-        paddingVertical: 4,
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-    },
-    marqueeText: {
-        color: '#fff',
-        fontSize: 22,
-        fontWeight: '700',
-        letterSpacing: 0.5,
     }
 });

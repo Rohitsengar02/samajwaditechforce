@@ -117,8 +117,6 @@ export default function MemberIDCardScreen({ navigation, route }: MemberIDCardPr
     .party-name { font-size: 22px; font-weight: 900; letter-spacing: 0.5px; margin-bottom: 4px; }
     .tech-force-badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 3px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.3); }
     .tech-force { font-size: 14px; letter-spacing: 2px; font-weight: 700; }
-    .marquee-container { background: green; padding: 4px; text-align: center; }
-    .marquee-text { color: #fff; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
     .card-body { flex: 1; padding: 16px; padding-top: 20px; padding-bottom: 8px; }
     .profile-card { display: flex; flex-direction: column; border-radius: 12px; padding: 12px; margin-bottom: 12px; align-items: center; gap: 8px; }
     .photo-container { position: relative; flex-shrink: 0; }
@@ -157,9 +155,6 @@ export default function MemberIDCardScreen({ navigation, route }: MemberIDCardPr
           <div class="tech-force-badge"><span class="tech-force">MEMBER DETAILS</span></div>
         </div>
       </div>
-      <div class="marquee-container">
-        <div class="marquee-text">पहचान एवं सम्मान कार्यक्रम</div>
-      </div>
       <div class="card-body">
         <div class="profile-card">
           <div class="photo-container">
@@ -196,9 +191,6 @@ export default function MemberIDCardScreen({ navigation, route }: MemberIDCardPr
           <div class="party-name">समाजवादी टेक फोर्स</div>
           <div class="tech-force-badge"><span class="tech-force">MEMBER DETAILS</span></div>
         </div>
-      </div>
-      <div class="marquee-container">
-        <div class="marquee-text">पहचान एवं सम्मान कार्यक्रम</div>
       </div>
       <div class="card-body">
         <div class="info-list">
