@@ -817,7 +817,7 @@ export default function PosterEditor() {
                             // Upload to Cloudinary for better sharing previews
                             setIsUploadingForShare(true);
                             try {
-                                const uploadResponse = await fetch(`${API_URL}/api/upload/poster-share`, {
+                                const uploadResponse = await fetch(`${API_URL}/upload/poster-share`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ image: uri }),
