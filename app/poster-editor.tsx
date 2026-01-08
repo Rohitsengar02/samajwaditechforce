@@ -565,38 +565,21 @@ export default function PosterEditor() {
         }
     };
 
+    // Updated Import (add this to top of file physically, but for tool output purposes I will assume it's there or I will add it)
+    // import { removeBackground as buildoraRemoveBg } from '../utils/backgroundRemovalBuildora';
+
     // Helper to trigger BG removal automatically
     const triggerAutoBgRemoval = async (uri: string) => {
         try {
             setIsProcessingBg(true);
-            const { removeBackground } = require('../utils/backgroundRemovalApi');
+            const { removeBackground } = require('../utils/backgroundRemovalBuildora');
 
-            if (Platform.OS === 'web') {
-                // Web implementation (simplified)
-                const blob = await imglyRemoveBackground(uri);
-                const url = URL.createObjectURL(blob);
-                setProcessedImageUri(url);
-                setIsProcessingBg(false);
-                return;
-            }
+            const result = await removeBackground(uri);
 
-            // Mobile Implementation
-            const formData = new FormData();
-            formData.append('image', {
-                uri: uri,
-                name: 'image.jpg',
-                type: 'image/jpeg',
-            } as any);
-
-            const response = await fetch(`${API_URL}/ai-gemini/remove-background`, {
-                method: 'POST',
-                headers: { 'Accept': 'application/json' },
-                body: formData,
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                setProcessedImageUri(data.image);
+            if (result) {
+                // Ensure data URI format
+                const finalUri = result.startsWith('data:image') ? result : `data:image/png;base64,${result}`;
+                setProcessedImageUri(finalUri);
             }
         } catch (e) {
             console.log("Auto BG Remove Failed", e);
@@ -610,37 +593,16 @@ export default function PosterEditor() {
 
         try {
             setIsProcessingBg(true);
+            const { removeBackground } = require('../utils/backgroundRemovalBuildora');
 
-            if (Platform.OS === 'web') {
-                const blob = await imglyRemoveBackground(selectedImageUri);
-                const url = URL.createObjectURL(blob);
-                setProcessedImageUri(url);
-                Alert.alert('Success', 'Background removed successfully!');
-                setIsProcessingBg(false);
-                return;
-            }
+            const result = await removeBackground(selectedImageUri);
 
-            const formData = new FormData();
-            formData.append('image', {
-                uri: selectedImageUri,
-                name: 'image.jpg',
-                type: 'image/jpeg',
-            } as any);
-
-            const response = await fetch(`${API_URL}/ai-gemini/remove-background`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                },
-                body: formData,
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                setProcessedImageUri(data.image);
+            if (result) {
+                const finalUri = result.startsWith('data:image') ? result : `data:image/png;base64,${result}`;
+                setProcessedImageUri(finalUri);
                 Alert.alert('Success', 'Background removed successfully!');
             } else {
-                Alert.alert('Error', data.error || 'Failed to remove background');
+                Alert.alert('Error', 'Failed to remove background');
             }
         } catch (error) {
             console.error('BG Remove Error:', error);
@@ -658,7 +620,7 @@ export default function PosterEditor() {
         }
     };
 
-    // Remove Background from Footer User Photo (Free Local Service)
+    // Remove Background from Footer User Photo (Free Buildora Service)
     const handleRemoveFooterPhotoBg = async (arg?: boolean | any) => {
         const silent = typeof arg === 'boolean' ? arg : false;
         if (!bottomBarDetails.photo) {
@@ -668,29 +630,27 @@ export default function PosterEditor() {
 
         setIsRemovingFooterPhotoBg(true);
         try {
-            // Import and use our background removal utility with fallback
-            const { removeBackground } = require('../utils/backgroundRemovalApi');
+            const { removeBackground } = require('../utils/backgroundRemovalBuildora');
             const result = await removeBackground(bottomBarDetails.photo);
 
-            setBottomBarDetails(prev => ({
-                ...prev,
-                photoNoBg: result.url,
-            }));
+            if (result) {
+                const finalUri = result.startsWith('data:image') ? result : `data:image/png;base64,${result}`;
 
-            if (!silent) {
-                Alert.alert(
-                    result.success ? 'Success' : 'Info',
-                    result.message
-                );
+                setBottomBarDetails(prev => ({
+                    ...prev,
+                    photoNoBg: finalUri,
+                }));
+
+                if (!silent) {
+                    Alert.alert('Success', 'Background removed successfully!');
+                }
+            } else {
+                throw new Error('Failed to process image');
             }
         } catch (error: any) {
             console.error('Background removal error:', error);
             if (!silent) {
-                Alert.alert(
-                    'Service Not Running',
-                    'Background removal service is not running.\n\nTo start it:\n1. Open Terminal in project folder\n2. Run: ./start_bg_service.sh',
-                    [{ text: 'OK' }]
-                );
+                Alert.alert('Error', 'Failed to remove background. Please try again.');
             }
         } finally {
             setIsRemovingFooterPhotoBg(false);
@@ -753,24 +713,22 @@ export default function PosterEditor() {
         }
     };
 
-    // Background Removal Function - Uses Gemini API for all platforms (Web, Android, iOS)
+    // Background Removal Function - Uses Buildora API for all platforms
     const handleRemoveBackground = async (elementId: string, imageUri: string) => {
         setIsRemovingBg(true);
 
         try {
             // Use our background removal utility
-            const { removeBackground } = require('../utils/backgroundRemovalApi');
+            const { removeBackground } = require('../utils/backgroundRemovalBuildora');
             const result = await removeBackground(imageUri);
 
-            if (result.success) {
+            if (result) {
+                const finalUri = result.startsWith('data:image') ? result : `data:image/png;base64,${result}`;
                 // Update the element with the processed image
-                updateElement(elementId, { content: result.url });
-                Alert.alert('Success', result.message);
+                updateElement(elementId, { content: finalUri });
+                Alert.alert('Success', 'Background removed successfully!');
             } else {
-                // Show info message if service unavailable
-                Alert.alert('Info', result.message);
-                // Still update with original image
-                updateElement(elementId, { content: result.url });
+                Alert.alert('Error', 'Failed to remove background');
             }
         } catch (error) {
             console.error('Background removal failed:', error);
