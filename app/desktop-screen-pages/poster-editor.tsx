@@ -2978,7 +2978,7 @@ export default function DesktopPosterEditor() {
                                     <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Share to WhatsApp</Text>
                                 </TouchableOpacity>
 
-                                {/* Copy Link */}
+                                {/* cc */}
                                 <TouchableOpacity
                                     style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#6366f1', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
                                     onPress={() => {
