@@ -22,7 +22,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { captureRef } from 'react-native-view-shot';
-import { removeBackground as imglyRemoveBackground } from '../../utils/backgroundRemoval';
+import { removeBackground as imglyRemoveBackground } from '../../utils/backgroundRemovalBuildora';
 import { getApiUrl } from '../../utils/api';
 import { TEMPLATES, RenderBottomBar } from '../../components/posteredit/BottomBarTemplates';
 import FrameSelector from '../../components/posteredit/FrameSelector';
@@ -188,24 +188,25 @@ export default function DesktopPosterEditor() {
 
         setIsRemovingFooterPhotoBg(true);
         try {
-            // Import and use our background removal utility with fallback
-            const { removeBackground } = require('../../utils/backgroundRemovalApi');
-            const result = await removeBackground(bottomBarDetails.photo);
+            // Updated to use the new Buildora API utility
+            const result = await imglyRemoveBackground(bottomBarDetails.photo);
 
-            setBottomBarDetails({
-                ...bottomBarDetails,
-                photoNoBg: result.url,
-            });
-
-            Alert.alert(
-                result.success ? 'Success' : 'Info',
-                result.message
-            );
+            if (result) {
+                // Determine if we need to prepend the data scheme
+                const finalUri = result.startsWith('data:image') ? result : `data:image/png;base64,${result}`;
+                setBottomBarDetails({
+                    ...bottomBarDetails,
+                    photoNoBg: finalUri,
+                });
+                Alert.alert('Success', 'Background removed successfully!');
+            } else {
+                throw new Error('Failed to process image');
+            }
         } catch (error: any) {
             console.error('Background removal error:', error);
             Alert.alert(
-                'Service Not Running',
-                'Background removal service is not running.\n\nTo start it:\n1. Open Terminal in project folder\n2. Run: ./start_bg_service.sh',
+                'Error',
+                'Failed to remove background. Please try again.',
                 [{ text: 'OK' }]
             );
         } finally {

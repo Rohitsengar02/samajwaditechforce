@@ -479,8 +479,10 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
-                    {details?.photoNoBg || details?.photo ? (
-                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    {details?.photoNoBg ? (
+                        <Image source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : details?.photo ? (
+                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
@@ -535,8 +537,10 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
-                    {details?.photoNoBg || details?.photo ? (
-                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    {details?.photoNoBg ? (
+                        <Image source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : details?.photo ? (
+                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
@@ -592,8 +596,10 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
                     overflow: 'hidden',
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
-                    {details?.photoNoBg || details?.photo ? (
-                        <Image source={{ uri: details.photoNoBg || details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    {details?.photoNoBg ? (
+                        <Image source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : details?.photo ? (
+                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
