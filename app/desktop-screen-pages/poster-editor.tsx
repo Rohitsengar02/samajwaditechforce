@@ -181,6 +181,7 @@ export default function DesktopPosterEditor() {
     const [isRemovingFooterPhotoBg, setIsRemovingFooterPhotoBg] = useState(false);
     const [showBgWaitModal, setShowBgWaitModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
+    const [isCapturing, setIsCapturing] = useState(false);
     const [isUploadingForShare, setIsUploadingForShare] = useState(false);
     const [sharedImageUrl, setSharedImageUrl] = useState<string | null>(null);
 
@@ -789,6 +790,7 @@ export default function DesktopPosterEditor() {
         }
         try {
             setSelectedElementId(null);
+            setIsCapturing(true);
             setTimeout(async () => {
                 try {
                     const canvasElement = canvasRef.current as any;
@@ -829,6 +831,7 @@ export default function DesktopPosterEditor() {
                                     console.error('Cloudinary upload error:', uerr);
                                 } finally {
                                     setIsUploadingForShare(false);
+                                    setIsCapturing(false);
                                 }
 
                                 if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1537,24 +1540,26 @@ export default function DesktopPosterEditor() {
                                     photoPosition={footerPhotoPosition}
                                     isPhotoFlipped={isPhotoFlipped}
                                 />
-                                <TouchableOpacity
-                                    testID="edit-pencil-btn"
-                                    style={{
-                                        position: 'absolute',
-                                        top: 8,
-                                        right: 8,
-                                        backgroundColor: 'rgba(0,0,0,0.6)',
-                                        borderRadius: 20,
-                                        padding: 8,
-                                        zIndex: 10,
-                                    }}
-                                    onPress={() => {
-                                        setSelectedTool('content');
-                                        setShowBottomBarModal(false);
-                                    }}
-                                >
-                                    <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
-                                </TouchableOpacity>
+                                {!isCapturing && (
+                                    <TouchableOpacity
+                                        testID="edit-pencil-btn"
+                                        style={{
+                                            position: 'absolute',
+                                            top: 8,
+                                            right: 8,
+                                            backgroundColor: 'rgba(0,0,0,0.6)',
+                                            borderRadius: 20,
+                                            padding: 8,
+                                            zIndex: 10,
+                                        }}
+                                        onPress={() => {
+                                            setSelectedTool('content');
+                                            setShowBottomBarModal(false);
+                                        }}
+                                    >
+                                        <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
+                                    </TouchableOpacity>
+                                )}
 
                             </View>
                         </View>
