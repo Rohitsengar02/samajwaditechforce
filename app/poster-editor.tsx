@@ -14,7 +14,8 @@ import {
     ActivityIndicator,
     PanResponder,
     Animated,
-    PixelRatio
+    PixelRatio,
+    KeyboardAvoidingView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -36,6 +37,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const BANNER_HEIGHT = 60; // Reduced from 80
+const USER_DETAILS_STORAGE_KEY = 'sp_user_poster_details_v1';
 
 // Calculate available canvas height to fit in one view without scrolling
 // Be aggressive with deductions to ensure no scrolling
@@ -105,6 +107,7 @@ export default function PosterEditor() {
     const [selectedTool, setSelectedTool] = useState<ToolType | null>(null);
     // Initial canvas fits in view - will be adjusted based on image aspect ratio
     const [canvasSize, setCanvasSize] = useState({ w: width, h: Math.min(width, MAX_CANVAS_HEIGHT) });
+    const [captureCanvasHeight, setCaptureCanvasHeight] = useState<number | null>(null); // Extra height during capture
     const [bannerText, setBannerText] = useState('Samajwadi Party');
     const [showTextModal, setShowTextModal] = useState(false);
     const [newText, setNewText] = useState('');
@@ -144,7 +147,7 @@ export default function PosterEditor() {
         name: 'Your Name',
         designation: 'Designation',
         mobile: '+91 XXXXX XXXXX',
-        social: '@username',
+        socialHandle: '@username',
         socialPlatform: 'instagram',
         address: 'Your Address',
         photo: null as string | null,
@@ -159,6 +162,7 @@ export default function PosterEditor() {
     // Toast State
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
+
 
     const showToast = (message: string) => {
         setToastMessage(message);
@@ -245,6 +249,49 @@ export default function PosterEditor() {
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [selectedFilter, setSelectedFilter] = useState('none');
 
+    // Persistence: Load user details on mount
+    useEffect(() => {
+        const loadUserDetails = async () => {
+            try {
+                console.log('[MobilePoster] Loading saved details...');
+                const storedDetails = await AsyncStorage.getItem(USER_DETAILS_STORAGE_KEY);
+                console.log('[MobilePoster] Raw stored:', storedDetails);
+
+                if (storedDetails) {
+                    const parsedDetails = JSON.parse(storedDetails);
+                    console.log('[MobilePoster] Parsed details:', parsedDetails);
+
+                    // Fully replace the state with saved details
+                    setBottomBarDetails({
+                        name: parsedDetails.name || 'Your Name',
+                        designation: parsedDetails.designation || 'Designation',
+                        mobile: parsedDetails.mobile || '+91 XXXXX XXXXX',
+                        socialHandle: parsedDetails.socialHandle || '@username',
+                        socialPlatform: parsedDetails.socialPlatform || 'instagram',
+                        address: parsedDetails.address || 'Your Address',
+                        photo: parsedDetails.photo || null,
+                        photoNoBg: parsedDetails.photoNoBg || null,
+                    });
+                } else {
+                    console.log('[MobilePoster] No saved details found, using defaults');
+                }
+            } catch (error) {
+                console.error('[MobilePoster] Failed to load user details:', error);
+            }
+        };
+        loadUserDetails();
+    }, []);
+
+    // Persistence: Save user details
+    const saveUserDetailsToStorage = async (details: typeof bottomBarDetails) => {
+        try {
+            await AsyncStorage.setItem(USER_DETAILS_STORAGE_KEY, JSON.stringify(details));
+            showToast('Details saved for future posters!');
+        } catch (error) {
+            console.error('Failed to save user details:', error);
+        }
+    };
+
     // Preview Modal State (desktop-like preview with download)
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
@@ -259,6 +306,30 @@ export default function PosterEditor() {
     useEffect(() => {
         posterOffsetRef.current = posterOffset;
     }, [posterOffset]);
+
+    // Refs for scrolling and focusing
+    const editFormScrollRef = useRef<ScrollView>(null);
+    const photoUploadRef = useRef<View>(null);
+    const nameFieldRef = useRef<View>(null);
+
+    const openEditFormAndScrollTo = (target?: 'photo' | 'name' | 'top') => {
+        setShowBottomBarEditForm(true);
+
+        // Small delay to let modal render
+        setTimeout(() => {
+            if (target === 'photo' && photoUploadRef.current) {
+                // Scroll deeply for photo
+                editFormScrollRef.current?.scrollTo({ y: 600, animated: true });
+            } else if (target === 'name') {
+                // Scroll to top for name
+                editFormScrollRef.current?.scrollTo({ y: 0, animated: true });
+            } else if (target === 'top') {
+                // Default to top if 'top' explicitly requested
+                editFormScrollRef.current?.scrollTo({ y: 0, animated: true });
+            }
+        }, 300);
+    };
+
 
     const posterPanResponder = useRef(
         PanResponder.create({
@@ -315,9 +386,17 @@ export default function PosterEditor() {
         loadUserProfile(); // Auto-fill user data
     }, []);
 
-    // Auto-fill from user profile
+    // Auto-fill from user profile (but only if no saved poster details exist)
     const loadUserProfile = async () => {
         try {
+            // PRIORITY: Check if user has saved poster details first
+            const savedPosterDetails = await AsyncStorage.getItem(USER_DETAILS_STORAGE_KEY);
+            if (savedPosterDetails) {
+                console.log('[MobilePoster] Saved poster details found, skipping profile load');
+                return; // Don't overwrite with profile data
+            }
+
+            console.log('[MobilePoster] No saved details, loading from profile...');
             const token = await AsyncStorage.getItem('userToken');
             let user = null;
 
@@ -365,7 +444,7 @@ export default function PosterEditor() {
                     name: user.name || 'Your Name',
                     designation: user.partyRole || 'Designation',
                     mobile: user.phone || '+91 XXXXX XXXXX',
-                    social: user.socialHandle || (user.email ? `@${user.email.split('@')[0]}` : '@username'),
+                    socialHandle: user.socialHandle || (user.email ? `@${user.email.split('@')[0]}` : '@username'),
                     socialPlatform: user.socialPlatform || 'instagram',
                     address: fullAddress,
                     photo: user.profileImage || null,
@@ -765,7 +844,7 @@ export default function PosterEditor() {
         }
     };
 
-    const handleSave = async (action: 'download' | 'share' = 'download') => {
+    const handleSave = async (action: 'download' | 'share' | 'preview' = 'download') => {
         if (isRemovingFooterPhotoBg) {
             setShowBgWaitModal(true);
             return;
@@ -773,6 +852,10 @@ export default function PosterEditor() {
         try {
             setSelectedElementId(null); //  Deselect before saving to hide border
             setIsSaving(true);
+
+            // Temporarily expand canvas to include full bottom bar for capture
+            const extraHeight = 250; // 220px for photo + 30px padding
+            setCaptureCanvasHeight(canvasSize.h + extraHeight);
 
             // Wait for state updates and images to fully load
             await new Promise(resolve => setTimeout(resolve, 800));
@@ -802,16 +885,69 @@ export default function PosterEditor() {
                     if ((window as any).html2canvas) {
                         const html2canvas = (window as any).html2canvas;
 
-                        // Capture the canvas with CORS support
-                        const canvas = await html2canvas(canvasElement, {
+                        // --- ROBUST VISIBLE OVERLAY STRATEGY ---
+                        const PhysicalWidth = 4000;
+                        // Bottom bar photo extends 220px from bottom with overflow: visible
+                        const BottomBarPhotoHeight = 220;
+                        const TotalCanvasHeight = canvasSize.h + BottomBarPhotoHeight;
+                        const AspectRatio = TotalCanvasHeight / canvasSize.w;
+                        const PhysicalHeight = PhysicalWidth * AspectRatio;
+                        const ZoomScale = 2;
+
+                        const captureContainer = document.createElement('div');
+                        captureContainer.id = 'supreme-master-root-mobile';
+                        captureContainer.style.position = 'fixed';
+                        captureContainer.style.top = '0';
+                        captureContainer.style.left = '-9999px';
+                        captureContainer.style.width = `${PhysicalWidth}px`;
+                        captureContainer.style.height = `${PhysicalHeight}px`;
+                        captureContainer.style.backgroundColor = '#ffffff';
+
+                        const originalCanvas = canvasRef.current as unknown as HTMLElement;
+                        const clone = originalCanvas.cloneNode(true) as HTMLElement;
+
+                        // --- SUPREME NATIVE CONSTRUCTION ---
+                        clone.style.transform = `scale(${PhysicalWidth / canvasSize.w})`;
+                        clone.style.transformOrigin = 'top left';
+                        clone.style.width = `${canvasSize.w}px`;
+                        clone.style.height = `${TotalCanvasHeight}px`; // Include bottom bar height
+                        clone.style.margin = '0';
+                        clone.style.filter = 'contrast(106%) brightness(102%)'; // Pro Print Punch
+
+                        captureContainer.appendChild(clone);
+                        document.body.appendChild(captureContainer);
+
+                        const all = captureContainer.querySelectorAll('*');
+                        all.forEach((el: any) => {
+                            el.style.textRendering = 'geometricPrecision';
+                            el.style.webkitFontSmoothing = 'none';
+                            el.style.imageRendering = '-webkit-optimize-contrast';
+                            el.style.imageRendering = 'crisp-edges';
+                        });
+
+                        const pencilBtn = captureContainer.querySelector('[data-testid="edit-pencil-btn"]');
+                        if (pencilBtn) pencilBtn.remove();
+
+                        await new Promise(r => setTimeout(r, 1800));
+
+                        const canvas = await html2canvas(captureContainer, {
+                            scale: ZoomScale,
                             useCORS: true,
-                            allowTaint: false,
-                            backgroundColor: '#E30512',
-                            scale: 2, // Higher quality
+                            allowTaint: true,
+                            backgroundColor: '#ffffff',
+                            width: PhysicalWidth,
+                            height: PhysicalHeight,
                             logging: false,
                         });
 
-                        uri = canvas.toDataURL('image/png');
+                        document.body.removeChild(captureContainer);
+                        uri = canvas.toDataURL('image/png', 1.0);
+
+                        if (action === 'preview') {
+                            // Instant preview handled by state, skip heavy capture
+                            setIsSaving(false);
+                            return;
+                        }
 
                         if (action === 'share') {
                             // Upload to Cloudinary for better sharing previews
@@ -915,6 +1051,7 @@ export default function PosterEditor() {
                 }
             } finally {
                 setIsSaving(false);
+                setCaptureCanvasHeight(null); // Reset canvas height
             }
         } catch (error) {
             console.error('Save error:', error);
@@ -924,89 +1061,8 @@ export default function PosterEditor() {
     };
 
     const handleDownloadImage = async () => {
-        if (isRemovingFooterPhotoBg) {
-            setShowBgWaitModal(true);
-            return;
-        }
-        try {
-            // 1. Check Permissions first (Mobile)
-            if (Platform.OS !== 'web') {
-                const { status } = await MediaLibrary.requestPermissionsAsync();
-                if (status !== 'granted') {
-                    Alert.alert('Permission Required', 'Please grant permission to save the poster to your gallery.');
-                    return;
-                }
-            }
-
-            setSelectedElementId(null); // Deselect to hide borders
-            setIsSaving(true);
-            setIsCapturing(true); // Enable capture mode for smaller fonts
-
-            // Wait for UI to update
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            if (Platform.OS === 'web') {
-                // WEB: High Quality Download
-                const canvasElement = canvasRef.current as any;
-                if (!canvasElement) throw new Error('Canvas not found');
-
-                // Load html2canvas dynamically
-                if (typeof window !== 'undefined' && !(window as any).html2canvas) {
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-                        script.onload = resolve;
-                        script.onerror = reject;
-                        document.head.appendChild(script);
-                    });
-                }
-
-                const html2canvas = (window as any).html2canvas;
-                const canvas = await html2canvas(canvasElement, {
-                    useCORS: true,
-                    allowTaint: false,
-                    backgroundColor: null,
-                    scale: 4, // 4x Resolution for Web
-                    logging: false,
-                });
-
-                const uri = canvas.toDataURL('image/jpeg', 1.0);
-
-                // Trigger Download
-                const link = document.createElement('a');
-                link.href = uri;
-                link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}-poster.jpg`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                Alert.alert('Success', 'Poster downloaded successfully!');
-                awardPoints('poster_create', 10, `Created poster on web: ${posterName}`);
-
-            } else {
-                // MOBILE: Capture and Save to Gallery
-                const uri = await captureRef(canvasRef, {
-                    format: 'jpg',
-                    quality: 1.0,
-                    result: 'tmpfile',
-                });
-
-                // Move to document directory (Optional, but good practice per your snippet implies usage of file system)
-                // However, saveToLibraryAsync works with tmpfile too. 
-                // We will save directly to library for "Expo App (Easy & Safe)" approach.
-
-                await MediaLibrary.saveToLibraryAsync(uri);
-                Alert.alert('Success', 'Poster saved to gallery!');
-                awardPoints('poster_create', 10, `Created poster: ${posterName}`);
-            }
-
-        } catch (error: any) {
-            console.error('Download error:', error);
-            Alert.alert('Error', `Failed to save poster: ${error?.message}`);
-        } finally {
-            setIsSaving(false);
-            setIsCapturing(false); // Disable capture mode
-        }
+        // Redirect to the new robust preview modal
+        handleSave('preview');
     };
 
 
@@ -1014,7 +1070,7 @@ export default function PosterEditor() {
 
 
     // Draggable Element Component
-    const DraggableItem = ({ element }: { element: EditorElement }) => {
+    const DraggableItem = ({ element, isReadonly }: { element: EditorElement, isReadonly?: boolean }) => {
         const pan = useRef(new Animated.ValueXY({ x: element.x, y: element.y })).current;
         const scale = useRef(new Animated.Value(element.scale)).current;
         const rotation = useRef(new Animated.Value(element.rotation)).current;
@@ -1087,12 +1143,71 @@ export default function PosterEditor() {
             })
         ).current;
 
-        const isSelected = selectedElementId === element.id;
-
         const rotateStr = rotation.interpolate({
             inputRange: [0, 360],
             outputRange: ['0deg', '360deg']
         });
+
+        if (isReadonly) {
+            return (
+                <View
+                    style={{
+                        position: 'absolute',
+                        left: element.x,
+                        top: element.y,
+                    }}
+                >
+                    <Animated.View
+                        style={[
+                            styles.element,
+                            {
+                                transform: [
+                                    { rotate: rotateStr },
+                                    { scale: scale }
+                                ],
+                                borderColor: 'transparent',
+                                borderWidth: 0,
+                            }
+                        ]}
+                    >
+                        <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
+                            {element.type === 'text' ? (
+                                <Text style={[
+                                    styles.elementText,
+                                    {
+                                        color: element.color,
+                                        fontSize: element.fontSize,
+                                        fontFamily: element.fontFamily,
+                                        backgroundColor: element.backgroundColor || 'transparent',
+                                        paddingHorizontal: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 0,
+                                        paddingVertical: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                        borderRadius: 4,
+                                        overflow: 'hidden',
+                                    }
+                                ]}>
+                                    {element.content}
+                                </Text>
+                            ) : (
+                                <Image
+                                    source={{ uri: element.content }}
+                                    style={{
+                                        width: (element as any).imageWidth || 100,
+                                        height: (element as any).imageHeight || 100,
+                                        borderWidth: (element as any).borderWidth || 0,
+                                        borderColor: (element as any).borderColor || '#ffffff',
+                                        borderRadius: (element as any).borderRadius || 0,
+                                        imageRendering: 'crisp-edges'
+                                    } as any}
+                                    {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
+                                />
+                            )}
+                        </View>
+                    </Animated.View>
+                </View>
+            );
+        }
+
+        const isSelected = selectedElementId === element.id;
 
         return (
             <View
@@ -1174,6 +1289,18 @@ export default function PosterEditor() {
                 <Text style={styles.headerTitle}>{posterName}</Text>
 
                 <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {/* Preview Button */}
+                    <TouchableOpacity
+                        onPress={() => {
+                            setSelectedElementId(null);
+                            setShowPreviewModal(true);
+                        }}
+                        style={[styles.saveButton, { backgroundColor: '#8b5cf6' }]}
+                    >
+                        <MaterialCommunityIcons name="eye" size={18} color="#fff" style={{ marginRight: 4 }} />
+                        <Text style={styles.saveButtonText}>Preview</Text>
+                    </TouchableOpacity>
+
                     {/* Share Button */}
                     <TouchableOpacity
                         onPress={() => handleSave('share')}
@@ -1215,79 +1342,93 @@ export default function PosterEditor() {
                             transformOrigin: 'top center'
                         }}
                     >
-                        <View
-                            ref={canvasRef}
-                            collapsable={false}
-                            style={[
-                                styles.canvas,
-                                { height: canvasSize.h, width: canvasSize.w }
-                            ]}
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onPress={() => {
+                                setSelectedTool('content');
+                                setShowBottomBarEditForm(true);
+                            }}
                         >
-                            {/* Base Poster Image */}
-                            <Image
-                                source={{ uri: currentImage }}
-                                style={[
-                                    styles.baseImage,
-                                    { height: canvasSize.h }
-                                ]}
-                                resizeMode="contain"
-                                {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
-                            />
-
-                            {/* Filter Overlay */}
-                            {selectedFilter !== 'none' && (
-                                <View style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    height: canvasSize.h,
-                                    backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
-                                    pointerEvents: 'none',
-                                }} />
-                            )}
-
-                            {/* Dynamic Footer Bottom Bar - Positioned at Bottom */}
                             <View
-                                style={{
-                                    position: 'absolute',
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
-                                    minHeight: canvasSize.h * 0.12,
-                                    maxHeight: canvasSize.h * 0.25,
-                                    width: '100%',
-                                    zIndex: 10,
-                                    overflow: 'visible',
-                                }}>
-                                <RenderBottomBar
-                                    template={selectedBottomBarTemplate}
-                                    details={bottomBarDetails}
-                                    width={canvasSize.w}
-                                    customization={isCapturing ? {
-                                        ...frameCustomization,
-                                        nameFontSize: (frameCustomization.nameFontSize || 16) * 0.75,
-                                        designationFontSize: (frameCustomization.designationFontSize || 12) * 0.8,
-                                        addressFontSize: 9,
-                                    } : frameCustomization}
-                                    photoPosition={footerPhotoPosition}
-                                    isPhotoFlipped={isPhotoFlipped}
+                                ref={canvasRef}
+                                collapsable={false}
+                                style={[
+                                    styles.canvas,
+                                    {
+                                        height: captureCanvasHeight || canvasSize.h,
+                                        width: canvasSize.w
+                                    }
+                                ]}
+                            >
+                                {/* Base Poster Image */}
+                                <Image
+                                    source={{ uri: currentImage }}
+                                    style={[
+                                        styles.baseImage,
+                                        { height: canvasSize.h }
+                                    ]}
+                                    resizeMode="contain"
+                                    {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
                                 />
-                            </View>
 
-                            {/* Added Elements - Rendered last with highest z-index */}
-                            {elements.map((el, index) => (
-                                <View key={el.id} style={{ zIndex: 100 + index }}>
-                                    <DraggableItem element={el} />
+                                {/* Filter Overlay */}
+                                {selectedFilter !== 'none' && (
+                                    <View style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        height: canvasSize.h,
+                                        backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
+                                        pointerEvents: 'none',
+                                    }} />
+                                )}
+
+                                {/* Dynamic Footer Bottom Bar - Positioned at Bottom */}
+                                <View
+                                    style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        minHeight: canvasSize.h * 0.12,
+                                        maxHeight: canvasSize.h * 0.25,
+                                        width: '100%',
+                                        zIndex: 10,
+                                        overflow: 'visible',
+                                    }}>
+                                    <RenderBottomBar
+                                        template={selectedBottomBarTemplate}
+                                        details={bottomBarDetails}
+                                        width={canvasSize.w}
+                                        customization={isCapturing ? {
+                                            ...frameCustomization,
+                                            nameFontSize: (frameCustomization.nameFontSize || 16) * 0.75,
+                                            designationFontSize: (frameCustomization.designationFontSize || 12) * 0.8,
+                                            addressFontSize: 9,
+                                        } : {
+                                            ...frameCustomization,
+                                            onInteraction: (target) => openEditFormAndScrollTo(target as any)
+                                        }}
+                                        photoPosition={footerPhotoPosition}
+                                        isPhotoFlipped={isPhotoFlipped}
+                                    />
                                 </View>
-                            ))}
-                        </View>
+
+                                {/* Added Elements - Rendered last with highest z-index */}
+                                {elements.map((el, index) => (
+                                    <View key={el.id} style={{ zIndex: 100 + index }}>
+                                        <DraggableItem element={el} />
+                                    </View>
+                                ))}
+                            </View>
+                        </TouchableOpacity>
                     </View>
-                </View>
+                </View >
             </ScrollView >
 
             {/* Zoom Controls - Horizontal Layout */}
-            <View style={styles.zoomControls}>
+            < View style={styles.zoomControls} >
                 <TouchableOpacity onPress={() => handleZoom(false)} style={styles.zoomButton}>
                     <Ionicons name="remove" size={22} color="#1e293b" />
                 </TouchableOpacity>
@@ -1303,7 +1444,7 @@ export default function PosterEditor() {
                     <Ionicons name="refresh" size={16} color="#1e293b" />
                     <Text style={{ fontSize: 10, color: '#64748b', marginLeft: 2 }}>Reset</Text>
                 </TouchableOpacity>
-            </View>
+            </View >
 
             {/* Bottom Toolbar - Safe from navbar */}
             < SafeAreaView edges={['bottom']} style={styles.toolbarContainer} >
@@ -2114,7 +2255,7 @@ export default function PosterEditor() {
             </Modal >
 
             {/* BG Removal Wait Modal */}
-            <Modal
+            < Modal
                 visible={showBgWaitModal}
                 transparent={true}
                 animationType="fade"
@@ -2139,10 +2280,10 @@ export default function PosterEditor() {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Share Options Modal (Web Fallback) */}
-            <Modal
+            < Modal
                 visible={showShareModal}
                 transparent={true}
                 animationType="fade"
@@ -2257,7 +2398,7 @@ export default function PosterEditor() {
                         </View>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Bottom Bar Template Modal */}
             < Modal
@@ -2392,319 +2533,363 @@ export default function PosterEditor() {
             >
                 <View style={styles.modalOverlay2}>
                     <TouchableOpacity
-                        style={styles.modalBackdrop2}
+                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                         activeOpacity={1}
                         onPress={() => setShowBottomBarEditForm(false)}
                     />
-                    <View style={[styles.bottomSheet2, { height: '45%' }]}>
-                        <View style={styles.modalHeader2}>
-                            <Text style={styles.modalTitle2}>Edit Content</Text>
-                            <TouchableOpacity
-                                onPress={() => setShowBottomBarEditForm(false)}
-                                style={{ backgroundColor: SP_RED, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                            >
-                                <MaterialCommunityIcons name="check" size={18} color="#fff" />
-                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Save</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
-                            {/* Name Field */}
-                            <View style={styles.formField}>
-                                <Text style={styles.formLabel}>Name</Text>
-                                <TextInput
-                                    style={styles.formInput}
-                                    value={bottomBarDetails.name}
-                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, name: text }))}
-                                    placeholder="Enter your name"
-                                    placeholderTextColor="#94a3b8"
-                                />
-                            </View>
-
-                            {/* Designation Field */}
-                            <View style={styles.formField}>
-                                <Text style={styles.formLabel}>Designation</Text>
-                                <TextInput
-                                    style={styles.formInput}
-                                    value={bottomBarDetails.designation}
-                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, designation: text }))}
-                                    placeholder="e.g. District President"
-                                    placeholderTextColor="#94a3b8"
-                                />
-                            </View>
-
-                            {/* Mobile Field */}
-                            <View style={styles.formField}>
-                                <Text style={styles.formLabel}>Mobile Number</Text>
-                                <TextInput
-                                    style={styles.formInput}
-                                    value={bottomBarDetails.mobile}
-                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, mobile: text }))}
-                                    placeholder="+91 XXXXX XXXXX"
-                                    keyboardType="phone-pad"
-                                    placeholderTextColor="#94a3b8"
-                                />
-                            </View>
-
-                            {/* Social Platform Selector */}
-                            <View style={styles.formField}>
-                                <Text style={styles.formLabel}>Social Platform</Text>
-                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                    {SOCIAL_PLATFORMS.map((platform) => (
-                                        <TouchableOpacity
-                                            key={platform.id}
-                                            style={{
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                gap: 6,
-                                                paddingHorizontal: 12,
-                                                paddingVertical: 8,
-                                                borderRadius: 8,
-                                                borderWidth: 2,
-                                                borderColor: bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#e2e8f0',
-                                                backgroundColor: bottomBarDetails.socialPlatform === platform.id ? '#fef2f2' : '#fff',
-                                            }}
-                                            onPress={() => setBottomBarDetails(prev => ({ ...prev, socialPlatform: platform.id }))}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name={platform.icon as any}
-                                                size={18}
-                                                color={bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#64748b'}
-                                            />
-                                            <Text style={{
-                                                fontSize: 12,
-                                                fontWeight: bottomBarDetails.socialPlatform === platform.id ? '600' : '400',
-                                                color: bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#64748b'
-                                            }}>{platform.name}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </View>
-
-                            {/* Social Handle Field */}
-                            <View style={styles.formField}>
-                                <Text style={styles.formLabel}>Social Handle</Text>
-                                <TextInput
-                                    style={styles.formInput}
-                                    value={bottomBarDetails.social}
-                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, social: text }))}
-                                    placeholder="@username"
-                                    placeholderTextColor="#94a3b8"
-                                />
-                            </View>
-
-                            {/* Address Field */}
-                            <View style={styles.formField}>
-                                <Text style={styles.formLabel}>Address</Text>
-                                <TextInput
-                                    style={[styles.formInput, { height: 80 }]}
-                                    value={bottomBarDetails.address}
-                                    onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, address: text }))}
-                                    placeholder="Enter your address"
-                                    multiline
-                                    numberOfLines={3}
-                                    placeholderTextColor="#94a3b8"
-                                />
-                            </View>
-
-                            {/* Photo Upload */}
-                            <View style={styles.formField}>
-                                <Text style={styles.formLabel}>Profile Photo</Text>
+                    <View
+                        style={{
+                            width: '100%',
+                            height: 'auto',
+                            maxHeight: '50%',
+                            zIndex: 9999,
+                            backgroundColor: '#fff',
+                            borderTopLeftRadius: 24,
+                            borderTopRightRadius: 24,
+                            overflow: 'hidden',
+                            position: 'absolute',
+                            bottom: 0
+                        }}
+                    >
+                        <View style={{ flex: 1 }}>
+                            <View style={styles.modalHeader2}>
+                                <Text style={styles.modalTitle2}>Edit Content</Text>
                                 <TouchableOpacity
-                                    style={styles.photoUploadButton}
-                                    onPress={async () => {
-                                        const result = await ImagePicker.launchImageLibraryAsync({
-                                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                                            allowsEditing: true,
-                                            aspect: [1, 1],
-                                            quality: 1,
-                                        });
-
-                                        if (!result.canceled) {
-                                            setBottomBarDetails(prev => ({ ...prev, photo: result.assets[0].uri, photoNoBg: null }));
-                                        }
+                                    onPress={() => {
+                                        saveUserDetailsToStorage(bottomBarDetails);
+                                        setShowBottomBarEditForm(false);
                                     }}
-                                    disabled={isRemovingFooterPhotoBg}
+                                    style={{ backgroundColor: SP_RED, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}
                                 >
-                                    {bottomBarDetails.photo || bottomBarDetails.photoNoBg ? (
-                                        <Image
-                                            source={{ uri: (bottomBarDetails.photoNoBg || bottomBarDetails.photo) as string }}
-                                            style={[styles.photoPreviewSmall, isRemovingFooterPhotoBg && { opacity: 0.5 }]}
-                                        />
-                                    ) : (
-                                        <View style={styles.photoPlaceholderSmall}>
-                                            <MaterialCommunityIcons name="camera-plus" size={32} color="#94a3b8" />
-                                            <Text style={styles.photoPlaceholderText}>Tap to upload</Text>
-                                        </View>
-                                    )}
+                                    <MaterialCommunityIcons name="check" size={18} color="#fff" />
+                                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Save</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Photo Controls - BG Removal, Flip, Position */}
-                            {bottomBarDetails.photo && (
-                                <View style={styles.formField}>
-                                    <Text style={styles.formLabel}>Photo Controls</Text>
+                            <Text style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12, marginTop: 10 }}>
+                                (Scroll down for Photo & Background Removal)
+                            </Text>
 
-                                    {/* Remove Background & Flip Buttons */}
-                                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                            <View
+                                style={{
+                                    /* Flex layout inside constrained modal */
+                                    flex: 1,
+                                    paddingHorizontal: 20,
+                                    paddingTop: 0,
+                                    overflow: 'hidden',
+                                    ...(Platform.OS === 'web' ? { overflowY: 'auto' } : {})
+                                }}
+                            >
+                                <ScrollView
+                                    ref={editFormScrollRef}
+                                    style={{ flex: 1 }}
+                                    showsVerticalScrollIndicator={true}
+                                    contentContainerStyle={{ paddingBottom: 150, flexGrow: 1 }}
+                                    keyboardShouldPersistTaps="handled"
+                                    nestedScrollEnabled={true}
+                                >
+                                    {/* Name Field */}
+                                    <View style={styles.formField} ref={nameFieldRef}>
+                                        <Text style={styles.formLabel}>Name</Text>
+                                        <TextInput
+                                            style={styles.formInput}
+                                            value={bottomBarDetails.name}
+                                            onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, name: text }))}
+                                            placeholder="Enter your name"
+                                            placeholderTextColor="#94a3b8"
+                                        />
+                                    </View>
+
+                                    {/* Designation Field */}
+                                    <View style={styles.formField}>
+                                        <Text style={styles.formLabel}>Designation</Text>
+                                        <TextInput
+                                            style={styles.formInput}
+                                            value={bottomBarDetails.designation}
+                                            onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, designation: text }))}
+                                            placeholder="e.g. District President"
+                                            placeholderTextColor="#94a3b8"
+                                        />
+                                    </View>
+
+                                    {/* Mobile Field */}
+                                    <View style={styles.formField}>
+                                        <Text style={styles.formLabel}>Mobile Number</Text>
+                                        <TextInput
+                                            style={styles.formInput}
+                                            value={bottomBarDetails.mobile}
+                                            onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, mobile: text }))}
+                                            placeholder="+91 XXXXX XXXXX"
+                                            keyboardType="phone-pad"
+                                            placeholderTextColor="#94a3b8"
+                                        />
+                                    </View>
+
+                                    {/* Social Platform Selector */}
+                                    <View style={styles.formField}>
+                                        <Text style={styles.formLabel}>Social Platform</Text>
+                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                            {SOCIAL_PLATFORMS.map((platform) => (
+                                                <TouchableOpacity
+                                                    key={platform.id}
+                                                    style={{
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        gap: 6,
+                                                        paddingHorizontal: 12,
+                                                        paddingVertical: 8,
+                                                        borderRadius: 8,
+                                                        borderWidth: 2,
+                                                        borderColor: bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#e2e8f0',
+                                                        backgroundColor: bottomBarDetails.socialPlatform === platform.id ? '#fef2f2' : '#fff',
+                                                    }}
+                                                    onPress={() => setBottomBarDetails(prev => ({ ...prev, socialPlatform: platform.id }))}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name={platform.icon as any}
+                                                        size={18}
+                                                        color={bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#64748b'}
+                                                    />
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        fontWeight: bottomBarDetails.socialPlatform === platform.id ? '600' : '400',
+                                                        color: bottomBarDetails.socialPlatform === platform.id ? SP_RED : '#64748b'
+                                                    }}>
+                                                        {platform.name}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </View>
+
+                                    {/* Social Handle Field */}
+                                    <View style={styles.formField}>
+                                        <Text style={styles.formLabel}>Social Handle</Text>
+                                        <TextInput
+                                            style={styles.formInput}
+                                            value={bottomBarDetails.socialHandle}
+                                            onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, socialHandle: text }))}
+                                            placeholder="@username"
+                                            placeholderTextColor="#94a3b8"
+                                        />
+                                    </View>
+
+                                    {/* Address Field */}
+                                    <View style={styles.formField}>
+                                        <Text style={styles.formLabel}>Address</Text>
+                                        <TextInput
+                                            style={[styles.formInput, { height: 80 }]}
+                                            value={bottomBarDetails.address}
+                                            onChangeText={(text) => setBottomBarDetails(prev => ({ ...prev, address: text }))}
+                                            placeholder="Enter your address"
+                                            multiline
+                                            numberOfLines={3}
+                                            placeholderTextColor="#94a3b8"
+                                        />
+                                    </View>
+
+                                    {/* Photo Upload */}
+                                    <View style={styles.formField} ref={photoUploadRef}>
+                                        <Text style={styles.formLabel}>Profile Photo</Text>
                                         <TouchableOpacity
-                                            style={{
-                                                flex: 1,
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                backgroundColor: isRemovingFooterPhotoBg ? '#f1f5f9' : '#fff',
-                                                borderWidth: 1,
-                                                borderColor: '#e2e8f0',
-                                                borderRadius: 8,
-                                                paddingVertical: 10,
-                                                gap: 6,
+                                            style={styles.photoUploadButton}
+                                            onPress={async () => {
+                                                const result = await ImagePicker.launchImageLibraryAsync({
+                                                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                                                    allowsEditing: true,
+                                                    aspect: [1, 1],
+                                                    quality: 1,
+                                                });
+
+                                                if (!result.canceled) {
+                                                    setBottomBarDetails(prev => ({ ...prev, photo: result.assets[0].uri, photoNoBg: null }));
+                                                }
                                             }}
-                                            onPress={handleRemoveFooterPhotoBg}
                                             disabled={isRemovingFooterPhotoBg}
                                         >
-                                            {isRemovingFooterPhotoBg ? (
-                                                <ActivityIndicator size="small" color={SP_RED} />
+                                            {bottomBarDetails.photo || bottomBarDetails.photoNoBg ? (
+                                                <Image
+                                                    source={{ uri: (bottomBarDetails.photoNoBg || bottomBarDetails.photo) as string }}
+                                                    style={[styles.photoPreviewSmall, isRemovingFooterPhotoBg && { opacity: 0.5 }]}
+                                                />
                                             ) : (
-                                                <MaterialCommunityIcons name="eraser" size={18} color={SP_RED} />
+                                                <View style={styles.photoPlaceholderSmall}>
+                                                    <MaterialCommunityIcons name="camera-plus" size={32} color="#94a3b8" />
+                                                    <Text style={styles.photoPlaceholderText}>Tap to upload</Text>
+                                                </View>
                                             )}
-                                            <Text style={{ fontSize: 12, color: SP_RED, fontWeight: '600' }}>
-                                                {isRemovingFooterPhotoBg ? `${bgRemovalProgress}%` : 'Remove BG'}
-                                            </Text>
-                                        </TouchableOpacity>
-
-                                        <TouchableOpacity
-                                            style={{
-                                                flex: 1,
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                backgroundColor: isPhotoFlipped ? '#fef2f2' : '#fff',
-                                                borderWidth: isPhotoFlipped ? 2 : 1,
-                                                borderColor: isPhotoFlipped ? SP_RED : '#e2e8f0',
-                                                borderRadius: 8,
-                                                paddingVertical: 10,
-                                                gap: 6,
-                                            }}
-                                            onPress={() => setIsPhotoFlipped(!isPhotoFlipped)}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name="flip-horizontal"
-                                                size={18}
-                                                color={isPhotoFlipped ? SP_RED : '#64748b'}
-                                            />
-                                            <Text style={{
-                                                fontSize: 12,
-                                                color: isPhotoFlipped ? SP_RED : '#64748b',
-                                                fontWeight: isPhotoFlipped ? '600' : '400'
-                                            }}>
-                                                Flip Photo
-                                            </Text>
                                         </TouchableOpacity>
                                     </View>
 
-                                    {/* Position Controls */}
-                                    <View style={{ gap: 10 }}>
-                                        {/* X Position */}
-                                        <View>
-                                            <Text style={[styles.formLabel, { fontSize: 12, marginBottom: 6 }]}>
-                                                Horizontal Position (X): {footerPhotoPosition.x}
-                                            </Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    {/* Photo Controls - BG Removal, Flip, Position */}
+                                    {bottomBarDetails.photo && (
+                                        <View style={styles.formField}>
+                                            <Text style={styles.formLabel}>Photo Controls</Text>
+
+                                            {/* Remove Background & Flip Buttons */}
+                                            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
                                                 <TouchableOpacity
-                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: Math.max(0, prev.x - 5) }))}
                                                     style={{
-                                                        backgroundColor: '#e2e8f0',
-                                                        width: 40,
-                                                        height: 40,
-                                                        borderRadius: 8,
+                                                        flex: 1,
+                                                        flexDirection: 'row',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
+                                                        backgroundColor: isRemovingFooterPhotoBg ? '#f1f5f9' : '#fff',
+                                                        borderWidth: 1,
+                                                        borderColor: '#e2e8f0',
+                                                        borderRadius: 8,
+                                                        paddingVertical: 10,
+                                                        gap: 6,
                                                     }}
+                                                    onPress={handleRemoveFooterPhotoBg}
+                                                    disabled={isRemovingFooterPhotoBg}
                                                 >
-                                                    <MaterialCommunityIcons name="chevron-left" size={24} color="#0f172a" />
-                                                </TouchableOpacity>
-                                                <View style={{
-                                                    flex: 1,
-                                                    height: 40,
-                                                    backgroundColor: '#f1f5f9',
-                                                    borderRadius: 8,
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                }}>
-                                                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#0f172a' }}>
-                                                        {footerPhotoPosition.x}px
+                                                    {isRemovingFooterPhotoBg ? (
+                                                        <ActivityIndicator size="small" color={SP_RED} />
+                                                    ) : (
+                                                        <MaterialCommunityIcons name="eraser" size={18} color={SP_RED} />
+                                                    )}
+                                                    <Text style={{ fontSize: 12, color: SP_RED, fontWeight: '600' }}>
+                                                        {isRemovingFooterPhotoBg ? `${bgRemovalProgress}%` : 'Remove BG'}
                                                     </Text>
-                                                </View>
+                                                </TouchableOpacity>
+
                                                 <TouchableOpacity
-                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: Math.min(80, prev.x + 5) }))}
                                                     style={{
-                                                        backgroundColor: '#e2e8f0',
-                                                        width: 40,
-                                                        height: 40,
-                                                        borderRadius: 8,
+                                                        flex: 1,
+                                                        flexDirection: 'row',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
+                                                        backgroundColor: isPhotoFlipped ? '#fef2f2' : '#fff',
+                                                        borderWidth: isPhotoFlipped ? 2 : 1,
+                                                        borderColor: isPhotoFlipped ? SP_RED : '#e2e8f0',
+                                                        borderRadius: 8,
+                                                        paddingVertical: 10,
+                                                        gap: 6,
                                                     }}
+                                                    onPress={() => setIsPhotoFlipped(!isPhotoFlipped)}
                                                 >
-                                                    <MaterialCommunityIcons name="chevron-right" size={24} color="#0f172a" />
+                                                    <MaterialCommunityIcons
+                                                        name="flip-horizontal"
+                                                        size={18}
+                                                        color={isPhotoFlipped ? SP_RED : '#64748b'}
+                                                    />
+                                                    <Text style={{
+                                                        fontSize: 12,
+                                                        color: isPhotoFlipped ? SP_RED : '#64748b',
+                                                        fontWeight: isPhotoFlipped ? '600' : '400'
+                                                    }}>
+                                                        Flip Photo
+                                                    </Text>
                                                 </TouchableOpacity>
                                             </View>
-                                        </View>
 
-                                        {/* Y Position */}
-                                        <View>
-                                            <Text style={[styles.formLabel, { fontSize: 12, marginBottom: 6 }]}>
-                                                Vertical Position (Y): {footerPhotoPosition.y}
-                                            </Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                <TouchableOpacity
-                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: Math.max(-180, prev.y - 5) }))}
-                                                    style={{
-                                                        backgroundColor: '#e2e8f0',
-                                                        width: 40,
-                                                        height: 40,
-                                                        borderRadius: 8,
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                    }}
-                                                >
-                                                    <MaterialCommunityIcons name="chevron-up" size={24} color="#0f172a" />
-                                                </TouchableOpacity>
-                                                <View style={{
-                                                    flex: 1,
-                                                    height: 40,
-                                                    backgroundColor: '#f1f5f9',
-                                                    borderRadius: 8,
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                }}>
-                                                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#0f172a' }}>
-                                                        {footerPhotoPosition.y}px
+                                            {/* Position Controls */}
+                                            <View style={{ gap: 10 }}>
+                                                {/* X Position */}
+                                                <View>
+                                                    <Text style={[styles.formLabel, { fontSize: 12, marginBottom: 6 }]}>
+                                                        Horizontal Position (X): {footerPhotoPosition.x}
                                                     </Text>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                        <TouchableOpacity
+                                                            onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: Math.max(0, prev.x - 5) }))}
+                                                            style={{
+                                                                backgroundColor: '#e2e8f0',
+                                                                width: 40,
+                                                                height: 40,
+                                                                borderRadius: 8,
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            }}
+                                                        >
+                                                            <MaterialCommunityIcons name="chevron-left" size={24} color="#0f172a" />
+                                                        </TouchableOpacity>
+                                                        <View style={{
+                                                            flex: 1,
+                                                            height: 40,
+                                                            backgroundColor: '#f1f5f9',
+                                                            borderRadius: 8,
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                        }}>
+                                                            <Text style={{ fontSize: 14, fontWeight: '600', color: '#0f172a' }}>
+                                                                {footerPhotoPosition.x}px
+                                                            </Text>
+                                                        </View>
+                                                        <TouchableOpacity
+                                                            onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: Math.min(80, prev.x + 5) }))}
+                                                            style={{
+                                                                backgroundColor: '#e2e8f0',
+                                                                width: 40,
+                                                                height: 40,
+                                                                borderRadius: 8,
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            }}
+                                                        >
+                                                            <MaterialCommunityIcons name="chevron-right" size={24} color="#0f172a" />
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 </View>
-                                                <TouchableOpacity
-                                                    onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: Math.min(-80, prev.y + 5) }))}
-                                                    style={{
-                                                        backgroundColor: '#e2e8f0',
-                                                        width: 40,
-                                                        height: 40,
-                                                        borderRadius: 8,
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                    }}
-                                                >
-                                                    <MaterialCommunityIcons name="chevron-down" size={24} color="#0f172a" />
-                                                </TouchableOpacity>
+
+                                                {/* Y Position */}
+                                                <View>
+                                                    <Text style={[styles.formLabel, { fontSize: 12, marginBottom: 6 }]}>
+                                                        Vertical Position (Y): {footerPhotoPosition.y}
+                                                    </Text>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                        <TouchableOpacity
+                                                            onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: Math.max(-180, prev.y - 5) }))}
+                                                            style={{
+                                                                backgroundColor: '#e2e8f0',
+                                                                width: 40,
+                                                                height: 40,
+                                                                borderRadius: 8,
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            }}
+                                                        >
+                                                            <MaterialCommunityIcons name="chevron-up" size={24} color="#0f172a" />
+                                                        </TouchableOpacity>
+                                                        <View style={{
+                                                            flex: 1,
+                                                            height: 40,
+                                                            backgroundColor: '#f1f5f9',
+                                                            borderRadius: 8,
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                        }}>
+                                                            <Text style={{ fontSize: 14, fontWeight: '600', color: '#0f172a' }}>
+                                                                {footerPhotoPosition.y}px
+                                                            </Text>
+                                                        </View>
+                                                        <TouchableOpacity
+                                                            onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: Math.min(-80, prev.y + 5) }))}
+                                                            style={{
+                                                                backgroundColor: '#e2e8f0',
+                                                                width: 40,
+                                                                height: 40,
+                                                                borderRadius: 8,
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            }}
+                                                        >
+                                                            <MaterialCommunityIcons name="chevron-down" size={24} color="#0f172a" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
                                             </View>
                                         </View>
-                                    </View>
-                                </View>
-                            )}
+                                    )}
 
-                            <View style={{ height: 20 }} />
-                        </ScrollView>
-                    </View>
+                                    <View style={{ height: 20 }} />
+                                </ScrollView>
+                            </View>
+
+
+                        </View>
+                    </View >
                 </View >
             </Modal >
 
@@ -2833,28 +3018,52 @@ export default function PosterEditor() {
                         maxWidth: width * 0.9,
                         maxHeight: height * 0.6,
                     }}>
-                        {previewImageUri ? (
+                        <View style={{
+                            width: canvasSize.w,
+                            height: canvasSize.h,
+                            transform: [{ scale: Math.min((width * 0.85) / canvasSize.w, (height * 0.55) / canvasSize.h) }],
+                            backgroundColor: '#fff',
+                            overflow: 'hidden',
+                            elevation: 5,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 8
+                        }}>
                             <Image
-                                source={{ uri: previewImageUri }}
-                                style={{
-                                    width: canvasSize.w * 0.8,
-                                    height: canvasSize.h * 0.8,
-                                    maxWidth: width * 0.85,
-                                    maxHeight: height * 0.55,
-                                }}
-                                resizeMode="contain"
+                                source={{ uri: currentImage }}
+                                style={[styles.baseImage, { height: canvasSize.h, imageRendering: 'crisp-edges' } as any]}
+                                resizeMode="cover"
                             />
-                        ) : (
+
+                            {selectedFilter !== 'none' && (
+                                <View style={{
+                                    position: 'absolute',
+                                    top: 0, left: 0, right: 0, height: canvasSize.h,
+                                    backgroundColor: FILTERS.find((f: any) => f.id === selectedFilter)?.overlay || 'transparent',
+                                    pointerEvents: 'none',
+                                }} />
+                            )}
+
+                            {elements.map((el) => (
+                                <DraggableItem key={el.id} element={el} isReadonly={true} />
+                            ))}
+
                             <View style={{
-                                width: canvasSize.w * 0.8,
-                                height: canvasSize.h * 0.8,
-                                justifyContent: 'center',
-                                alignItems: 'center',
+                                position: 'absolute', bottom: 0, left: 0, right: 0, width: '100%',
+                                minHeight: canvasSize.h * 0.15,
+                                maxHeight: canvasSize.h * 0.35,
                             }}>
-                                <ActivityIndicator size="large" color={SP_RED} />
-                                <Text style={{ marginTop: 10, color: '#64748b' }}>Generating HD Preview...</Text>
+                                <RenderBottomBar
+                                    template={selectedBottomBarTemplate}
+                                    details={bottomBarDetails}
+                                    width={canvasSize.w}
+                                    customization={frameCustomization}
+                                    photoPosition={footerPhotoPosition}
+                                    isPhotoFlipped={isPhotoFlipped}
+                                />
                             </View>
-                        )}
+                        </View>
                     </View>
 
                     {/* Action Buttons */}
@@ -2874,41 +3083,7 @@ export default function PosterEditor() {
                                 paddingHorizontal: 28,
                                 gap: 8,
                             }}
-                            onPress={() => {
-                                if (previewImageUri) {
-                                    if (Platform.OS === 'web') {
-                                        // Web: Direct download of HD image
-                                        const link = document.createElement('a');
-                                        link.href = previewImageUri;
-                                        link.download = `${posterName.replace(/\s+/g, '-').toLowerCase()}-hd.png`;
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                        Alert.alert('Success', 'HD Poster downloaded successfully!');
-                                        awardPoints('poster_create', 10, `Created HD poster on web: ${posterName}`);
-                                        setShowPreviewModal(false);
-                                    } else {
-                                        // Mobile: Save HD image
-                                        (async () => {
-                                            try {
-                                                const { status } = await MediaLibrary.requestPermissionsAsync(true);
-                                                if (status === 'granted') {
-                                                    await MediaLibrary.saveToLibraryAsync(previewImageUri);
-                                                    Alert.alert('Success', 'HD Poster saved to gallery!');
-                                                    awardPoints('poster_create', 10, `Created HD poster: ${posterName}`);
-                                                    setShowPreviewModal(false);
-                                                } else {
-                                                    Alert.alert('Permission Required', 'Please grant permission to save photos.');
-                                                }
-                                            } catch (error) {
-                                                console.error('Save error:', error);
-                                                Alert.alert('Error', 'Failed to save poster');
-                                            }
-                                        })();
-                                    }
-                                }
-                            }}
-                            disabled={!previewImageUri}
+                            onPress={() => handleSave('download')}
                         >
                             <MaterialCommunityIcons name="download" size={20} color="#fff" />
                             <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
@@ -2916,59 +3091,23 @@ export default function PosterEditor() {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Save Image Button */}
                         <TouchableOpacity
                             style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
-                                backgroundColor: '#16a34a',
+                                backgroundColor: SP_RED,
                                 borderRadius: 25,
                                 paddingVertical: 14,
                                 paddingHorizontal: 28,
                                 gap: 8,
+                                borderWidth: 1,
+                                borderColor: 'rgba(255,255,255,0.3)',
                             }}
-                            onPress={() => {
-                                setShowPreviewModal(false);
-                                handleDownloadImage();
-                            }}
+                            onPress={() => handleSave('share')}
                         >
-                            <MaterialCommunityIcons name="download" size={20} color="#fff" />
-                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-                                Save Poster
-                            </Text>
+                            <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
+                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Share</Text>
                         </TouchableOpacity>
-
-                        {/* Share Button */}
-                        {Platform.OS !== 'web' && (
-                            <TouchableOpacity
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    backgroundColor: 'rgba(255,255,255,0.2)',
-                                    borderRadius: 25,
-                                    paddingVertical: 14,
-                                    paddingHorizontal: 28,
-                                    gap: 8,
-                                    borderWidth: 1,
-                                    borderColor: 'rgba(255,255,255,0.3)',
-                                }}
-                                onPress={async () => {
-                                    if (previewImageUri) {
-                                        try {
-                                            await Sharing.shareAsync(previewImageUri);
-                                            awardPoints('poster_share', 10, `Shared poster: ${posterName}`);
-                                        } catch (error) {
-                                            console.error('Share error:', error);
-                                            Alert.alert('Error', 'Failed to share poster');
-                                        }
-                                    }
-                                }}
-                                disabled={!previewImageUri}
-                            >
-                                <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
-                                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Share</Text>
-                            </TouchableOpacity>
-                        )}
                     </View>
                 </View>
             </Modal >

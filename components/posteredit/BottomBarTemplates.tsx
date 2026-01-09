@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, ImageBackground, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -72,11 +72,12 @@ interface TemplateProps {
     customization?: TemplateCustomization;
     photoPosition?: { x: number; y: number };
     isPhotoFlipped?: boolean;
+    onPhotoPress?: () => void;
 }
 
 
 // Template 2: Professional Card - Blue gradient with large circular photo
-const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
+const BoldStripBar = ({ details, width, customization, onPhotoPress }: TemplateProps) => {
     const bgColors = customization?.backgroundGradient && customization.backgroundGradient.length > 0 && customization.backgroundGradient[0] !== customization.backgroundGradient[1]
         ? customization.backgroundGradient
         : [SP_RED, SP_GREEN]; // Red to green gradient default
@@ -85,24 +86,28 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
         <LinearGradient colors={bgColors as any} style={[styles.bottomBar, { width, minHeight: '100%', opacity: customization?.backgroundOpacity || 1 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 16 }}>
                 {/* Large circular photo with golden border */}
-                <View style={[styles.photoContainer, {
-                    width: customization?.imageSize || 100,
-                    height: customization?.imageSize || 100,
-                    borderRadius: (customization?.imageSize || 100) / 2,
-                    borderColor: customization?.imageBorderColor || '#fbbf24',
-                    borderWidth: customization?.imageBorderWidth || 4,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 8,
-                    elevation: 8,
-                }]}>
+                <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={onPhotoPress}
+                    style={[styles.photoContainer, {
+                        width: customization?.imageSize || 100,
+                        height: customization?.imageSize || 100,
+                        borderRadius: (customization?.imageSize || 100) / 2,
+                        borderColor: customization?.imageBorderColor || '#fbbf24',
+                        borderWidth: customization?.imageBorderWidth || 4,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 8,
+                        elevation: 8,
+                    }]}
+                >
                     {details?.photo ? (
                         <Image source={{ uri: details.photo }} style={styles.photo} />
                     ) : (
                         <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                     )}
-                </View>
+                </TouchableOpacity>
 
                 {/* Text content */}
                 <View style={{ flex: 1 }}>
@@ -385,7 +390,7 @@ const YellowThemeBar = ({ details, width, customization }: TemplateProps) => {
 };
 
 // Template 6: Vibrant Wave - Modern glassmorphism with neon glow
-const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
+const GradientWaveBar = ({ details, width, customization, onPhotoPress }: TemplateProps) => {
     const bgColors = customization?.backgroundGradient && customization.backgroundGradient.length > 0 && customization.backgroundGradient[0] !== customization.backgroundGradient[1]
         ? customization.backgroundGradient
         : [SP_RED, SP_GREEN]; // Red to green gradient default
@@ -402,7 +407,11 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
                 </View>
 
                 {/* Photo with glow ring */}
-                <View style={{ position: 'relative' }}>
+                <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={onPhotoPress}
+                    style={{ position: 'relative' }}
+                >
                     <View style={{
                         position: 'absolute',
                         top: -4, left: -4, right: -4, bottom: -4,
@@ -422,7 +431,7 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
                             <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                         )}
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* Name & Designation with glass card */}
                 <View style={{ flex: 1 }}>
@@ -465,14 +474,18 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
 // Template 7: Curved Tech Frame - STF Special
 
 // Template 8: Bold STF - Image Frame (frame1)
-const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
+const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFlipped, onPhotoPress }: TemplateProps) => {
     const photoX = photoPosition?.x ?? 1;
     const photoY = photoPosition?.y ?? -180;
 
     return (
         <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
             {/* User Photo - Behind Frame - Right Side - Large Square */}
-            <View style={{ position: 'absolute', right: photoX, top: photoY, height: 240, zIndex: 16 }}>
+            <TouchableOpacity
+                activeOpacity={1}
+                onPress={onPhotoPress}
+                style={{ position: 'absolute', right: photoX, top: photoY, height: 240, zIndex: 16 }}
+            >
                 <View style={{
                     width: 270,
                     height: 300,
@@ -489,7 +502,7 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
                         </View>
                     )}
                 </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Frame Image Overlay (Middle Layer) */}
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 12 }}>
@@ -523,7 +536,7 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
     );
 };
 // Template 9: Rounded STF - Image Frame (frame2)
-const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
+const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhotoFlipped, onPhotoPress }: TemplateProps) => {
     const photoX = photoPosition?.x ?? 1;
     const photoY = photoPosition?.y ?? -240;
 
@@ -582,14 +595,18 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
 };
 
 // Template 10: Tabbed STF - Image Frame (frame3)
-const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoFlipped }: TemplateProps) => {
+const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoFlipped, onPhotoPress }: TemplateProps) => {
     const photoX = photoPosition?.x ?? 1;
     const photoY = photoPosition?.y ?? -240;
 
     return (
         <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
             {/* User Photo - ABOVE Frame - Right Side - Large Square */}
-            <View style={{ position: 'absolute', right: photoX, top: photoY, height: 240, zIndex: 16 }}>
+            <TouchableOpacity
+                activeOpacity={1}
+                onPress={onPhotoPress}
+                style={{ position: 'absolute', right: photoX, top: photoY, height: 240, zIndex: 16 }}
+            >
                 <View style={{
                     width: 270,
                     height: 300,
@@ -606,7 +623,7 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
                         </View>
                     )}
                 </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Frame Image Overlay (Middle Layer) */}
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 12 }}>
@@ -648,7 +665,7 @@ const ImageFrame1 = ({ details, width, customization }: TemplateProps) => {
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, position: 'relative', zIndex: 10 }}>
                 {/* Left: Logo */}
                 <View style={{ marginRight: 15 }}>
-                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25, imageRendering: 'crisp-edges' } as any} />
                 </View>
 
                 {/* Center: Details */}
@@ -696,7 +713,7 @@ const ImageFrame2 = ({ details, width, customization }: TemplateProps) => {
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, position: 'relative', zIndex: 10 }}>
                 {/* Left: Logo */}
                 <View style={{ marginRight: 15 }}>
-                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25, imageRendering: 'crisp-edges' } as any} />
                 </View>
 
                 {/* Center: Details */}
@@ -743,7 +760,7 @@ const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, position: 'relative', zIndex: 10 }}>
                 {/* Left: Logo */}
                 <View style={{ marginRight: 15 }}>
-                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25, imageRendering: 'crisp-edges' } as any} />
                 </View>
 
                 {/* Center: Details */}
@@ -781,7 +798,7 @@ const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
         </View>
     );
 };
-export const renderTemplate = (templateIdOrProps: string | { template?: string; templateId?: string; details: any; width: number; customization?: TemplateCustomization; photoPosition?: { x: number; y: number }; isPhotoFlipped?: boolean }, details?: any, width?: number, customization?: TemplateCustomization, photoPosition?: { x: number; y: number }, isPhotoFlipped?: boolean) => {
+export const renderTemplate = (templateIdOrProps: string | { template?: string; templateId?: string; details: any; width: number; customization?: TemplateCustomization; photoPosition?: { x: number; y: number }; isPhotoFlipped?: boolean; onPhotoPress?: () => void }, details?: any, width?: number, customization?: TemplateCustomization, photoPosition?: { x: number; y: number }, isPhotoFlipped?: boolean, onPhotoPress?: () => void) => {
     // Handle both old and new API
     let templateId: string;
     let finalDetails: any;
@@ -798,19 +815,21 @@ export const renderTemplate = (templateIdOrProps: string | { template?: string; 
         finalCustomization = customization;
         finalPhotoPosition = photoPosition;
         finalIsPhotoFlipped = isPhotoFlipped;
+        var finalOnPhotoPress = onPhotoPress;
     } else {
-        // New API: renderTemplate({ template, details, width, customization, photoPosition, isPhotoFlipped })
+        // New API: renderTemplate({ template, details, width, customization, photoPosition, isPhotoFlipped, onPhotoPress })
         templateId = templateIdOrProps.template || templateIdOrProps.templateId || 'default';
         finalDetails = templateIdOrProps.details;
         finalWidth = templateIdOrProps.width;
         finalCustomization = templateIdOrProps.customization;
         finalPhotoPosition = templateIdOrProps.photoPosition;
         finalIsPhotoFlipped = templateIdOrProps.isPhotoFlipped;
+        var finalOnPhotoPress = templateIdOrProps.onPhotoPress;
     }
 
     switch (templateId) {
         case 'bold_strip':
-            return <BoldStripBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
+            return <BoldStripBar details={finalDetails} width={finalWidth} customization={finalCustomization} onPhotoPress={finalOnPhotoPress} />;
         case 'minimal_white':
             return <MinimalWhiteBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
         case 'red_accent':
@@ -819,11 +838,11 @@ export const renderTemplate = (templateIdOrProps: string | { template?: string; 
             return <GradientWaveBar details={finalDetails} width={finalWidth} customization={finalCustomization} />;
 
         case 'stf_bold':
-            return <StfBoldFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} />;
+            return <StfBoldFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} onPhotoPress={finalOnPhotoPress} />;
         case 'stf_rounded':
-            return <StfRoundedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} />;
+            return <StfRoundedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} onPhotoPress={finalOnPhotoPress} />;
         case 'stf_tabbed':
-            return <StfTabbedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} />;
+            return <StfTabbedFrame details={finalDetails} width={finalWidth} customization={finalCustomization} photoPosition={finalPhotoPosition} isPhotoFlipped={finalIsPhotoFlipped} onPhotoPress={finalOnPhotoPress} />;
 
         case 'image_frame1':
             return <ImageFrame1 details={finalDetails} width={finalWidth} customization={finalCustomization} />;

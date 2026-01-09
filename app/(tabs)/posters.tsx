@@ -237,7 +237,7 @@ export default function PostersScreen() {
                             <Image
                                 source={{ uri: poster.imageUrl }}
                                 style={styles.posterImage}
-                                resizeMode="contain"
+                                resizeMode="cover"
                             />
 
                             {/* Edit Overlay Hint */}
@@ -418,11 +418,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     posterCard: {
-        width: '47.3%',
-        aspectRatio: 1 / 1.4,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 4,
+        width: '48%',
+        aspectRatio: 1 / 1.3,
+        backgroundColor: '#e2e8f0',
+        borderRadius: 12,
         marginBottom: 12,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },

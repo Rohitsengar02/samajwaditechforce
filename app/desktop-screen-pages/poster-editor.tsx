@@ -40,6 +40,7 @@ const SP_GREEN = '#009933';
 const BANNER_HEIGHT = 80;
 const API_URL = getApiUrl();
 const BASE_URL = getBaseUrl();
+const USER_DETAILS_STORAGE_KEY = 'sp_user_poster_details_v1';
 
 import DesktopHeader from '../../components/DesktopHeader';
 
@@ -62,6 +63,11 @@ interface EditorElement {
     backgroundColor?: string;
     width?: number;
     height?: number;
+    imageWidth?: number;
+    imageHeight?: number;
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadius?: number;
 }
 
 const FONTS = ['System', 'Roboto', 'serif', 'monospace'];
@@ -118,6 +124,8 @@ export default function DesktopPosterEditor() {
     // Toast State
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
+    const propertiesScrollRef = useRef<ScrollView>(null);
+    const photoSectionRef = useRef<View>(null);
 
     const showToast = (message: string) => {
         setToastMessage(message);
@@ -349,6 +357,15 @@ export default function DesktopPosterEditor() {
 
     const loadUserData = async () => {
         try {
+            // First, try to load saved poster details (user's preference)
+            const savedDetails = await AsyncStorage.getItem(USER_DETAILS_STORAGE_KEY);
+            if (savedDetails) {
+                const parsedDetails = JSON.parse(savedDetails);
+                setBottomBarDetails(parsedDetails);
+                return; // Use saved details, don't overwrite with profile
+            }
+
+            // Fallback: Load from user profile if no saved details
             const userInfoStr = await AsyncStorage.getItem('userInfo');
             if (userInfoStr) {
                 const userInfo = JSON.parse(userInfoStr);
@@ -379,6 +396,17 @@ export default function DesktopPosterEditor() {
             }
         } catch (error) {
             console.error('Error loading user data:', error);
+        }
+    };
+
+    // Persistence: Save user details for future posters
+    const saveUserDetailsToStorage = async () => {
+        try {
+            await AsyncStorage.setItem(USER_DETAILS_STORAGE_KEY, JSON.stringify(bottomBarDetails));
+            showToast('✅ Details saved for all future posters!');
+        } catch (error) {
+            console.error('Failed to save user details:', error);
+            showToast('❌ Failed to save details');
         }
     };
 
@@ -549,65 +577,62 @@ export default function DesktopPosterEditor() {
 
 
 
-    const handleSave = async () => {
+    const handleSave = async (action: 'download' | 'share' | 'preview') => {
         if (isRemovingFooterPhotoBg) {
             setShowBgWaitModal(true);
             return;
         }
+
+        setSelectedElementId(null);
+        setIsSaving(true);
+
         try {
-            setSelectedElementId(null);
-            setTimeout(async () => {
-                try {
-                    const canvasElement = canvasRef.current as any;
-                    if (!canvasElement) {
-                        Alert.alert('Error', 'Canvas not found');
-                        return;
-                    }
+            // --- PRO BLUEPRINT ARCHITECTURE ---
+            const designBlueprint = {
+                currentImage,
+                elements,
+                canvasWidth: canvasSize.w,
+                canvasHeight: canvasSize.h,
+                selectedTemplate: selectedBottomBarTemplate,
+                details: bottomBarDetails,
+                customization: {}
+            };
 
-                    // Use html2canvas if available (better quality)
-                    if (typeof window !== 'undefined' && (window as any).html2canvas) {
-                        const html2canvas = (window as any).html2canvas;
-                        const canvas = await html2canvas(canvasElement, {
-                            useCORS: true,
-                            allowTaint: true,
-                            backgroundColor: '#ffffff',
-                            scale: 2, // Higher quality
-                        });
-                        const uri = canvas.toDataURL('image/jpeg', 0.95);
+            const response = await fetch(`${API_URL}/render/poster`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ designData: designBlueprint })
+            });
 
-                        const link = document.createElement('a');
-                        link.href = uri;
-                        link.download = `poster-${Date.now()}.jpg`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        awardPoints('poster_create', 10, `Created poster: ${title || 'Untitled'}`);
-                    } else {
-                        // Fallback: Simple approach for basic images
-                        Alert.alert('Info', 'For best results, please refresh the page. Using fallback download method.');
+            const result = await response.json();
 
-                        // Try to capture just the main image
-                        const imgElement = canvasElement.querySelector('img');
-                        if (imgElement) {
-                            const link = document.createElement('a');
-                            link.href = imgElement.src;
-                            link.download = `poster - ${Date.now()}.jpg`;
-                            link.click();
-                        } else {
-                            Alert.alert('Error', 'Could not capture poster. Please try again.');
-                        }
-                    }
-                } catch (innerError) {
-                    console.error('Screenshot error:', innerError);
-                    Alert.alert('Error', 'Failed to save poster');
+            if (result.success) {
+                const masterUrl = result.imageUrl;
+
+                if (action === 'download') {
+                    const link = document.createElement('a');
+                    link.href = masterUrl;
+                    link.target = '_blank';
+                    link.download = `pro-poster-${Date.now()}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    awardPoints('poster_create', 25, `Created Master Poster: ${title || 'Untitled'}`);
+                    Alert.alert('Success', 'Ultra-HD Poster Downloaded!');
+                } else { // This 'else' branch handles 'share' or 'preview'
+                    setSharedImageUrl(masterUrl);
+                    setShowPreviewModal(true);
                 }
-            }, 100);
-        } catch (error) {
-            console.error('Save error:', error);
-            Alert.alert('Error', 'Failed to save poster');
+            } else {
+                throw new Error(result.message || 'Render failed');
+            }
+        } catch (err) {
+            console.error('Pro Render Error:', err);
+            Alert.alert('Error', 'Master render failed. Please try again.');
+        } finally {
+            setIsSaving(false);
         }
     };
-
 
 
 
@@ -751,22 +776,70 @@ export default function DesktopPosterEditor() {
 
                     if (typeof window !== 'undefined' && (window as any).html2canvas) {
                         const html2canvas = (window as any).html2canvas;
-                        const canvas = await html2canvas(canvasElement, {
-                            scale: 2,
-                            useCORS: true,
-                            logging: false,
-                            backgroundColor: null,
+
+                        // --- ROBUST VISIBLE OVERLAY STRATEGY ---
+                        const PhysicalWidth = 3500;
+                        const AspectRatio = canvasSize.h / canvasSize.w;
+                        const PhysicalHeight = PhysicalWidth * AspectRatio;
+                        const ZoomScale = 1.5;
+
+                        const captureContainer = document.createElement('div');
+                        captureContainer.id = 'smart-master-root-mobile';
+                        captureContainer.style.position = 'fixed';
+                        captureContainer.style.top = '0';
+                        captureContainer.style.left = '-9999px';
+                        captureContainer.style.width = `${PhysicalWidth}px`;
+                        captureContainer.style.height = `${PhysicalHeight}px`;
+                        captureContainer.style.backgroundColor = '#ffffff';
+
+                        const originalCanvas = canvasRef.current as unknown as HTMLElement;
+                        const clone = originalCanvas.cloneNode(true) as HTMLElement;
+
+                        clone.style.transform = `scale(${PhysicalWidth / canvasSize.w})`;
+                        clone.style.transformOrigin = 'top left';
+                        clone.style.width = `${canvasSize.w}px`;
+                        clone.style.height = `${canvasSize.h}px`;
+                        clone.style.margin = '0';
+
+                        captureContainer.appendChild(clone);
+                        document.body.appendChild(captureContainer);
+
+                        const all = captureContainer.querySelectorAll('*');
+                        all.forEach((el: any) => {
+                            el.style.textRendering = 'geometricPrecision';
+                            el.style.webkitFontSmoothing = 'antialiased';
+                            el.style.imageRendering = 'crisp-edges';
+                            if (window.getComputedStyle(el).textShadow !== 'none') {
+                                el.style.textShadow = '1px 1px 0px rgba(0,0,0,0.15)';
+                            }
                         });
 
+                        const pencilBtn = captureContainer.querySelector('[data-testid="edit-pencil-btn"]');
+                        if (pencilBtn) pencilBtn.remove();
+
+                        await new Promise(r => setTimeout(r, 1800));
+
+                        const canvas = await html2canvas(captureContainer, {
+                            scale: ZoomScale,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#ffffff',
+                            width: PhysicalWidth,
+                            height: PhysicalHeight,
+                            logging: false,
+                        });
+
+                        document.body.removeChild(captureContainer);
+                        const uri = canvas.toDataURL('image/png', 0.9);
                         canvas.toBlob((blob: any) => {
                             if (blob) {
                                 const link = document.createElement('a');
                                 link.href = URL.createObjectURL(blob);
-                                link.download = `poster-${Date.now()}.png`;
+                                link.download = `pro-poster-${Date.now()}.png`;
                                 link.click();
                                 setShowPreviewModal(false);
-                                Alert.alert('Success', 'Poster downloaded successfully!');
-                                awardPoints('poster_create', 10, `Created PNG poster: ${title || 'Untitled'}`);
+                                Alert.alert('Success', 'Optimized Professional Downloaded!');
+                                awardPoints('poster_create', 15, `Created Smart-Master Poster: ${title || 'Untitled'}`);
                             }
                         }, 'image/png');
                     } else {
@@ -801,12 +874,56 @@ export default function DesktopPosterEditor() {
 
                     if (typeof window !== 'undefined' && (window as any).html2canvas) {
                         const html2canvas = (window as any).html2canvas;
-                        const canvas = await html2canvas(canvasElement, {
-                            scale: 2,
-                            useCORS: true,
-                            logging: false,
-                            backgroundColor: null,
+
+                        // --- ROBUST VISIBLE OVERLAY STRATEGY ---
+                        const captureContainer = document.createElement('div');
+                        captureContainer.style.position = 'fixed';
+                        captureContainer.style.top = '0';
+                        captureContainer.style.left = '0';
+                        captureContainer.style.width = `${canvasSize.w}px`;
+                        captureContainer.style.height = `${canvasSize.h}px`;
+                        captureContainer.style.zIndex = '9999999';
+                        captureContainer.style.backgroundColor = '#ffffff';
+                        captureContainer.style.overflow = 'hidden';
+
+                        const originalCanvas = canvasRef.current as unknown as HTMLElement;
+                        const clone = originalCanvas.cloneNode(true) as HTMLElement;
+
+                        clone.style.transform = 'none';
+                        clone.style.margin = '0';
+                        clone.style.width = '100%';
+                        clone.style.height = '100%';
+                        clone.style.position = 'absolute';
+                        clone.style.top = '0';
+                        clone.style.left = '0';
+
+                        captureContainer.appendChild(clone);
+                        document.body.appendChild(captureContainer);
+
+                        // Remove UI elements from clone
+                        const pencilBtn = captureContainer.querySelector('[data-testid="edit-pencil-btn"]');
+                        if (pencilBtn) pencilBtn.remove();
+
+                        await new Promise(r => setTimeout(r, 1500)); // Longer wait for assets
+
+                        // Ensure all images in clone are sharp
+                        const imgs = captureContainer.querySelectorAll('img');
+                        imgs.forEach(img => {
+                            (img as any).style.imageRendering = 'crisp-edges';
+                            (img as any).style.imageRendering = '-webkit-optimize-contrast';
                         });
+
+                        const canvas = await html2canvas(captureContainer, {
+                            scale: 5, // Ultra High Definition
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#ffffff',
+                            width: canvasSize.w,
+                            height: canvasSize.h,
+                            logging: false,
+                        });
+
+                        document.body.removeChild(captureContainer);
 
                         canvas.toBlob(async (blob: any) => {
                             if (blob) {
@@ -868,7 +985,7 @@ export default function DesktopPosterEditor() {
 
 
     // Draggable Item Component
-    const DraggableItem = ({ element }: { element: EditorElement }) => {
+    const DraggableItem = ({ element, isReadonly }: { element: EditorElement, isReadonly?: boolean }) => {
         const pan = useRef(new Animated.ValueXY({ x: element.x, y: element.y })).current;
         const scale = useRef(new Animated.Value(element.scale)).current;
         const rotation = useRef(new Animated.Value(element.rotation)).current;
@@ -911,6 +1028,65 @@ export default function DesktopPosterEditor() {
                 }
             })
         ).current;
+
+        if (isReadonly) {
+            return (
+                <View
+                    style={{
+                        position: 'absolute',
+                        left: element.x,
+                        top: element.y,
+                    }}
+                >
+                    <Animated.View
+                        style={[
+                            styles.element,
+                            {
+                                transform: [
+                                    { rotate: rotation.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) as any },
+                                    { scale: scale }
+                                ],
+                                borderColor: 'transparent',
+                                borderWidth: 0,
+                            }
+                        ]}
+                    >
+                        <View style={{ transform: [{ scaleX: element.isFlipped ? -1 : 1 }] }}>
+                            {element.type === 'text' ? (
+                                <Text style={{
+                                    fontWeight: '700',
+                                    color: element.color,
+                                    fontSize: element.fontSize,
+                                    fontFamily: element.fontFamily,
+                                    letterSpacing: element.letterSpacing || 0,
+                                    lineHeight: element.lineHeight || (element.fontSize || 24) * 1.2,
+                                    backgroundColor: element.backgroundColor || 'transparent',
+                                    paddingLeft: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 4,
+                                    paddingRight: element.backgroundColor && element.backgroundColor !== 'transparent' ? 8 : 4,
+                                    paddingTop: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 2,
+                                    paddingBottom: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 2,
+                                    borderRadius: element.backgroundColor && element.backgroundColor !== 'transparent' ? 4 : 0,
+                                }}>{element.content}</Text>
+                            ) : (
+                                <Image
+                                    source={{ uri: element.content }}
+                                    style={{
+                                        width: element.imageWidth || 100,
+                                        height: element.imageHeight || 100,
+                                        borderWidth: element.borderWidth || 0,
+                                        borderColor: element.borderColor || '#ffffff',
+                                        borderRadius: element.borderRadius || 0,
+                                        imageRendering: 'crisp-edges'
+                                    } as any}
+                                    {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
+                                />
+                            )}
+                        </View>
+                    </Animated.View>
+                </View>
+            );
+        }
+
 
         const resizeResponder = useRef(
             PanResponder.create({
@@ -1325,95 +1501,9 @@ export default function DesktopPosterEditor() {
 
 
                     <TouchableOpacity
-                        onPress={async () => {
-                            if (canvasRef.current) {
-                                try {
-                                    // Load libraries if needed
-                                    if (typeof window !== 'undefined') {
-                                        if (!(window as any).html2canvas) {
-                                            await new Promise((resolve, reject) => {
-                                                const script = document.createElement('script');
-                                                script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-                                                script.onload = resolve;
-                                                script.onerror = reject;
-                                                document.head.appendChild(script);
-                                            });
-                                        }
-                                    }
-
-                                    const html2canvas = (window as any).html2canvas;
-
-                                    // --- ROBUST VISIBLE OVERLAY STRATEGY ---
-                                    // 1. Create a container on top of everything
-                                    const captureContainer = document.createElement('div');
-                                    captureContainer.style.position = 'fixed';
-                                    captureContainer.style.top = '0';
-                                    captureContainer.style.left = '0';
-                                    captureContainer.style.width = `${canvasSize.w}px`;
-                                    captureContainer.style.height = `${canvasSize.h}px`;
-                                    captureContainer.style.zIndex = '9999999';
-                                    captureContainer.style.backgroundColor = '#ffffff';
-                                    captureContainer.style.overflow = 'hidden';
-
-                                    // 2. Clone the editor canvas
-                                    const originalCanvas = canvasRef.current as unknown as HTMLElement;
-                                    const clone = originalCanvas.cloneNode(true) as HTMLElement;
-
-                                    // 3. Reset styles on clone to ensure perfect fit
-                                    clone.style.transform = 'none';
-                                    clone.style.margin = '0';
-                                    clone.style.width = '100%';
-                                    clone.style.height = '100%';
-                                    clone.style.position = 'absolute';
-                                    clone.style.top = '0';
-                                    clone.style.left = '0';
-
-                                    // 4. Mount
-                                    captureContainer.appendChild(clone);
-                                    document.body.appendChild(captureContainer);
-
-                                    // 5. Wait for layout settling (fonts, images)
-                                    await new Promise(r => setTimeout(r, 500));
-
-                                    // --- REMOVE UI ELEMENTS FROM CLONE ---
-                                    // Remove the pencil edit button from the captured clone
-                                    const pencilBtn = captureContainer.querySelector('[data-testid="edit-pencil-btn"]');
-                                    if (pencilBtn) {
-                                        pencilBtn.remove();
-                                    }
-
-                                    // 6. Capture
-                                    const canvas = await html2canvas(captureContainer, {
-                                        useCORS: true,
-                                        allowTaint: true,
-                                        backgroundColor: '#ffffff',
-                                        scale: 4, // Increased Resolution
-                                        width: canvasSize.w,
-                                        height: canvasSize.h,
-                                        x: 0,
-                                        y: 0,
-                                        scrollX: 0,
-                                        scrollY: 0,
-                                        windowWidth: canvasSize.w,
-                                        windowHeight: canvasSize.h
-                                    });
-
-                                    // 7. Cleanup
-                                    document.body.removeChild(captureContainer);
-
-                                    const uri = canvas.toDataURL('image/png');
-                                    setPreviewImageUri(uri);
-                                    setShowPreviewModal(true);
-
-                                } catch (error) {
-                                    // Cleanup on error
-                                    const existingContainer = document.querySelector('div[style*="z-index: 9999999"]');
-                                    if (existingContainer) document.body.removeChild(existingContainer);
-
-                                    console.error('Preview capture error:', error);
-                                    Alert.alert('Error', 'Failed to generate preview');
-                                }
-                            }
+                        onPress={() => {
+                            setSelectedElementId(null);
+                            setShowPreviewModal(true);
                         }}
                         style={[styles.saveButton, { backgroundColor: '#8b5cf6' }]}
                     >
@@ -1492,77 +1582,96 @@ export default function DesktopPosterEditor() {
                     </View>
 
                     <View style={{ transform: [{ scale: zoomScale }], marginVertical: 40, paddingTop: 2 }}>
-                        <View
-                            ref={canvasRef}
-                            style={[
-                                styles.canvas,
-                                { width: canvasSize.w, height: canvasSize.h }
-                            ]}
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onPress={() => {
+                                setSelectedTool('content');
+                                setShowBottomBarModal(false);
+                                // General click: Scroll to top of content
+                                setTimeout(() => {
+                                    propertiesScrollRef.current?.scrollTo({ y: 0, animated: true });
+                                }, 100);
+                            }}
                         >
-                            <Image
-                                source={{ uri: currentImage }}
-                                style={[styles.baseImage, { height: canvasSize.h }]}
-                                resizeMode="cover"
-                            />
-
-                            {/* Filter Overlay */}
-                            {selectedFilter !== 'none' && (
-                                <View style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    height: canvasSize.h,
-                                    backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
-                                    pointerEvents: 'none',
-                                }} />
-                            )}
-
-                            {elements.map((el) => (
-                                <DraggableItem key={el.id} element={el} />
-                            ))}
-
-                            {/* Dynamic Bottom Bar - Auto-height based on content */}
-                            <View style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                width: '100%',
-                                minHeight: canvasSize.h * 0.15,
-                                maxHeight: canvasSize.h * 0.35,
-                            }}>
-                                <RenderBottomBar
-                                    template={selectedBottomBarTemplate}
-                                    details={bottomBarDetails}
-                                    width={canvasSize.w}
-                                    customization={frameCustomization}
-                                    photoPosition={footerPhotoPosition}
-                                    isPhotoFlipped={isPhotoFlipped}
+                            <View
+                                ref={canvasRef}
+                                style={[
+                                    styles.canvas,
+                                    { width: canvasSize.w, height: canvasSize.h }
+                                ]}
+                            >
+                                <Image
+                                    source={{ uri: currentImage }}
+                                    style={[styles.baseImage, { height: canvasSize.h }]}
+                                    resizeMode="cover"
                                 />
-                                {!isCapturing && (
-                                    <TouchableOpacity
-                                        testID="edit-pencil-btn"
-                                        style={{
-                                            position: 'absolute',
-                                            top: 8,
-                                            right: 8,
-                                            backgroundColor: 'rgba(0,0,0,0.6)',
-                                            borderRadius: 20,
-                                            padding: 8,
-                                            zIndex: 10,
-                                        }}
-                                        onPress={() => {
-                                            setSelectedTool('content');
-                                            setShowBottomBarModal(false);
-                                        }}
-                                    >
-                                        <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
-                                    </TouchableOpacity>
+
+                                {/* Filter Overlay */}
+                                {selectedFilter !== 'none' && (
+                                    <View style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        height: canvasSize.h,
+                                        backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
+                                        pointerEvents: 'none',
+                                    }} />
                                 )}
 
+                                {elements.map((el) => (
+                                    <DraggableItem key={el.id} element={el} />
+                                ))}
+
+                                {/* Dynamic Bottom Bar - Auto-height based on content */}
+                                <View style={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    width: '100%',
+                                    minHeight: canvasSize.h * 0.15,
+                                    maxHeight: canvasSize.h * 0.35,
+                                }}>
+                                    <RenderBottomBar
+                                        template={selectedBottomBarTemplate}
+                                        details={bottomBarDetails}
+                                        width={canvasSize.w}
+                                        customization={frameCustomization}
+                                        photoPosition={footerPhotoPosition}
+                                        isPhotoFlipped={isPhotoFlipped}
+                                        onPhotoPress={() => {
+                                            setSelectedTool('content');
+                                            setShowBottomBarModal(false);
+                                            setTimeout(() => {
+                                                propertiesScrollRef.current?.scrollTo({ y: 400, animated: true });
+                                            }, 100);
+                                        }}
+                                    />
+                                    {!isCapturing && (
+                                        <TouchableOpacity
+                                            testID="edit-pencil-btn"
+                                            style={{
+                                                position: 'absolute',
+                                                top: 8,
+                                                right: 8,
+                                                backgroundColor: 'rgba(0,0,0,0.6)',
+                                                borderRadius: 20,
+                                                padding: 8,
+                                                zIndex: 10,
+                                            }}
+                                            onPress={() => {
+                                                setSelectedTool('content');
+                                                setShowBottomBarModal(false);
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
+                                        </TouchableOpacity>
+                                    )}
+
+                                </View>
                             </View>
-                        </View>
+                        </TouchableOpacity>
                     </View>
                 </ScrollView>
 
@@ -1775,7 +1884,11 @@ export default function DesktopPosterEditor() {
                         </ScrollView>
                     ) : (
                         // Show tool-specific options based on selected tool
-                        <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }}>
+                        <ScrollView
+                            ref={propertiesScrollRef}
+                            showsVerticalScrollIndicator={true}
+                            style={{ flex: 1 }}
+                        >
                             {selectedTool === 'content' ? (
                                 // Change Content Form
                                 <>
@@ -2110,7 +2223,6 @@ export default function DesktopPosterEditor() {
                                                 </View>
                                             </View>
 
-                                            {/* Flip Control */}
                                             <TouchableOpacity
                                                 style={[styles.toolActionButton, {
                                                     marginTop: 16,
@@ -2124,6 +2236,21 @@ export default function DesktopPosterEditor() {
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
+
+                                        {/* Save Details Button */}
+                                        <TouchableOpacity
+                                            style={[styles.toolActionButton, {
+                                                marginTop: 24,
+                                                backgroundColor: '#16a34a',
+                                                paddingVertical: 14
+                                            }]}
+                                            onPress={saveUserDetailsToStorage}
+                                        >
+                                            <MaterialCommunityIcons name="content-save" size={24} color="#fff" />
+                                            <Text style={[styles.toolActionText, { fontWeight: '700' }]}>
+                                                Save Details for All Posters
+                                            </Text>
+                                        </TouchableOpacity>
 
                                     </View>
                                 </>
@@ -2856,19 +2983,47 @@ export default function DesktopPosterEditor() {
                             <View style={{ padding: 20, alignItems: 'center', backgroundColor: '#f8fafc' }}>
                                 <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 }}>
                                     {/* This will show the captured screenshot */}
-                                    <View style={{ width: canvasSize.w, height: canvasSize.h }}>
-                                        {previewImageUri ? (
-                                            <Image
-                                                source={{ uri: previewImageUri }}
-                                                style={{ width: '100%', height: '100%', borderRadius: 4 }}
-                                                resizeMode="contain"
-                                            />
-                                        ) : (
-                                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                                <ActivityIndicator size="large" color="#8b5cf6" />
-                                                <Text style={{ marginTop: 10, color: '#64748b' }}>Loading Preview...</Text>
-                                            </View>
+                                    <View style={{
+                                        width: canvasSize.w,
+                                        height: canvasSize.h,
+                                        transform: [{ scale: Math.min(760 / canvasSize.w, 450 / canvasSize.h) }],
+                                        transformOrigin: 'top center',
+                                        backgroundColor: '#fff',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <Image
+                                            source={{ uri: currentImage }}
+                                            style={[styles.baseImage, { height: canvasSize.h, imageRendering: 'crisp-edges' } as any]}
+                                            resizeMode="cover"
+                                        />
+
+                                        {selectedFilter !== 'none' && (
+                                            <View style={{
+                                                position: 'absolute',
+                                                top: 0, left: 0, right: 0, height: canvasSize.h,
+                                                backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
+                                                pointerEvents: 'none',
+                                            }} />
                                         )}
+
+                                        {elements.map((el) => (
+                                            <DraggableItem key={el.id} element={el} isReadonly={true} />
+                                        ))}
+
+                                        <View style={{
+                                            position: 'absolute', bottom: 0, left: 0, right: 0, width: '100%',
+                                            minHeight: canvasSize.h * 0.15,
+                                            maxHeight: canvasSize.h * 0.35,
+                                        }}>
+                                            <RenderBottomBar
+                                                template={selectedBottomBarTemplate}
+                                                details={bottomBarDetails}
+                                                width={canvasSize.w}
+                                                customization={frameCustomization}
+                                                photoPosition={footerPhotoPosition}
+                                                isPhotoFlipped={isPhotoFlipped}
+                                            />
+                                        </View>
                                     </View>
                                 </View>
                             </View>
@@ -2878,7 +3033,7 @@ export default function DesktopPosterEditor() {
                         <View style={{ flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' }}>
                             <TouchableOpacity
                                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#3b82f6', padding: 14, borderRadius: 8 }}
-                                onPress={handleSharePoster}
+                                onPress={() => handleSharePoster()}
                             >
                                 <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
                                 <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Share</Text>
@@ -2886,21 +3041,7 @@ export default function DesktopPosterEditor() {
 
                             <TouchableOpacity
                                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#10b981', padding: 14, borderRadius: 8 }}
-                                onPress={() => {
-                                    if (isRemovingFooterPhotoBg) {
-                                        setShowBgWaitModal(true);
-                                        return;
-                                    }
-                                    if (previewImageUri) {
-                                        const link = document.createElement('a');
-                                        link.href = previewImageUri;
-                                        link.download = `poster-${Date.now()}.png`;
-                                        link.click();
-                                        Alert.alert('Success', 'Poster downloaded successfully!');
-                                        awardPoints('poster_create', 10, `Created poster from preview: ${title || 'Untitled'}`);
-                                        setShowPreviewModal(false);
-                                    }
-                                }}
+                                onPress={() => handleDownloadPNG()}
                             >
                                 <MaterialCommunityIcons name="download" size={20} color="#fff" />
                                 <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Download</Text>

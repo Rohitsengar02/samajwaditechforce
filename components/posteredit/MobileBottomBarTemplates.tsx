@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, Platform, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -65,6 +65,7 @@ interface TemplateCustomization {
     socialFontSize?: number;
     socialColor?: string;
     socialBackgroundColor?: string;
+    onInteraction?: (target: 'name' | 'photo' | 'mobile' | 'social' | 'address') => void;
 }
 
 interface TemplateProps {
@@ -73,6 +74,7 @@ interface TemplateProps {
     customization?: TemplateCustomization;
     photoPosition?: { x: number; y: number };
     isPhotoFlipped?: boolean;
+    onInteraction?: (target: 'name' | 'photo' | 'mobile' | 'social' | 'address') => void;
 }
 
 
@@ -472,7 +474,11 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
     return (
         <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
             {/* User Photo - Absolute Bottom - Right Side */}
-            <View style={{ position: 'absolute', right: 0, bottom: 0, height: 220, zIndex: 16 }}>
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => customization?.onInteraction?.('photo')}
+                style={{ position: 'absolute', right: 0, bottom: 0, height: 220, zIndex: 16 }}
+            >
                 <View style={{
                     width: 140,
                     height: 200,
@@ -487,7 +493,7 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
                         </View>
                     )}
                 </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Frame Image Overlay (Middle Layer) */}
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 12 }}>
@@ -495,12 +501,14 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             </View>
 
             {/* Content Layer (Top - Above Frame) */}
-            <View style={{ position: 'absolute', left: '20%', top: -20, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '20%', top: -5, bottom: 0, width: '55%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
-                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10, justifyContent: 'flex-start' }}>
-                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                    <TouchableOpacity onPress={() => customization?.onInteraction?.('name')}>
+                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 16, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 10, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 5, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 9, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
                         <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
@@ -511,11 +519,14 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             </View>
 
             {/* Address at Bottom of Frame */}
-            <View style={{ position: 'absolute', bottom: 32, left: 80, right: 10, zIndex: 20 }}>
+            <TouchableOpacity
+                onPress={() => customization?.onInteraction?.('address')}
+                style={{ position: 'absolute', bottom: 25, left: 80, right: 10, zIndex: 20 }}
+            >
                 <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
-            </View>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -527,7 +538,11 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
     return (
         <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
             {/* User Photo - Absolute Bottom - Right Side */}
-            <View style={{ position: 'absolute', right: 0, bottom: 0, height: 190, zIndex: 16 }}>
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => customization?.onInteraction?.('photo')}
+                style={{ position: 'absolute', right: 0, bottom: 0, height: 190, zIndex: 16 }}
+            >
                 <View style={{
                     width: 130,
                     height: 170,
@@ -542,7 +557,7 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
                         </View>
                     )}
                 </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Frame Image Overlay (Middle Layer) */}
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 12 }}>
@@ -550,12 +565,14 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             </View>
 
             {/* Content Layer (Top - Above Frame) - LEFT ALIGNED */}
-            <View style={{ position: 'absolute', left: '25%', top: -11, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '27%', top: -2, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
-                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10, justifyContent: 'flex-start' }}>
-                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                    <TouchableOpacity onPress={() => customization?.onInteraction?.('name')}>
+                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 16, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 10, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 5, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 9, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
                         <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
@@ -566,11 +583,14 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             </View>
 
             {/* Address at Bottom of Frame */}
-            <View style={{ position: 'absolute', bottom: 32, left: 100, right: 10, zIndex: 20 }}>
+            <TouchableOpacity
+                onPress={() => customization?.onInteraction?.('address')}
+                style={{ position: 'absolute', bottom: 24, left: 105, right: 10, zIndex: 20 }}
+            >
                 <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
-            </View>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -582,7 +602,11 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
     return (
         <View style={[styles.bottomBar, { width, height: 120, padding: 0, justifyContent: 'flex-start', overflow: 'visible' }]}>
             {/* User Photo - Absolute Bottom - Right Side */}
-            <View style={{ position: 'absolute', right: 0, bottom: 0, height: 193, zIndex: 16 }}>
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => customization?.onInteraction?.('photo')}
+                style={{ position: 'absolute', right: 0, bottom: 0, height: 193, zIndex: 16 }}
+            >
                 <View style={{
                     width: 120,
                     height: 170,
@@ -597,7 +621,7 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
                         </View>
                     )}
                 </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Frame Image Overlay (Middle Layer) */}
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 12 }}>
@@ -605,12 +629,14 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             </View>
 
             {/* Content Layer (Top - Above Frame) - LEFT ALIGNED */}
-            <View style={{ position: 'absolute', left: '25%', top: -45, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '24%', top: -20, bottom: 0, width: '55%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
-                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10, justifyContent: 'flex-start' }}>
-                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                    <TouchableOpacity onPress={() => customization?.onInteraction?.('name')}>
+                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 16, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 10, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 5, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 9, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
                         <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
@@ -621,11 +647,14 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             </View>
 
             {/* Address at Bottom of Frame */}
-            <View style={{ position: 'absolute', bottom: 36, left: 99, right: 10, zIndex: 20 }}>
+            <TouchableOpacity
+                onPress={() => customization?.onInteraction?.('address')}
+                style={{ position: 'absolute', bottom: 32, left: 95, right: 10, zIndex: 20 }}
+            >
                 <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
-            </View>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -640,7 +669,7 @@ const ImageFrame2 = ({ details, width, customization }: TemplateProps) => {
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, position: 'relative', zIndex: 10 }}>
                 {/* Left: Logo */}
                 <View style={{ marginRight: 15 }}>
-                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25, imageRendering: 'crisp-edges' } as any} />
                 </View>
 
                 {/* Center: Details */}
@@ -687,7 +716,7 @@ const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, position: 'relative', zIndex: 10 }}>
                 {/* Left: Logo */}
                 <View style={{ marginRight: 15 }}>
-                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25 }} />
+                    <Image source={logo} style={{ width: 50, height: 50, resizeMode: 'contain', backgroundColor: '#fff', borderRadius: 25, imageRendering: 'crisp-edges' } as any} />
                 </View>
 
                 {/* Center: Details */}
