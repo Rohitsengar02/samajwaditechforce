@@ -1324,7 +1324,7 @@ export default function PosterEditor() {
             {/* Main Canvas Area */}
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 10, alignItems: 'center' }]}
+                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 0, alignItems: 'center', paddingHorizontal: 0 }]}
                 scrollEnabled={!isDragging} // Disable scroll when dragging element
                 showsHorizontalScrollIndicator={false}
                 showsVerticalScrollIndicator={false}
