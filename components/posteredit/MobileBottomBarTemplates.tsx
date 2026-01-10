@@ -477,7 +477,17 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => customization?.onInteraction?.('photo')}
-                style={{ position: 'absolute', right: 0, bottom: 0, height: 220, zIndex: 16 }}
+                style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: 0,
+                    height: 220,
+                    zIndex: 16,
+                    transform: [
+                        { translateX: photoPosition?.x || 0 },
+                        { translateY: photoPosition?.y || 0 }
+                    ]
+                }}
             >
                 <View style={{
                     width: 140,
@@ -541,7 +551,17 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => customization?.onInteraction?.('photo')}
-                style={{ position: 'absolute', right: 0, bottom: 0, height: 190, zIndex: 16 }}
+                style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: 0,
+                    height: 190,
+                    zIndex: 16,
+                    transform: [
+                        { translateX: photoPosition?.x || 0 },
+                        { translateY: photoPosition?.y || 0 }
+                    ]
+                }}
             >
                 <View style={{
                     width: 130,
@@ -605,7 +625,17 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => customization?.onInteraction?.('photo')}
-                style={{ position: 'absolute', right: 0, bottom: 0, height: 193, zIndex: 16 }}
+                style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: 0,
+                    height: 193,
+                    zIndex: 16,
+                    transform: [
+                        { translateX: photoPosition?.x || 0 },
+                        { translateY: photoPosition?.y || 0 }
+                    ]
+                }}
             >
                 <View style={{
                     width: 120,
