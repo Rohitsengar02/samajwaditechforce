@@ -494,12 +494,14 @@ export default function PosterEditor() {
     const updateCanvasToImageSize = (uri: string) => {
         Image.getSize(uri, (w, h) => {
             const aspectRatio = h / w;
-            let newWidth = width; // Always full screen width
-            let newHeight = newWidth * aspectRatio; // Same as image height
+            // Use actual image width instead of screen width to avoid white bars
+            let newWidth = Math.min(w, width); // Don't exceed screen width
+            let newHeight = newWidth * aspectRatio;
 
-            // Cap height at max but keep width at full screen
+            // Cap height at max
             if (newHeight > MAX_CANVAS_HEIGHT) {
                 newHeight = MAX_CANVAS_HEIGHT;
+                newWidth = newHeight / aspectRatio;
             }
 
             setCanvasSize({ w: newWidth, h: newHeight });
@@ -853,12 +855,8 @@ export default function PosterEditor() {
             setSelectedElementId(null); //  Deselect before saving to hide border
             setIsSaving(true);
 
-            // Temporarily expand canvas to include full bottom bar for capture
-            const extraHeight = 250; // 220px for photo + 30px padding
-            setCaptureCanvasHeight(canvasSize.h + extraHeight);
-
-            // Wait for state updates and images to fully load
-            await new Promise(resolve => setTimeout(resolve, 800));
+            // Wait for rendering
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             try {
                 let uri: string;
@@ -885,17 +883,14 @@ export default function PosterEditor() {
                     if ((window as any).html2canvas) {
                         const html2canvas = (window as any).html2canvas;
 
-                        // --- ROBUST VISIBLE OVERLAY STRATEGY ---
-                        const PhysicalWidth = 4000;
-                        // Bottom bar photo extends 220px from bottom with overflow: visible
-                        const BottomBarPhotoHeight = 220;
-                        const TotalCanvasHeight = canvasSize.h + BottomBarPhotoHeight;
-                        const AspectRatio = TotalCanvasHeight / canvasSize.w;
+                        // --- ROBUST VISIBLE OVERLAY STRATEGY (MATCHING DESKTOP) ---
+                        const PhysicalWidth = 3500;
+                        const AspectRatio = canvasSize.h / canvasSize.w;
                         const PhysicalHeight = PhysicalWidth * AspectRatio;
-                        const ZoomScale = 2;
+                        const ZoomScale = 1.5;
 
                         const captureContainer = document.createElement('div');
-                        captureContainer.id = 'supreme-master-root-mobile';
+                        captureContainer.id = 'smart-master-root-mobile';
                         captureContainer.style.position = 'fixed';
                         captureContainer.style.top = '0';
                         captureContainer.style.left = '-9999px';
@@ -906,28 +901,31 @@ export default function PosterEditor() {
                         const originalCanvas = canvasRef.current as unknown as HTMLElement;
                         const clone = originalCanvas.cloneNode(true) as HTMLElement;
 
-                        // --- SUPREME NATIVE CONSTRUCTION ---
+                        // Match desktop scaling logic exactly
                         clone.style.transform = `scale(${PhysicalWidth / canvasSize.w})`;
                         clone.style.transformOrigin = 'top left';
                         clone.style.width = `${canvasSize.w}px`;
-                        clone.style.height = `${TotalCanvasHeight}px`; // Include bottom bar height
+                        clone.style.height = `${canvasSize.h}px`;
                         clone.style.margin = '0';
-                        clone.style.filter = 'contrast(106%) brightness(102%)'; // Pro Print Punch
 
                         captureContainer.appendChild(clone);
                         document.body.appendChild(captureContainer);
 
+                        // Optimizations from Desktop
                         const all = captureContainer.querySelectorAll('*');
                         all.forEach((el: any) => {
                             el.style.textRendering = 'geometricPrecision';
-                            el.style.webkitFontSmoothing = 'none';
-                            el.style.imageRendering = '-webkit-optimize-contrast';
+                            el.style.webkitFontSmoothing = 'antialiased';
                             el.style.imageRendering = 'crisp-edges';
+                            if (window.getComputedStyle(el).textShadow !== 'none') {
+                                el.style.textShadow = '1px 1px 0px rgba(0,0,0,0.15)';
+                            }
                         });
 
                         const pencilBtn = captureContainer.querySelector('[data-testid="edit-pencil-btn"]');
                         if (pencilBtn) pencilBtn.remove();
 
+                        // Proven wait time from Desktop
                         await new Promise(r => setTimeout(r, 1800));
 
                         const canvas = await html2canvas(captureContainer, {
@@ -1051,7 +1049,6 @@ export default function PosterEditor() {
                 }
             } finally {
                 setIsSaving(false);
-                setCaptureCanvasHeight(null); // Reset canvas height
             }
         } catch (error) {
             console.error('Save error:', error);
@@ -1087,7 +1084,9 @@ export default function PosterEditor() {
         const panResponder = useRef(
             PanResponder.create({
                 onStartShouldSetPanResponder: () => true,
+                onStartShouldSetPanResponderCapture: () => true, // Capture touch to prevent scroll
                 onMoveShouldSetPanResponder: () => true,
+                onMoveShouldSetPanResponderCapture: () => true,
                 onPanResponderGrant: () => {
                     setIsDragging(true);
                     setSelectedElementId(element.id);
@@ -1114,6 +1113,7 @@ export default function PosterEditor() {
         const resizeResponder = useRef(
             PanResponder.create({
                 onStartShouldSetPanResponder: () => true,
+                onStartShouldSetPanResponderCapture: () => true,
                 onPanResponderGrant: () => setIsDragging(true),
                 onPanResponderMove: (_, gestureState) => {
                     const s = Math.max(0.2, element.scale + (gestureState.dy / 200));
@@ -1130,6 +1130,7 @@ export default function PosterEditor() {
         const rotateResponder = useRef(
             PanResponder.create({
                 onStartShouldSetPanResponder: () => true,
+                onStartShouldSetPanResponderCapture: () => true,
                 onPanResponderGrant: () => setIsDragging(true),
                 onPanResponderMove: (_, gestureState) => {
                     const r = element.rotation + (gestureState.dx / 2);
@@ -1301,30 +1302,13 @@ export default function PosterEditor() {
                         <Text style={styles.saveButtonText}>Preview</Text>
                     </TouchableOpacity>
 
-                    {/* Share Button */}
-                    <TouchableOpacity
-                        onPress={() => handleSave('share')}
-                        style={[styles.saveButton, { backgroundColor: '#16a34a' }]}
-                    >
-                        <MaterialCommunityIcons name="share-variant" size={18} color="#fff" style={{ marginRight: 4 }} />
-                        <Text style={styles.saveButtonText}>Share</Text>
-                    </TouchableOpacity>
-
-                    {/* Save Poster Button */}
-                    <TouchableOpacity
-                        onPress={handleDownloadImage}
-                        style={styles.saveButton}
-                    >
-                        <MaterialCommunityIcons name="download" size={18} color="#fff" style={{ marginRight: 4 }} />
-                        <Text style={styles.saveButtonText}>Save</Text>
-                    </TouchableOpacity>
                 </View>
             </View>
 
             {/* Main Canvas Area */}
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 0, alignItems: 'center', paddingHorizontal: 0 }]}
+                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 30, alignItems: 'center', paddingHorizontal: 0 }]}
                 scrollEnabled={!isDragging} // Disable scroll when dragging element
                 showsHorizontalScrollIndicator={false}
                 showsVerticalScrollIndicator={false}
@@ -1355,7 +1339,7 @@ export default function PosterEditor() {
                                 style={[
                                     styles.canvas,
                                     {
-                                        height: captureCanvasHeight || canvasSize.h,
+                                        height: canvasSize.h,
                                         width: canvasSize.w
                                     }
                                 ]}
@@ -1367,7 +1351,7 @@ export default function PosterEditor() {
                                         styles.baseImage,
                                         { height: canvasSize.h, width: '100%' }
                                     ]}
-                                    resizeMode="cover"
+                                    resizeMode="contain"
                                     {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
                                 />
 
@@ -3347,7 +3331,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 50,
+        paddingTop: Platform.OS === 'web' ? 15 : 45,
         paddingHorizontal: 16,
         paddingBottom: 16,
         backgroundColor: '#ffffff',
@@ -3387,7 +3371,7 @@ const styles = StyleSheet.create({
     canvas: {
         backgroundColor: '#ffffff',
         position: 'relative',
-        overflow: 'hidden',
+        overflow: 'visible',
     },
     baseImage: {
         width: '100%',

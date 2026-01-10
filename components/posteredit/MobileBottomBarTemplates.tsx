@@ -565,7 +565,7 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             </View>
 
             {/* Content Layer (Top - Above Frame) - LEFT ALIGNED */}
-            <View style={{ position: 'absolute', left: '27%', top: -2, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '25%', top: -2, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
                     <TouchableOpacity onPress={() => customization?.onInteraction?.('name')}>
                         <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 16, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
