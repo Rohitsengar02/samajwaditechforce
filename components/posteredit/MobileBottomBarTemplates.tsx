@@ -88,9 +88,9 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
             <View style={{ flexDirection: 'row', alignItems: 'center', padding: 4, gap: 6 }}>
                 {/* Large circular photo with golden border */}
                 <View style={[styles.photoContainer, {
-                    width: customization?.imageSize || 48,
-                    height: customization?.imageSize || 48,
-                    borderRadius: (customization?.imageSize || 48) / 2,
+                    width: customization?.imageSize || 55,
+                    height: customization?.imageSize || 55,
+                    borderRadius: (customization?.imageSize || 55) / 2,
                     borderColor: customization?.imageBorderColor || '#fbbf24',
                     borderWidth: customization?.imageBorderWidth || 2,
                     shadowColor: '#000',
@@ -109,7 +109,7 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
                 {/* Text content */}
                 <View style={{ flex: 1 }}>
                     <Text style={[styles.textBold, {
-                        fontSize: customization?.nameFontSize || 11,
+                        fontSize: customization?.nameFontSize || 18,
                         color: customization?.nameColor || '#fbbf24',
                         fontWeight: '900',
                         textShadowColor: 'rgba(0,0,0,0.3)',
@@ -118,39 +118,39 @@ const BoldStripBar = ({ details, width, customization }: TemplateProps) => {
                     }]} >{details?.name || 'Your Name'}</Text>
 
                     <Text style={[styles.textRegular, {
-                        fontSize: customization?.designationFontSize || 8,
+                        fontSize: customization?.designationFontSize || 12,
                         color: customization?.designationColor || '#fff',
-                        marginTop: 1,
+                        marginTop: 2,
                     }]} >{details?.designation || 'Designation'}</Text>
 
-                    <View style={{ marginTop: 4, gap: 1 }}>
+                    <View style={{ marginTop: 6, gap: 2 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <MaterialCommunityIcons
                                 name="phone"
-                                size={(customization?.mobileFontSize || 9) + 1}
+                                size={(customization?.mobileFontSize || 12) + 1}
                                 color='#e0f2fe'
                             />
-                            <Text style={{ fontSize: customization?.mobileFontSize || 9, color: customization?.mobileColor || '#e0f2fe' }}>
+                            <Text style={{ fontSize: customization?.mobileFontSize || 12, color: customization?.mobileColor || '#e0f2fe' }}>
                                 {details?.mobile || '+91 XXXXX'}
                             </Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <MaterialCommunityIcons
                                 name="map-marker"
-                                size={(customization?.addressFontSize || 9) + 1}
+                                size={(customization?.addressFontSize || 11) + 1}
                                 color='#e0f2fe'
                             />
-                            <Text style={{ fontSize: customization?.addressFontSize || 9, color: customization?.addressColor || '#e0f2fe', flex: 1, flexWrap: 'wrap' }}>
+                            <Text style={{ fontSize: customization?.addressFontSize || 11, color: customization?.addressColor || '#e0f2fe', flex: 1, flexWrap: 'wrap' }}>
                                 {details?.address || 'Your Address'}
                             </Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <MaterialCommunityIcons
                                 name={getSocialIcon(details?.socialPlatform) as any}
-                                size={(customization?.socialFontSize || 9) + 1}
+                                size={(customization?.socialFontSize || 11) + 1}
                                 color='#e0f2fe'
                             />
-                            <Text style={{ fontSize: customization?.socialFontSize || 9, color: customization?.socialColor || '#e0f2fe', flex: 1, flexWrap: 'wrap' }}>
+                            <Text style={{ fontSize: customization?.socialFontSize || 11, color: customization?.socialColor || '#e0f2fe', flex: 1, flexWrap: 'wrap' }}>
                                 {details?.socialHandle || '@user'}
                             </Text>
                         </View>
@@ -170,11 +170,11 @@ const MinimalWhiteBar = ({ details, width, customization }: TemplateProps) => {
             {/* Top accent line */}
             <View style={{ height: 2, width: '100%', backgroundColor: 'rgba(255,255,255,0.3)' }} />
 
-            <View style={{ padding: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ padding: 6, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 {/* Compact square-ish photo */}
                 <View style={[styles.photoContainer, {
-                    width: customization?.imageSize || 45,
-                    height: customization?.imageSize || 45,
+                    width: customization?.imageSize || 55,
+                    height: customization?.imageSize || 55,
                     borderRadius: 6,
                     borderColor: customization?.imageBorderColor || '#ffffff',
                     borderWidth: customization?.imageBorderWidth || 2,
@@ -189,34 +189,34 @@ const MinimalWhiteBar = ({ details, width, customization }: TemplateProps) => {
                 {/* Vertical layout for text */}
                 <View style={{ flex: 1, justifyContent: 'center' }}>
                     <Text style={[styles.textBold, {
-                        fontSize: customization?.nameFontSize || 10,
+                        fontSize: customization?.nameFontSize || 16,
                         color: customization?.nameColor || '#ffffff',
-                        marginBottom: 1,
+                        marginBottom: 2,
                     }]}>{details?.name || 'Your Name'}</Text>
 
                     <Text style={[styles.textRegular, {
-                        fontSize: customization?.designationFontSize || 8,
+                        fontSize: customization?.designationFontSize || 11,
                         color: customization?.designationColor || '#ffffff',
-                        marginBottom: 1,
+                        marginBottom: 3,
                     }]}>{details?.designation || 'Designation'}</Text>
 
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 1, alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 2, alignItems: 'center' }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                            <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 8) + 2} color={customization?.mobileColor || '#ffffff'} />
-                            <Text style={{ fontSize: customization?.mobileFontSize || 8, color: customization?.mobileColor || '#ffffff' }}>
+                            <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 10) + 2} color={customization?.mobileColor || '#ffffff'} />
+                            <Text style={{ fontSize: customization?.mobileFontSize || 10, color: customization?.mobileColor || '#ffffff' }}>
                                 {details?.mobile || '+91...'}
                             </Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 9) + 2} color={customization?.socialColor || '#ffffff'} />
-                            <Text style={{ fontSize: customization?.socialFontSize || 9, color: customization?.socialColor || '#ffffff' }}>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 11) + 2} color={customization?.socialColor || '#ffffff'} />
+                            <Text style={{ fontSize: customization?.socialFontSize || 11, color: customization?.socialColor || '#ffffff' }}>
                                 {details?.socialHandle || '@user'}
                             </Text>
                         </View>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 1 }}>
-                        <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 9) + 2} color={customization?.addressColor || '#ffffff'} />
-                        <Text style={{ fontSize: customization?.addressFontSize || 9, color: customization?.addressColor || '#ffffff', flex: 1, flexWrap: 'wrap' }}>
+                        <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 11) + 2} color={customization?.addressColor || '#ffffff'} />
+                        <Text style={{ fontSize: customization?.addressFontSize || 11, color: customization?.addressColor || '#ffffff', flex: 1, flexWrap: 'wrap' }}>
                             {details?.address || 'Your Address'}
                         </Text>
                     </View>
@@ -240,21 +240,21 @@ const RedAccentBar = ({ details, width, customization }: TemplateProps) => {
             <View style={{ position: 'absolute', bottom: -5, left: '40%', width: 15, height: 15, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)' }} />
 
             {/* Main content - Split Layout */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 2, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, flex: 1 }}>
 
                 {/* LEFT (40%): Details */}
-                <View style={{ width: '40%', gap: 2 }}>
+                <View style={{ width: '40%', gap: 4 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 2, flexWrap: 'wrap' }}>
-                        <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 9) + 1} color={customization?.mobileColor || '#fff'} />
-                        <Text style={{ fontSize: customization?.mobileFontSize || 9, color: customization?.mobileColor || '#fff', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap' }}>{details?.mobile || '+91...'}</Text>
+                        <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 11) + 1} color={customization?.mobileColor || '#fff'} />
+                        <Text style={{ fontSize: customization?.mobileFontSize || 11, color: customization?.mobileColor || '#fff', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap' }}>{details?.mobile || '+91...'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 2, flexWrap: 'wrap' }}>
-                        <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 9) + 1} color={customization?.socialColor || '#fff'} />
-                        <Text style={{ fontSize: customization?.socialFontSize || 9, color: customization?.socialColor || '#fff', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap' }}>{details?.socialHandle || '@user'}</Text>
+                        <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 11) + 1} color={customization?.socialColor || '#fff'} />
+                        <Text style={{ fontSize: customization?.socialFontSize || 11, color: customization?.socialColor || '#fff', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap' }}>{details?.socialHandle || '@user'}</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 2, marginTop: 1, flexWrap: 'wrap' }}>
-                        <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 8) + 1} color={customization?.addressColor || '#fff'} style={{ marginTop: 1 }} />
-                        <Text style={{ fontSize: customization?.addressFontSize || 8, color: customization?.addressColor || '#fff', fontWeight: '500', flex: 1, flexWrap: 'wrap' }}>{details?.address || 'Your Address'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 2, marginTop: 2, flexWrap: 'wrap' }}>
+                        <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 10) + 1} color={customization?.addressColor || '#fff'} style={{ marginTop: 1 }} />
+                        <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#fff', fontWeight: '500', flex: 1, flexWrap: 'wrap' }}>{details?.address || 'Your Address'}</Text>
                     </View>
                 </View>
 
@@ -262,10 +262,10 @@ const RedAccentBar = ({ details, width, customization }: TemplateProps) => {
                 <View style={{ width: '4%' }} />
 
                 {/* RIGHT (Remaining): Photo & Name */}
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                     <View style={{ flex: 1, alignItems: 'flex-end' }}>
                         <Text style={[styles.textBold, {
-                            fontSize: customization?.nameFontSize || 10,
+                            fontSize: customization?.nameFontSize || 18,
                             color: '#fff',
                             fontWeight: '900',
                             textShadowColor: 'rgba(0,0,0,0.3)',
@@ -273,9 +273,9 @@ const RedAccentBar = ({ details, width, customization }: TemplateProps) => {
                             textShadowRadius: 2,
                             textAlign: 'right'
                         }]} >{details?.name || 'Your Name'}</Text>
-                        <View style={{ width: 25, height: 2, backgroundColor: '#fff', marginVertical: 1, borderRadius: 1 }} />
+                        <View style={{ width: 35, height: 2, backgroundColor: '#fff', marginVertical: 2, borderRadius: 1 }} />
                         <Text style={[styles.textRegular, {
-                            fontSize: customization?.designationFontSize || 8,
+                            fontSize: customization?.designationFontSize || 12,
                             color: 'rgba(255,255,255,0.9)',
                             textAlign: 'right'
                         }]} >{details?.designation || 'Designation'}</Text>
@@ -283,13 +283,13 @@ const RedAccentBar = ({ details, width, customization }: TemplateProps) => {
 
                     {/* Photo with glow effect */}
                     <View style={{ position: 'relative' }}>
-                        <View style={{ position: 'absolute', top: -2, left: -2, right: -2, bottom: -2, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+                        <View style={{ position: 'absolute', top: -3, left: -3, right: -3, bottom: -3, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.3)' }} />
                         <View style={[styles.photoContainer, {
-                            width: customization?.imageSize || 35,
-                            height: customization?.imageSize || 35,
-                            borderRadius: (customization?.imageSize || 35) / 2,
+                            width: customization?.imageSize || 55,
+                            height: customization?.imageSize || 55,
+                            borderRadius: (customization?.imageSize || 55) / 2,
                             borderColor: '#fff',
-                            borderWidth: 1.5,
+                            borderWidth: 2,
                         }]}>
                             {details?.photo ? (
                                 <Image source={{ uri: details.photo }} style={styles.photo} {...getWebImageProps()} />
@@ -324,20 +324,20 @@ const YellowThemeBar = ({ details, width, customization }: TemplateProps) => {
                 </View>
 
                 {/* Top row: Name (left) | Photo (center) | Contact (right) */}
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingTop: 2 }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 4 }}>
 
                     {/* LEFT: Name & Designation */}
                     <View style={{ flex: 1, alignItems: 'flex-start' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 1 }}>
-                            <MaterialCommunityIcons name="star" size={8} color="#78350f" />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 2 }}>
+                            <MaterialCommunityIcons name="star" size={10} color="#78350f" />
                             <Text style={[styles.textBold, {
-                                fontSize: customization?.nameFontSize || 10,
+                                fontSize: customization?.nameFontSize || 18,
                                 color: customization?.nameColor || '#78350f',
                                 fontWeight: '900',
                             }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
                         </View>
                         <Text style={[styles.textRegular, {
-                            fontSize: customization?.designationFontSize || 8,
+                            fontSize: customization?.designationFontSize || 12,
                             color: customization?.designationColor || '#92400e',
                             fontStyle: 'italic',
                         }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
@@ -345,9 +345,9 @@ const YellowThemeBar = ({ details, width, customization }: TemplateProps) => {
 
                     {/* CENTER: Photo */}
                     <View style={[styles.photoContainer, {
-                        width: customization?.imageSize || 40,
-                        height: customization?.imageSize || 40,
-                        borderRadius: (customization?.imageSize || 40) / 2,
+                        width: customization?.imageSize || 55,
+                        height: customization?.imageSize || 55,
+                        borderRadius: (customization?.imageSize || 55) / 2,
                         borderColor: customization?.imageBorderColor || '#78350f',
                         borderWidth: 2,
                     }]}>
@@ -359,22 +359,22 @@ const YellowThemeBar = ({ details, width, customization }: TemplateProps) => {
                     </View>
 
                     {/* RIGHT: Mobile & Social - 60% max width with wrapping */}
-                    <View style={{ width: '60%', alignItems: 'flex-end', gap: 2 }}>
+                    <View style={{ width: '60%', alignItems: 'flex-end', gap: 3 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(120,53,15,0.15)', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 2, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 9) + 1} color={customization?.mobileColor || '#78350f'} />
-                            <Text style={{ fontSize: customization?.mobileFontSize || 9, color: customization?.mobileColor || '#78350f', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.mobile || '+91...'}</Text>
+                            <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 11) + 1} color={customization?.mobileColor || '#78350f'} />
+                            <Text style={{ fontSize: customization?.mobileFontSize || 11, color: customization?.mobileColor || '#78350f', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.mobile || '+91...'}</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(120,53,15,0.15)', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 2, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 9) + 1} color={customization?.socialColor || '#78350f'} />
-                            <Text style={{ fontSize: customization?.socialFontSize || 9, color: customization?.socialColor || '#78350f', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.socialHandle || '@user'}</Text>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 11) + 1} color={customization?.socialColor || '#78350f'} />
+                            <Text style={{ fontSize: customization?.socialFontSize || 11, color: customization?.socialColor || '#78350f', fontWeight: '600', flexShrink: 1, flexWrap: 'wrap', textAlign: 'right' }}>{details?.socialHandle || '@user'}</Text>
                         </View>
                     </View>
                 </View>
 
                 {/* BOTTOM: Address bar - allows multi-line wrapping */}
-                <View style={{ backgroundColor: 'rgba(120,53,15,0.15)', paddingVertical: 1, paddingHorizontal: 4, flexDirection: 'row', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                    <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 8) + 1} color={customization?.addressColor || '#78350f'} style={{ marginTop: 1 }} />
-                    <Text style={{ fontSize: customization?.addressFontSize || 8, color: customization?.addressColor || '#78350f', fontWeight: '500', flex: 1, flexWrap: 'wrap' }}>{details?.address || 'Your Address'}</Text>
+                <View style={{ backgroundColor: 'rgba(120,53,15,0.15)', paddingVertical: 2, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'flex-start', gap: 4, flexWrap: 'wrap' }}>
+                    <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 10) + 1} color={customization?.addressColor || '#78350f'} style={{ marginTop: 1 }} />
+                    <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#78350f', fontWeight: '500', flex: 1, flexWrap: 'wrap' }}>{details?.address || 'Your Address'}</Text>
                 </View>
             </View>
         </LinearGradient>
@@ -387,7 +387,7 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
 
     return (
         <LinearGradient colors={bgColors as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.bottomBar, { width, opacity: customization?.backgroundOpacity || 1 }]}>
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 3, position: 'relative', overflow: 'hidden' }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 10, position: 'relative', overflow: 'hidden' }}>
                 {/* Multiple wave decorations */}
                 <View style={{ position: 'absolute', bottom: -15, right: -15, opacity: 0.15 }}>
                     <MaterialCommunityIcons name="wave" size={60} color="#fff" />
@@ -397,18 +397,18 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
                 </View>
 
                 {/* LEFT (40%): Mobile, Social, Address */}
-                <View style={{ width: '40%', gap: 2, justifyContent: 'center' }}>
+                <View style={{ width: '40%', gap: 4, justifyContent: 'center' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, paddingHorizontal: 4, paddingVertical: 2, flexWrap: 'wrap' }}>
-                        <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 9) + 1} color={customization?.mobileColor || '#fff'} />
-                        <Text style={{ fontSize: customization?.mobileFontSize || 9, color: customization?.mobileColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap' }} numberOfLines={2}>{details?.mobile || '+91...'}</Text>
+                        <MaterialCommunityIcons name="phone" size={(customization?.mobileFontSize || 11) + 1} color={customization?.mobileColor || '#fff'} />
+                        <Text style={{ fontSize: customization?.mobileFontSize || 11, color: customization?.mobileColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap' }} numberOfLines={2}>{details?.mobile || '+91...'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, paddingHorizontal: 4, paddingVertical: 2, flexWrap: 'wrap' }}>
-                        <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 9) + 1} color={customization?.socialColor || '#fff'} />
-                        <Text style={{ fontSize: customization?.socialFontSize || 9, color: customization?.socialColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap' }} numberOfLines={2}>{details?.socialHandle || '@user'}</Text>
+                        <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={(customization?.socialFontSize || 11) + 1} color={customization?.socialColor || '#fff'} />
+                        <Text style={{ fontSize: customization?.socialFontSize || 11, color: customization?.socialColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap' }} numberOfLines={2}>{details?.socialHandle || '@user'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, paddingHorizontal: 4, paddingVertical: 2, flexWrap: 'wrap' }}>
-                        <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 9) + 1} color={customization?.addressColor || '#fff'} />
-                        <Text style={{ fontSize: customization?.addressFontSize || 9, color: customization?.addressColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap' }} numberOfLines={2}>{details?.address || 'Address'}</Text>
+                        <MaterialCommunityIcons name="map-marker" size={(customization?.addressFontSize || 10) + 1} color={customization?.addressColor || '#fff'} />
+                        <Text style={{ fontSize: customization?.addressFontSize || 10, color: customization?.addressColor || '#fff', fontWeight: '500', flexShrink: 1, flexWrap: 'wrap' }} numberOfLines={2}>{details?.address || 'Address'}</Text>
                     </View>
                 </View>
 
@@ -416,11 +416,11 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
                 <View style={{ width: '4%' }} />
 
                 {/* RIGHT (Remaining): Photo & Name */}
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
                     <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                        <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 2, marginBottom: 1, alignSelf: 'flex-end', maxWidth: '100%' }}>
+                        <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 2, marginBottom: 2, alignSelf: 'flex-end', maxWidth: '100%' }}>
                             <Text style={[styles.textBold, {
-                                fontSize: customization?.nameFontSize || 10,
+                                fontSize: customization?.nameFontSize || 18,
                                 color: customization?.nameColor || '#fff',
                                 fontWeight: '900',
                                 flexWrap: 'wrap',
@@ -429,13 +429,13 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             <Text style={[styles.textRegular, {
-                                fontSize: customization?.designationFontSize || 8,
+                                fontSize: customization?.designationFontSize || 12,
                                 color: customization?.designationColor || 'rgba(255,255,255,0.9)',
                                 textAlign: 'right',
                                 flex: 1,
                                 flexWrap: 'wrap',
                             }]} numberOfLines={2}>{details?.designation || 'Designation'}</Text>
-                            <MaterialCommunityIcons name="star-circle" size={8} color="rgba(255,255,255,0.8)" />
+                            <MaterialCommunityIcons name="star-circle" size={10} color="rgba(255,255,255,0.8)" />
                         </View>
                     </View>
 
@@ -443,14 +443,14 @@ const GradientWaveBar = ({ details, width, customization }: TemplateProps) => {
                     <View style={{ position: 'relative' }}>
                         <View style={{
                             position: 'absolute',
-                            top: -3, left: -3, right: -3, bottom: -3,
-                            borderRadius: 24,
+                            top: -4, left: -4, right: -4, bottom: -4,
+                            borderRadius: 35,
                             backgroundColor: 'rgba(255,255,255,0.3)',
                         }} />
                         <View style={[styles.photoContainer, {
-                            width: customization?.imageSize || 42,
-                            height: customization?.imageSize || 42,
-                            borderRadius: (customization?.imageSize || 42) / 2,
+                            width: customization?.imageSize || 60,
+                            height: customization?.imageSize || 60,
+                            borderRadius: (customization?.imageSize || 60) / 2,
                             borderColor: customization?.imageBorderColor || '#fff',
                             borderWidth: 2,
                         }]}>
@@ -477,17 +477,7 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => customization?.onInteraction?.('photo')}
-                style={{
-                    position: 'absolute',
-                    right: 0,
-                    bottom: 0,
-                    height: 220,
-                    zIndex: 16,
-                    transform: [
-                        { translateX: photoPosition?.x || 0 },
-                        { translateY: photoPosition?.y || 0 }
-                    ]
-                }}
+                style={{ position: 'absolute', right: 0, bottom: 0, height: 220, zIndex: 16 }}
             >
                 <View style={{
                     width: 140,
@@ -511,18 +501,18 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             </View>
 
             {/* Content Layer (Top - Above Frame) */}
-            <View style={{ position: 'absolute', left: '20%', top: -5, bottom: 0, width: '55%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '20%', top: -12, bottom: 0, width: '55%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
                     <TouchableOpacity onPress={() => customization?.onInteraction?.('name')}>
-                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 16, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
-                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 10, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 24, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 15, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
                     </TouchableOpacity>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 5, justifyContent: 'flex-start' }}>
-                        <Text style={{ fontSize: 9, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 5, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
                         <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
-                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={13} color="#fff" />
+                            <Text style={{ fontSize: 12, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
                         </View>
                     </View>
                 </View>
@@ -531,9 +521,9 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
             {/* Address at Bottom of Frame */}
             <TouchableOpacity
                 onPress={() => customization?.onInteraction?.('address')}
-                style={{ position: 'absolute', bottom: 25, left: 80, right: 10, zIndex: 20 }}
+                style={{ position: 'absolute', bottom: 20, left: 80, right: 10, zIndex: 20 }}
             >
-                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
+                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 14, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
             </TouchableOpacity>
@@ -551,17 +541,7 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => customization?.onInteraction?.('photo')}
-                style={{
-                    position: 'absolute',
-                    right: 0,
-                    bottom: 0,
-                    height: 190,
-                    zIndex: 16,
-                    transform: [
-                        { translateX: photoPosition?.x || 0 },
-                        { translateY: photoPosition?.y || 0 }
-                    ]
-                }}
+                style={{ position: 'absolute', right: 0, bottom: 0, height: 190, zIndex: 16 }}
             >
                 <View style={{
                     width: 130,
@@ -585,18 +565,18 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             </View>
 
             {/* Content Layer (Top - Above Frame) - LEFT ALIGNED */}
-            <View style={{ position: 'absolute', left: '25%', top: -2, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
+            <View style={{ position: 'absolute', left: '25%', top: -10, bottom: 0, width: '50%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
                     <TouchableOpacity onPress={() => customization?.onInteraction?.('name')}>
-                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 16, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
-                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 10, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 26, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 15, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
                     </TouchableOpacity>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 5, justifyContent: 'flex-start' }}>
-                        <Text style={{ fontSize: 9, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 5, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 12, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
                         <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
-                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={16} color="#fff" />
+                            <Text style={{ fontSize: 15, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
                         </View>
                     </View>
                 </View>
@@ -605,9 +585,9 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
             {/* Address at Bottom of Frame */}
             <TouchableOpacity
                 onPress={() => customization?.onInteraction?.('address')}
-                style={{ position: 'absolute', bottom: 24, left: 105, right: 10, zIndex: 20 }}
+                style={{ position: 'absolute', bottom: 18, left: 105, right: 10, zIndex: 20 }}
             >
-                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
+                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 14, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
             </TouchableOpacity>
@@ -625,17 +605,7 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => customization?.onInteraction?.('photo')}
-                style={{
-                    position: 'absolute',
-                    right: 0,
-                    bottom: 0,
-                    height: 193,
-                    zIndex: 16,
-                    transform: [
-                        { translateX: photoPosition?.x || 0 },
-                        { translateY: photoPosition?.y || 0 }
-                    ]
-                }}
+                style={{ position: 'absolute', right: 0, bottom: 0, height: 193, zIndex: 16 }}
             >
                 <View style={{
                     width: 120,
@@ -662,15 +632,15 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             <View style={{ position: 'absolute', left: '24%', top: -20, bottom: 0, width: '55%', alignItems: 'flex-start', justifyContent: 'center', zIndex: 20 }}>
                 <View style={{ alignItems: 'flex-start' }}>
                     <TouchableOpacity onPress={() => customization?.onInteraction?.('name')}>
-                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 16, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
-                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 10, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
+                        <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 24, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.name || 'Your Name'}</Text>
+                        <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 15, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>{details?.designation || 'Designation'}</Text>
                     </TouchableOpacity>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 5, justifyContent: 'flex-start' }}>
-                        <Text style={{ fontSize: 9, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 5, justifyContent: 'flex-start' }}>
+                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
                         <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
-                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                            <Text style={{ fontSize: 12, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
                         </View>
                     </View>
                 </View>
@@ -679,9 +649,9 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
             {/* Address at Bottom of Frame */}
             <TouchableOpacity
                 onPress={() => customization?.onInteraction?.('address')}
-                style={{ position: 'absolute', bottom: 32, left: 95, right: 10, zIndex: 20 }}
+                style={{ position: 'absolute', bottom: 28, left: 95, right: 10, zIndex: 20 }}
             >
-                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 9, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
+                <Text style={[styles.textBold, { fontSize: customization?.addressFontSize || 14, letterSpacing: 0.5, color: '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]} numberOfLines={1}>
                     {details?.address || 'Address'}
                 </Text>
             </TouchableOpacity>
@@ -704,14 +674,14 @@ const ImageFrame2 = ({ details, width, customization }: TemplateProps) => {
 
                 {/* Center: Details */}
                 <View style={{ flex: 1 }}>
-                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10 }}>
-                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
-                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 24, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 15, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 3, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10 }}>
+                        <Text style={{ fontSize: 13, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 13, color: '#fff', opacity: 0.9 }}>|</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
-                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={14} color="#fff" />
+                            <Text style={{ fontSize: 13, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
                         </View>
                     </View>
                 </View>
@@ -732,7 +702,7 @@ const ImageFrame2 = ({ details, width, customization }: TemplateProps) => {
 
             {/* Frame Image Overlay (Front) */}
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 }}>
-                <Image source={frame2} style={{ width: '100%', height: '100%' }} resizeMode="stretch" />
+                <Image source={frame2} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
             </View>
         </View>
     );
@@ -751,14 +721,14 @@ const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
 
                 {/* Center: Details */}
                 <View style={{ flex: 1 }}>
-                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 18, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
-                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 12, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 10 }}>
-                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
-                        <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9 }}>|</Text>
+                    <Text style={[styles.textBold, { fontSize: customization?.nameFontSize || 24, color: customization?.nameColor || '#fff', textAlign: 'left', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.name || 'Your Name'}</Text>
+                    <Text style={[styles.textRegular, { fontSize: customization?.designationFontSize || 15, color: customization?.designationColor || '#fff', opacity: 0.9, textAlign: 'left', marginTop: 3, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 3 }]}>{details?.designation || 'Designation'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10 }}>
+                        <Text style={{ fontSize: 13, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.mobile}</Text>
+                        <Text style={{ fontSize: 13, color: '#fff', opacity: 0.9 }}>|</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={12} color="#fff" />
-                            <Text style={{ fontSize: 11, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
+                            <MaterialCommunityIcons name={getSocialIcon(details?.socialPlatform) as any} size={14} color="#fff" />
+                            <Text style={{ fontSize: 13, color: '#fff', opacity: 0.9, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 }}>{details?.socialHandle}</Text>
                         </View>
                     </View>
                 </View>
@@ -779,7 +749,7 @@ const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
 
             {/* Frame Image Overlay (Front) */}
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 }}>
-                <Image source={frame3} style={{ width: '100%', height: '100%' }} resizeMode="stretch" />
+                <Image source={frame3} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
             </View>
         </View>
     );

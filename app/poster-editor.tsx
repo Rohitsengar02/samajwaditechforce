@@ -105,7 +105,7 @@ export default function PosterEditor() {
     const canvasRef = useRef(null);
     const [elements, setElements] = useState<EditorElement[]>([]);
     const [selectedTool, setSelectedTool] = useState<ToolType | null>(null);
-    // Initial canvas fits in view - will be adjusted based on image aspect ratio
+    // Initial canvas fits in view - FIXED to Square (1:1) for consistent professional looking posters
     const [canvasSize, setCanvasSize] = useState({ w: width, h: Math.min(width, MAX_CANVAS_HEIGHT) });
     const [captureCanvasHeight, setCaptureCanvasHeight] = useState<number | null>(null); // Extra height during capture
     const [bannerText, setBannerText] = useState('Samajwadi Party');
@@ -204,7 +204,7 @@ export default function PosterEditor() {
     const [showCustomizationModal, setShowCustomizationModal] = useState(false);
 
     // Footer Photo Controls
-    const [footerPhotoPosition, setFooterPhotoPosition] = useState({ x: 0, y: 0 });
+    const [footerPhotoPosition, setFooterPhotoPosition] = useState({ x: 10, y: -120 });
     const [isPhotoFlipped, setIsPhotoFlipped] = useState(false);
     const [isRemovingFooterPhotoBg, setIsRemovingFooterPhotoBg] = useState(false);
 
@@ -492,22 +492,21 @@ export default function PosterEditor() {
     };
 
     const updateCanvasToImageSize = (uri: string) => {
-        Image.getSize(uri, (w, h) => {
-            const aspectRatio = h / w;
-            // Use actual image width instead of screen width to avoid white bars
-            let newWidth = Math.min(w, width); // Don't exceed screen width
-            let newHeight = newWidth * aspectRatio;
+        // Fix aspect ratio to Square (1:1) - most robust for all content and consistent template look
+        const targetAspectRatio = 1.0;
 
-            // Cap height at max
-            if (newHeight > MAX_CANVAS_HEIGHT) {
-                newHeight = MAX_CANVAS_HEIGHT;
-                newWidth = newHeight / aspectRatio;
-            }
+        let newWidth = width * 0.95; // Standard usable width
+        if (newWidth > 450) newWidth = 450; // Cap width for desktop-ish browsers
 
-            setCanvasSize({ w: newWidth, h: newHeight });
-        }, (error) => {
-            console.error('Error getting image size:', error);
-        });
+        let newHeight = newWidth * targetAspectRatio;
+
+        // Cap height at max available screen space
+        if (newHeight > MAX_CANVAS_HEIGHT) {
+            newHeight = MAX_CANVAS_HEIGHT;
+            newWidth = newHeight / targetAspectRatio;
+        }
+
+        setCanvasSize({ w: newWidth, h: newHeight });
     };
 
     const handlePosterSelect = (uri: string) => {
@@ -1302,13 +1301,30 @@ export default function PosterEditor() {
                         <Text style={styles.saveButtonText}>Preview</Text>
                     </TouchableOpacity>
 
+                    {/* Share Button */}
+                    <TouchableOpacity
+                        onPress={() => handleSave('share')}
+                        style={[styles.saveButton, { backgroundColor: '#16a34a' }]}
+                    >
+                        <MaterialCommunityIcons name="share-variant" size={18} color="#fff" style={{ marginRight: 4 }} />
+                        <Text style={styles.saveButtonText}>Share</Text>
+                    </TouchableOpacity>
+
+                    {/* Save Poster Button */}
+                    <TouchableOpacity
+                        onPress={handleDownloadImage}
+                        style={styles.saveButton}
+                    >
+                        <MaterialCommunityIcons name="download" size={18} color="#fff" style={{ marginRight: 4 }} />
+                        <Text style={styles.saveButtonText}>Save</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
             {/* Main Canvas Area */}
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 30, alignItems: 'center', paddingHorizontal: 0 }]}
+                contentContainerStyle={[styles.scrollViewContent, { justifyContent: 'flex-start', paddingTop: 0, alignItems: 'center', paddingHorizontal: 0 }]}
                 scrollEnabled={!isDragging} // Disable scroll when dragging element
                 showsHorizontalScrollIndicator={false}
                 showsVerticalScrollIndicator={false}
@@ -1344,14 +1360,14 @@ export default function PosterEditor() {
                                     }
                                 ]}
                             >
-                                {/* Base Poster Image */}
+                                {/* Base Poster Image - Changed to Cover for Fixed Square Canvas */}
                                 <Image
                                     source={{ uri: currentImage }}
                                     style={[
                                         styles.baseImage,
-                                        { height: canvasSize.h, width: '100%' }
+                                        { height: canvasSize.h, width: '100%', backgroundColor: '#f1f5f9' }
                                     ]}
-                                    resizeMode="contain"
+                                    resizeMode="cover"
                                     {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
                                 />
 
@@ -2777,13 +2793,7 @@ export default function PosterEditor() {
                                                     </Text>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                                         <TouchableOpacity
-                                                            onPressIn={() => {
-                                                                const action = () => setFooterPhotoPosition(prev => ({ ...prev, x: Math.max(-200, prev.x - 5) }));
-                                                                action();
-                                                                const interval = setInterval(action, 50);
-                                                                (global as any).footerMoveInterval = interval;
-                                                            }}
-                                                            onPressOut={() => clearInterval((global as any).footerMoveInterval)}
+                                                            onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: Math.max(0, prev.x - 5) }))}
                                                             style={{
                                                                 backgroundColor: '#e2e8f0',
                                                                 width: 40,
@@ -2808,13 +2818,7 @@ export default function PosterEditor() {
                                                             </Text>
                                                         </View>
                                                         <TouchableOpacity
-                                                            onPressIn={() => {
-                                                                const action = () => setFooterPhotoPosition(prev => ({ ...prev, x: Math.min(200, prev.x + 5) }));
-                                                                action();
-                                                                const interval = setInterval(action, 50);
-                                                                (global as any).footerMoveInterval = interval;
-                                                            }}
-                                                            onPressOut={() => clearInterval((global as any).footerMoveInterval)}
+                                                            onPress={() => setFooterPhotoPosition(prev => ({ ...prev, x: Math.min(80, prev.x + 5) }))}
                                                             style={{
                                                                 backgroundColor: '#e2e8f0',
                                                                 width: 40,
@@ -2836,13 +2840,7 @@ export default function PosterEditor() {
                                                     </Text>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                                         <TouchableOpacity
-                                                            onPressIn={() => {
-                                                                const action = () => setFooterPhotoPosition(prev => ({ ...prev, y: Math.max(-200, prev.y - 5) }));
-                                                                action();
-                                                                const interval = setInterval(action, 50);
-                                                                (global as any).footerMoveInterval = interval;
-                                                            }}
-                                                            onPressOut={() => clearInterval((global as any).footerMoveInterval)}
+                                                            onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: Math.max(-180, prev.y - 5) }))}
                                                             style={{
                                                                 backgroundColor: '#e2e8f0',
                                                                 width: 40,
@@ -2867,13 +2865,7 @@ export default function PosterEditor() {
                                                             </Text>
                                                         </View>
                                                         <TouchableOpacity
-                                                            onPressIn={() => {
-                                                                const action = () => setFooterPhotoPosition(prev => ({ ...prev, y: Math.min(200, prev.y + 5) }));
-                                                                action();
-                                                                const interval = setInterval(action, 50);
-                                                                (global as any).footerMoveInterval = interval;
-                                                            }}
-                                                            onPressOut={() => clearInterval((global as any).footerMoveInterval)}
+                                                            onPress={() => setFooterPhotoPosition(prev => ({ ...prev, y: Math.min(-80, prev.y + 5) }))}
                                                             style={{
                                                                 backgroundColor: '#e2e8f0',
                                                                 width: 40,
@@ -3355,7 +3347,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: Platform.OS === 'web' ? 15 : 45,
+        paddingTop: 50,
         paddingHorizontal: 16,
         paddingBottom: 16,
         backgroundColor: '#ffffff',

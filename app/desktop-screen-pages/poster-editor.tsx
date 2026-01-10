@@ -15,7 +15,8 @@ import {
     ActivityIndicator,
     PanResponder,
     Animated,
-    FlatList
+    FlatList,
+    useWindowDimensions
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
@@ -88,11 +89,14 @@ export default function DesktopPosterEditor() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const { imageUrl, title } = params;
+    const { width: windowWidth } = useWindowDimensions();
+    const isMobile = windowWidth < 768;
 
     const canvasRef = useRef(null);
     const [elements, setElements] = useState<EditorElement[]>([]);
     const [selectedTool, setSelectedTool] = useState<ToolType | null>(null);
-    const [canvasSize, setCanvasSize] = useState({ w: 600, h: 750 });
+    const [canvasSize, setCanvasSize] = useState({ w: 600, h: 600 });
+    const fitScale = isMobile ? ((windowWidth - 20) / canvasSize.w) : 1;
 
     // Selection State
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -335,12 +339,8 @@ export default function DesktopPosterEditor() {
 
     useEffect(() => {
         if (imageUrl) {
-            Image.getSize(imageUrl as string, (w, h) => {
-                const aspectRatio = h / w;
-                setCanvasSize({ w: 600, h: 600 * aspectRatio });
-            }, (error) => {
-                console.error('Error getting image size:', error);
-            });
+            // Force Square Aspect Ratio for consistency across all posters
+            setCanvasSize({ w: 600, h: 600 });
         }
 
         // Load html2canvas for web screenshots
@@ -438,12 +438,8 @@ export default function DesktopPosterEditor() {
 
     const handlePosterSelect = (posterUrl: string) => {
         setCurrentImage(posterUrl);
-        Image.getSize(posterUrl, (w, h) => {
-            const aspectRatio = h / w;
-            setCanvasSize({ w: 600, h: 600 * aspectRatio });
-        }, (error) => {
-            console.error('Error getting image size:', error);
-        });
+        // Force Square Aspect Ratio for consistency
+        setCanvasSize({ w: 600, h: 600 });
     };
 
     const handleZoom = (increment: boolean) => {
@@ -455,7 +451,11 @@ export default function DesktopPosterEditor() {
 
     const handleToolPress = (toolId: string) => {
         const tool = toolId as ToolType;
-        setSelectedTool(tool);
+        if (selectedTool === tool) {
+            setSelectedTool(null); // Toggle off if already selected
+        } else {
+            setSelectedTool(tool);
+        }
         setSelectedElementId(null);
         // Don't auto-execute, just show options in sidebar
     };
@@ -1016,13 +1016,16 @@ export default function DesktopPosterEditor() {
                     setCurrentGesture({ dx: 0, dy: 0 });
                 },
                 onPanResponderMove: (_, gestureState) => {
-                    setCurrentGesture({ dx: gestureState.dx, dy: gestureState.dy });
+                    setCurrentGesture({
+                        dx: gestureState.dx / (fitScale * zoomScale),
+                        dy: gestureState.dy / (fitScale * zoomScale)
+                    });
                 },
                 onPanResponderRelease: (_, gestureState) => {
                     setIsDragging(false);
                     updateElement(element.id, {
-                        x: dragStartPos.x + gestureState.dx,
-                        y: dragStartPos.y + gestureState.dy
+                        x: dragStartPos.x + (gestureState.dx / (fitScale * zoomScale)),
+                        y: dragStartPos.y + (gestureState.dy / (fitScale * zoomScale))
                     });
                     setCurrentGesture({ dx: 0, dy: 0 });
                 }
@@ -1513,60 +1516,123 @@ export default function DesktopPosterEditor() {
                 </View>
             </View>
 
-            <View style={styles.workspace}>
-                {/* Left Toolbar - Enhanced Scrollable */}
-                <ScrollView
-                    style={styles.leftToolbar}
-                    contentContainerStyle={styles.leftToolbarContent}
-                    showsVerticalScrollIndicator={false}
-                >
-                    <View style={styles.toolbarHeader}>
-                        <View style={styles.toolbarHeaderGradient}>
-                            <MaterialCommunityIcons name="palette" size={20} color="#fff" />
-                        </View>
-                        <Text style={styles.toolbarHeaderText}>Tools</Text>
+            <View style={[styles.workspace, isMobile && { flexDirection: 'column' }]}>
+                {/* Left Toolbar - Enhanced Scrollable (Horizontal on Mobile) */}
+                {isMobile ? (
+                    // Mobile Bottom Tab Bar (Fixed View)
+                    <View style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        width: '100%',
+                        height: 50,
+                        zIndex: 20,
+                        backgroundColor: '#fff',
+                        borderTopWidth: 1,
+                        borderTopColor: '#e2e8f0',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingHorizontal: 0
+                    }}>
+                        {tools.map((tool) => (
+                            <TouchableOpacity
+                                key={tool.id}
+                                style={{
+                                    flex: 1,
+                                    height: 50,
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    backgroundColor: selectedTool === tool.id ? '#f1f5f9' : 'transparent',
+                                }}
+                                onPress={() => handleToolPress(tool.id)}
+                            >
+                                <View style={{ width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                    <MaterialCommunityIcons
+                                        name={tool.icon as any}
+                                        size={24}
+                                        color={selectedTool === tool.id ? '#3b82f6' : '#64748b'}
+                                    />
+                                </View>
+                                {selectedTool === tool.id && (
+                                    <View style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        height: 2,
+                                        backgroundColor: '#3b82f6'
+                                    }} />
+                                )}
+                            </TouchableOpacity>
+                        ))}
                     </View>
-
-                    {tools.map((tool, index) => (
-                        <TouchableOpacity
-                            key={tool.id}
-                            style={[
-                                styles.toolItem,
-                                selectedTool === tool.id && styles.selectedTool,
-                                { animationDelay: `${index * 50}ms` }
-                            ]}
-                            onPress={() => handleToolPress(tool.id)}
-                        >
-                            <View style={[
-                                styles.toolIconContainer,
-                                selectedTool === tool.id && styles.selectedToolIconContainer
-                            ]}>
-                                <MaterialCommunityIcons
-                                    name={tool.icon as any}
-                                    size={24}
-                                    color={selectedTool === tool.id ? '#fff' : '#64748b'}
-                                />
+                ) : (
+                    // Desktop Left Sidebar (ScrollView)
+                    <ScrollView
+                        style={styles.leftToolbar}
+                        contentContainerStyle={styles.leftToolbarContent}
+                        showsVerticalScrollIndicator={true}
+                    >
+                        <View style={styles.toolbarHeader}>
+                            <View style={styles.toolbarHeaderGradient}>
+                                <MaterialCommunityIcons name="palette" size={20} color="#fff" />
                             </View>
-                            <Text style={[
-                                styles.toolName,
-                                selectedTool === tool.id && styles.selectedToolText
-                            ]}>{tool.name}</Text>
-                            {selectedTool === tool.id && (
-                                <View style={styles.selectedToolIndicator} />
-                            )}
-                        </TouchableOpacity>
-                    ))}
+                            <Text style={styles.toolbarHeaderText}>Tools</Text>
+                        </View>
 
-                    <View style={styles.toolbarFooter}>
-                        <View style={styles.toolbarDivider} />
-                        <Text style={styles.toolbarFooterText}>v1.0</Text>
-                    </View>
-                </ScrollView>
+                        {tools.map((tool, index) => (
+                            <TouchableOpacity
+                                key={tool.id}
+                                style={[
+                                    styles.toolItem,
+                                    selectedTool === tool.id && styles.selectedTool,
+                                    { animationDelay: `${index * 50}ms` }
+                                ]}
+                                onPress={() => handleToolPress(tool.id)}
+                            >
+                                <View style={[
+                                    styles.toolIconContainer,
+                                    selectedTool === tool.id && styles.selectedToolIconContainer
+                                ]}>
+                                    <MaterialCommunityIcons
+                                        name={tool.icon as any}
+                                        size={24}
+                                        color={selectedTool === tool.id ? '#fff' : '#64748b'}
+                                    />
+                                </View>
+                                <Text style={[
+                                    styles.toolName,
+                                    selectedTool === tool.id && styles.selectedToolText
+                                ]}>{tool.name}</Text>
+                                {selectedTool === tool.id && (
+                                    <View style={styles.selectedToolIndicator} />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+
+                        <View style={styles.toolbarFooter}>
+                            <View style={styles.toolbarDivider} />
+                            <Text style={styles.toolbarFooterText}>v1.0</Text>
+                        </View>
+                    </ScrollView>
+                )}
 
                 {/* Main Canvas */}
                 <ScrollView
-                    contentContainerStyle={styles.canvasScrollContent}
-                    style={styles.canvasArea}
+                    contentContainerStyle={[
+                        styles.canvasScrollContent,
+                        isMobile && { paddingBottom: 50, flexGrow: 1, justifyContent: 'center' }
+                    ]}
+                    style={[
+                        styles.canvasArea,
+                        isMobile && {
+                            flex: 1,
+                            width: '100%',
+                            marginBottom: (selectedTool || selectedElementId) ? 350 : 50
+                        }
+                    ]}
                     showsVerticalScrollIndicator={true}
                     showsHorizontalScrollIndicator={true}
                 >
@@ -1581,23 +1647,31 @@ export default function DesktopPosterEditor() {
                         </TouchableOpacity>
                     </View>
 
-                    <View style={{ transform: [{ scale: zoomScale }], marginVertical: 40, paddingTop: 2 }}>
+                    <View style={{
+                        transform: [{ scale: isMobile ? 1 : zoomScale }],
+                        width: isMobile ? canvasSize.w * fitScale * zoomScale : undefined,
+                        height: isMobile ? canvasSize.h * fitScale * zoomScale : undefined,
+                        marginVertical: isMobile ? 0 : 40,
+                        alignSelf: isMobile ? 'center' : undefined,
+                        paddingTop: 2
+                    }}>
                         <TouchableOpacity
                             activeOpacity={1}
                             onPress={() => {
                                 setSelectedTool('content');
                                 setShowBottomBarModal(false);
-                                // General click: Scroll to top of content
-                                setTimeout(() => {
-                                    propertiesScrollRef.current?.scrollTo({ y: 0, animated: true });
-                                }, 100);
                             }}
                         >
                             <View
                                 ref={canvasRef}
                                 style={[
                                     styles.canvas,
-                                    { width: canvasSize.w, height: canvasSize.h }
+                                    {
+                                        width: canvasSize.w,
+                                        height: canvasSize.h,
+                                        transform: [{ scale: isMobile ? fitScale * zoomScale : fitScale }] as any,
+                                        transformOrigin: 'top left', // Web only, but key here
+                                    } as any
                                 ]}
                             >
                                 <Image
@@ -1676,7 +1750,21 @@ export default function DesktopPosterEditor() {
                 </ScrollView>
 
                 {/* Right Properties Panel */}
-                <View style={styles.rightPanel}>
+                <View style={[
+                    styles.rightPanel,
+                    isMobile && {
+                        position: 'absolute',
+                        bottom: 50,
+                        left: 0,
+                        right: 0,
+                        height: 300,
+                        borderLeftWidth: 0,
+                        borderTopWidth: 1,
+                        borderTopColor: '#e2e8f0',
+                        zIndex: 10,
+                        display: (selectedTool || selectedElementId) ? 'flex' : 'none'
+                    }
+                ]}>
                     <Text style={styles.panelTitle}>
                         {selectedElement
                             ? 'Properties'
@@ -2982,47 +3070,54 @@ export default function DesktopPosterEditor() {
                         <ScrollView style={{ maxHeight: 600 }}>
                             <View style={{ padding: 20, alignItems: 'center', backgroundColor: '#f8fafc' }}>
                                 <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 }}>
-                                    {/* This will show the captured screenshot */}
+                                    {/* Calculated styling for preview to fit screen without gaps */}
                                     <View style={{
-                                        width: canvasSize.w,
-                                        height: canvasSize.h,
-                                        transform: [{ scale: Math.min(760 / canvasSize.w, 450 / canvasSize.h) }],
-                                        transformOrigin: 'top center',
-                                        backgroundColor: '#fff',
+                                        width: canvasSize.w * Math.min((windowWidth - 80) / canvasSize.w, 450 / canvasSize.h),
+                                        height: canvasSize.h * Math.min((windowWidth - 80) / canvasSize.w, 450 / canvasSize.h),
                                         overflow: 'hidden'
                                     }}>
-                                        <Image
-                                            source={{ uri: currentImage }}
-                                            style={[styles.baseImage, { height: canvasSize.h, imageRendering: 'crisp-edges' } as any]}
-                                            resizeMode="cover"
-                                        />
-
-                                        {selectedFilter !== 'none' && (
-                                            <View style={{
-                                                position: 'absolute',
-                                                top: 0, left: 0, right: 0, height: canvasSize.h,
-                                                backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
-                                                pointerEvents: 'none',
-                                            }} />
-                                        )}
-
-                                        {elements.map((el) => (
-                                            <DraggableItem key={el.id} element={el} isReadonly={true} />
-                                        ))}
-
                                         <View style={{
-                                            position: 'absolute', bottom: 0, left: 0, right: 0, width: '100%',
-                                            minHeight: canvasSize.h * 0.15,
-                                            maxHeight: canvasSize.h * 0.35,
+                                            width: canvasSize.w,
+                                            height: canvasSize.h,
+                                            transform: [{
+                                                scale: Math.min((windowWidth - 80) / canvasSize.w, 450 / canvasSize.h)
+                                            }],
+                                            transformOrigin: 'top left',
+                                            backgroundColor: '#fff',
                                         }}>
-                                            <RenderBottomBar
-                                                template={selectedBottomBarTemplate}
-                                                details={bottomBarDetails}
-                                                width={canvasSize.w}
-                                                customization={frameCustomization}
-                                                photoPosition={footerPhotoPosition}
-                                                isPhotoFlipped={isPhotoFlipped}
+                                            <Image
+                                                source={{ uri: currentImage }}
+                                                style={[styles.baseImage, { height: canvasSize.h, imageRendering: 'crisp-edges' } as any]}
+                                                resizeMode="cover"
                                             />
+
+                                            {selectedFilter !== 'none' && (
+                                                <View style={{
+                                                    position: 'absolute',
+                                                    top: 0, left: 0, right: 0, height: canvasSize.h,
+                                                    backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
+                                                    pointerEvents: 'none',
+                                                }} />
+                                            )}
+
+                                            {elements.map((el) => (
+                                                <DraggableItem key={el.id} element={el} isReadonly={true} />
+                                            ))}
+
+                                            <View style={{
+                                                position: 'absolute', bottom: 0, left: 0, right: 0, width: '100%',
+                                                minHeight: canvasSize.h * 0.15,
+                                                maxHeight: canvasSize.h * 0.35,
+                                            }}>
+                                                <RenderBottomBar
+                                                    template={selectedBottomBarTemplate}
+                                                    details={bottomBarDetails}
+                                                    width={canvasSize.w}
+                                                    customization={frameCustomization}
+                                                    photoPosition={footerPhotoPosition}
+                                                    isPhotoFlipped={isPhotoFlipped}
+                                                />
+                                            </View>
                                         </View>
                                     </View>
                                 </View>
@@ -3030,29 +3125,29 @@ export default function DesktopPosterEditor() {
                         </ScrollView>
 
                         {/* Action Buttons */}
-                        <View style={{ flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0' }}>
+                        <View style={{ flexDirection: 'row', gap: 6, padding: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' }}>
                             <TouchableOpacity
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#3b82f6', padding: 14, borderRadius: 8 }}
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#3b82f6', paddingVertical: 12, paddingHorizontal: 4, borderRadius: 8 }}
                                 onPress={() => handleSharePoster()}
                             >
-                                <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
-                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Share</Text>
+                                <MaterialCommunityIcons name="share-variant" size={18} color="#fff" />
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }} numberOfLines={1}>Share</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#10b981', padding: 14, borderRadius: 8 }}
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#10b981', paddingVertical: 12, paddingHorizontal: 4, borderRadius: 8 }}
                                 onPress={() => handleDownloadPNG()}
                             >
-                                <MaterialCommunityIcons name="download" size={20} color="#fff" />
-                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Download</Text>
+                                <MaterialCommunityIcons name="download" size={18} color="#fff" />
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }} numberOfLines={1}>Download</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#f59e0b', padding: 14, borderRadius: 8 }}
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#f59e0b', paddingVertical: 12, paddingHorizontal: 4, borderRadius: 8 }}
                                 onPress={() => setShowPreviewModal(false)}
                             >
-                                <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
-                                <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Edit</Text>
+                                <MaterialCommunityIcons name="pencil" size={18} color="#fff" />
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }} numberOfLines={1}>Edit</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

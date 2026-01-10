@@ -137,7 +137,7 @@ export default function PostersScreen() {
         if (!selectedPoster) return;
         setModalVisible(false);
         router.push({
-            pathname: '/poster-editor',
+            pathname: '/desktop-screen-pages/poster-editor',
             params: {
                 id: selectedPoster._id,
                 imageUrl: selectedPoster.imageUrl,
