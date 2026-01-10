@@ -1365,9 +1365,9 @@ export default function PosterEditor() {
                                     source={{ uri: currentImage }}
                                     style={[
                                         styles.baseImage,
-                                        { height: canvasSize.h }
+                                        { height: canvasSize.h, width: '100%' }
                                     ]}
-                                    resizeMode="contain"
+                                    resizeMode="cover"
                                     {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
                                 />
 
@@ -3386,13 +3386,8 @@ const styles = StyleSheet.create({
     },
     canvas: {
         backgroundColor: '#ffffff',
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
         position: 'relative',
-        overflow: 'visible',
+        overflow: 'hidden',
     },
     baseImage: {
         width: '100%',
