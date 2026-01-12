@@ -15,7 +15,11 @@ import {
     KeyboardAvoidingView,
     ScrollView,
     Animated,
+    Alert
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -484,13 +488,46 @@ export default function ReelsPage() {
             if (data.firstDownload && data.points) {
                 showToast(`⬇️ +${data.points} points for downloading!`);
             } else {
-                showToast('⬇️ Download tracked!');
+                showToast('⬇️ Download starting...');
             }
 
-            // Download logic here
-            alert('Download tracked! Video saved.');
+            // --- ACTUAL DOWNLOAD LOGIC ---
+            if (Platform.OS === 'web') {
+                const link = document.createElement('a');
+                link.href = reel.videoUrl;
+                link.download = (reel.title || 'video').replace(/[^a-zA-Z0-9]/g, '_') + '.mp4';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('✅ Download started');
+                return;
+            }
+
+            const filename = reel.title.replace(/[^a-zA-Z0-9]/g, '_') + '.mp4';
+            const fileUri = FileSystem.documentDirectory + filename;
+
+            const downloadRes = await FileSystem.downloadAsync(reel.videoUrl, fileUri);
+
+            if (downloadRes.status === 200) {
+                const { status } = await MediaLibrary.requestPermissionsAsync();
+                if (status === 'granted') {
+                    await MediaLibrary.saveToLibraryAsync(downloadRes.uri);
+                    showToast('✅ Video saved to Gallery');
+                } else {
+                    // Fallback to Sharing if permission denied or Android 10+ sometimes prefers share
+                    if (await Sharing.isAvailableAsync()) {
+                        await Sharing.shareAsync(downloadRes.uri);
+                    } else {
+                        Alert.alert('Permission needed', 'Please allow storage permission to save video.');
+                    }
+                }
+            } else {
+                showToast('❌ Download failed');
+            }
+
         } catch (error) {
             console.error('Download error:', error);
+            showToast('❌ Download error');
         }
     };
 

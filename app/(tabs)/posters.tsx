@@ -153,12 +153,20 @@ export default function PostersScreen() {
             // Track download
             const token = await AsyncStorage.getItem('token');
             if (token) {
-                await fetch(`${API_URL}/posters/${poster._id}/download`, {
+                const trackRes = await fetch(`${API_URL}/posters/${poster._id}/download`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                     }
                 });
+                const trackData = await trackRes.json();
+                if (trackData.pointsAwarded) {
+                    Alert.alert('🎉 Points Earned', `+${trackData.points} points for downloading!`);
+                } else {
+                    Alert.alert('⬇️ Downloaded', 'You have already earned points for this poster.');
+                }
+            } else {
+                Alert.alert('⚠️ Not Logged In', 'Please login to track downloads and earn points.');
             }
 
             if (Platform.OS === 'web') {

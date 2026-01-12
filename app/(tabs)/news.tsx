@@ -17,8 +17,11 @@ import {
     KeyboardAvoidingView,
     Platform,
     useWindowDimensions,
-    Linking
+    Linking,
+    Alert
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -158,79 +161,65 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
         return { message, shareUrl };
     };
 
-    const shareToWhatsApp = async () => {
-        try {
-            const userInfoStr = await AsyncStorage.getItem('userInfo');
-            if (userInfoStr) {
-                const userInfo = JSON.parse(userInfoStr);
-                const userId = userInfo._id || userInfo.id;
-                const username = userInfo.username || userInfo.phone || userInfo.email;
-
-                const response = await newsAPI.shareNews(id, userId, username);
-
-                // Show points notification if earned
-                if (response.firstShare && response.points) {
-                    alert(`📤 +${response.points} points earned for sharing!`);
-                }
-            }
-
-            const { message } = getShareContent();
-            // Include image link in WhatsApp message
-            const whatsAppMessage = image
-                ? `${message}\n\n📸 ${image}`
-                : message;
-            const url = `whatsapp://send?text=${encodeURIComponent(whatsAppMessage)}`;
-
-            const supported = await Linking.canOpenURL(url);
-            if (supported) {
-                await Linking.openURL(url);
-            } else {
-                alert('WhatsApp is not installed');
-            }
-            setShowShareModal(false);
-        } catch (err) {
-            console.error(err);
-            alert('Failed to share. Please try again.');
-        }
-    };
-
-    const shareViaSystem = async () => {
+    const shareWithImage = async (platform?: string) => {
         setSharing(true);
         try {
             const { message, shareUrl } = getShareContent();
 
-            // Track share and award points
-            const userInfoStr = await AsyncStorage.getItem('userInfo');
-            if (userInfoStr) {
-                const userInfo = JSON.parse(userInfoStr);
-                const userId = userInfo._id || userInfo.id;
-                const username = userInfo.username || userInfo.phone || userInfo.email;
-
-                const response = await newsAPI.shareNews(id, userId, username);
-
-                // Show points notification if earned
-                if (response.firstShare && response.points) {
-                    alert(`📤 +${response.points} points earned for sharing!`);
+            if (Platform.OS === 'web') {
+                if (navigator.share) {
+                    await navigator.share({
+                        title: title,
+                        text: `${title}\n\nRead more at:`,
+                        url: shareUrl
+                    });
+                } else {
+                    await navigator.clipboard.writeText(`${message}`);
+                    alert('Link copied to clipboard!');
                 }
+            } else if (image) {
+                const fileName = image.split('/').pop() || 'share-image.jpg';
+                const fileUri = FileSystem.cacheDirectory + fileName;
+                const { uri } = await FileSystem.downloadAsync(image, fileUri);
+
+                await Sharing.shareAsync(uri, {
+                    mimeType: 'image/jpeg',
+                    dialogTitle: 'Share News',
+                    UTI: 'public.jpeg'
+                });
+            } else {
+                await Share.share({
+                    message: `${message}`,
+                    url: shareUrl,
+                    title: title
+                });
             }
 
-            // Share with message and URL
-            await Share.share({
-                message: `${message}\n\nImage: ${image || 'No image'}`,
-                url: image || shareUrl,
-                title: title
-            });
+            // Award Points Logic (Keep existing)
+            try {
+                const userInfoStr = await AsyncStorage.getItem('userInfo');
+                if (userInfoStr) {
+                    const userInfo = JSON.parse(userInfoStr);
+                    const response = await newsAPI.shareNews(id, userInfo._id || userInfo.id, userInfo.username);
+                    if (response.firstShare && response.points) {
+                        alert(`📤 +${response.points} points earned for sharing!`);
+                    }
+                }
+            } catch (e) {
+                console.log('Error awarding share points', e);
+            }
 
             setShowShareModal(false);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Sharing error:', error);
-            if (error.message !== 'User did not share') {
-                alert('Failed to share. Please try again.');
-            }
+            Alert.alert('Error', 'Failed to share image');
         } finally {
             setSharing(false);
         }
     };
+
+    const shareToWhatsApp = () => shareWithImage('whatsapp');
+    const shareViaSystem = () => shareWithImage();
 
     const handleCardPress = () => {
         router.push(`/news-detail?id=${id}` as any);

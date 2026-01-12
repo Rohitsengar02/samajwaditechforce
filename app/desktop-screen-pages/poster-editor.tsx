@@ -136,21 +136,51 @@ export default function DesktopPosterEditor() {
         setToastVisible(true);
     };
 
+    const showAlert = (title: string, message: string) => {
+        if (Platform.OS === 'web') {
+            window.alert(`${title}\n\n${message}`);
+        } else {
+            Alert.alert(title, message);
+        }
+    };
+
+    const checkDailyLimit = async (type: string): Promise<boolean> => {
+        try {
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                const userId = userInfo._id || userInfo.id;
+                const res = await fetch(`${API_URL}/points/check-limit?userId=${userId}&activityType=${type}`);
+                const data = await res.json();
+                if (data.success && data.hasReachedLimit) {
+                    showAlert('⚠️ Limit Reached', `You have reached the daily limit of ${data.limit} posters.`);
+                    return false;
+                }
+            }
+            return true;
+        } catch (error) {
+            console.error('Limit check error:', error);
+            return true;
+        }
+    };
+
     const awardPoints = async (activityType: string, points: number, description: string) => {
         try {
             const userInfoStr = await AsyncStorage.getItem('userInfo');
             if (!userInfoStr) {
                 console.log('User not logged in, points not awarded');
-                return;
+                return { success: false, message: 'User not logged in' };
             }
             const userInfo = JSON.parse(userInfoStr);
-            const username = userInfo.username || userInfo.phone || userInfo.email;
+            const username = userInfo.name || userInfo.username || 'User';
+            const userId = userInfo._id || userInfo.id;
 
             const res = await fetch(`${API_URL}/points/award`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     username,
+                    userId,
                     activityType,
                     points,
                     description,
@@ -158,11 +188,14 @@ export default function DesktopPosterEditor() {
                 })
             });
             const data = await res.json();
-            if (data.success) {
-                showToast(`🎉 +${points} points for ${activityType === 'poster_create' ? 'creating' : 'sharing'} a poster!`);
-            }
-        } catch (error) {
+            return {
+                success: data.success,
+                points: points,
+                message: data.message || 'Points could not be awarded.'
+            };
+        } catch (error: any) {
             console.error('Error awarding points:', error);
+            return { success: false, message: error.message || 'Network Error' };
         }
     };
 
@@ -617,8 +650,13 @@ export default function DesktopPosterEditor() {
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-                    awardPoints('poster_create', 25, `Created Master Poster: ${title || 'Untitled'}`);
-                    Alert.alert('Success', 'Ultra-HD Poster Downloaded!');
+                    const result = await awardPoints('poster_create', 10, `Created Master Poster: ${title || 'Untitled'}`);
+                    if (result.success) {
+                        showAlert('Success', 'Ultra-HD Poster Downloaded!\n🎉 +10 Points Earned!');
+                    } else {
+                        const isLimit = result.message?.includes('limit');
+                        showAlert(isLimit ? '⚠️ Limit Reached' : 'Success', `Ultra-HD Poster Downloaded!\n${result.message}`);
+                    }
                 } else { // This 'else' branch handles 'share' or 'preview'
                     setSharedImageUrl(masterUrl);
                     setShowPreviewModal(true);
@@ -628,7 +666,7 @@ export default function DesktopPosterEditor() {
             }
         } catch (err) {
             console.error('Pro Render Error:', err);
-            Alert.alert('Error', 'Master render failed. Please try again.');
+            showAlert('Error', 'Master render failed. Please try again.');
         } finally {
             setIsSaving(false);
         }
@@ -750,16 +788,20 @@ export default function DesktopPosterEditor() {
                     if (existingContainer) document.body.removeChild(existingContainer);
 
                     console.error('PDF generation error:', innerError);
-                    Alert.alert('Error', 'Failed to generate PDF.');
+                    showAlert('Error', 'Failed to generate PDF.');
                 }
             }, 100);
         } catch (error) {
             console.error('PDF error:', error);
-            Alert.alert('Error', 'Failed to initiate PDF download');
+            showAlert('Error', 'Failed to initiate PDF download');
         }
     };
 
     const handleDownloadPNG = async () => {
+        // Check Limit First
+        const canProceed = await checkDailyLimit('poster_create');
+        if (!canProceed) return;
+
         if (isRemovingFooterPhotoBg) {
             setShowBgWaitModal(true);
             return;
@@ -831,15 +873,23 @@ export default function DesktopPosterEditor() {
 
                         document.body.removeChild(captureContainer);
                         const uri = canvas.toDataURL('image/png', 0.9);
-                        canvas.toBlob((blob: any) => {
+                        canvas.toBlob(async (blob: any) => {
                             if (blob) {
                                 const link = document.createElement('a');
                                 link.href = URL.createObjectURL(blob);
                                 link.download = `pro-poster-${Date.now()}.png`;
                                 link.click();
                                 setShowPreviewModal(false);
-                                Alert.alert('Success', 'Optimized Professional Downloaded!');
-                                awardPoints('poster_create', 15, `Created Smart-Master Poster: ${title || 'Untitled'}`);
+
+                                const result = await awardPoints('poster_create', 10, `Created Smart-Master Poster: ${title || 'Untitled'}`);
+
+                                if (result.success) {
+                                    showAlert('Success', `Poster Downloaded!\n\n🎉 +10 Points Earned!`);
+                                } else {
+                                    // If limit reached or error
+                                    const isLimit = result.message?.includes('limit');
+                                    showAlert(isLimit ? '⚠️ Limit Reached' : 'Success', `Poster Downloaded!\n\n${result.message}`);
+                                }
                             }
                         }, 'image/png');
                     } else {
@@ -852,11 +902,15 @@ export default function DesktopPosterEditor() {
             }, 100);
         } catch (error) {
             console.error('Download error:', error);
-            Alert.alert('Error', 'Failed to download poster');
+            showAlert('Error', 'Failed to download poster');
         }
     };
 
     const handleSharePoster = async () => {
+        // Check Limit First (Share counts towards creation limit too)
+        const canProceed = await checkDailyLimit('poster_share');
+        if (!canProceed) return;
+
         if (isRemovingFooterPhotoBg) {
             setShowBgWaitModal(true);
             return;
@@ -958,8 +1012,15 @@ export default function DesktopPosterEditor() {
                                             title: 'Poster',
                                             text: 'Check out my poster!',
                                         });
-                                        awardPoints('poster_share', 10, `Shared poster: ${title || 'Untitled'}`);
+                                        const result = await awardPoints('poster_share', 10, `Shared poster: ${title || 'Untitled'}`);
                                         setShowPreviewModal(false);
+                                        if (result.success) {
+                                            showAlert('Shared!', 'Poster Shared!\n🎉 +10 Points Earned!');
+                                        } else {
+                                            // If limit reached or error
+                                            const isLimit = result.message?.includes('limit');
+                                            showAlert(isLimit ? '⚠️ Limit Reached' : 'Notice', result.message || 'Shared, but points not awarded.');
+                                        }
                                     } catch (shareError) {
                                         console.log('Share cancelled or failed:', shareError);
                                         setShowShareModal(true);
@@ -974,12 +1035,12 @@ export default function DesktopPosterEditor() {
                     }
                 } catch (error) {
                     console.error('Share error:', error);
-                    Alert.alert('Error', 'Failed to share poster');
+                    showAlert('Error', 'Failed to share poster');
                 }
             }, 100);
         } catch (error) {
             console.error('Share error:', error);
-            Alert.alert('Error', 'Failed to share poster');
+            showAlert('Error', 'Failed to share poster');
         }
     };
 
@@ -3210,10 +3271,14 @@ export default function DesktopPosterEditor() {
                                 { /* WhatsApp */}
                                 <TouchableOpacity
                                     style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#25D366', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
-                                    onPress={() => {
+                                    onPress={async () => {
                                         const sharePageUrl = `${BASE_URL}/share/poster?image=${encodeURIComponent(sharedImageUrl || "")}`;
                                         const text = encodeURIComponent("Check out my poster! ✨\n\n" + sharePageUrl);
                                         window.open(`https://wa.me/?text=${text}`, '_blank');
+
+                                        const result = await awardPoints('poster_share', 10, 'Shared to WhatsApp');
+                                        if (result.success) showAlert('Shared!', 'Shared to WhatsApp!\n🎉 +10 Points Earned!');
+
                                         setShowShareModal(false);
                                     }}
                                 >
@@ -3224,11 +3289,14 @@ export default function DesktopPosterEditor() {
                                 {/* cc */}
                                 <TouchableOpacity
                                     style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#6366f1', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
-                                    onPress={() => {
+                                    onPress={async () => {
                                         const sharePageUrl = `${BASE_URL}/share/poster?image=${encodeURIComponent(sharedImageUrl || "")}`;
                                         if (navigator.clipboard) {
                                             navigator.clipboard.writeText(sharePageUrl);
-                                            Alert.alert('Success', 'Link copied to clipboard!');
+
+                                            const result = await awardPoints('poster_share', 10, 'Copied Share Link');
+                                            if (result.success) showAlert('Success', 'Link copied!\n🎉 +10 Points Earned!');
+                                            else showAlert('Success', 'Link copied!');
                                         }
                                     }}
                                 >
@@ -3239,11 +3307,15 @@ export default function DesktopPosterEditor() {
                                 {/* Twitter */}
                                 <TouchableOpacity
                                     style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1DA1F2', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
-                                    onPress={() => {
+                                    onPress={async () => {
                                         const sharePageUrl = `${BASE_URL}/share/poster?image=${encodeURIComponent(sharedImageUrl || "")}`;
                                         const text = encodeURIComponent("Check out my poster! ✨");
                                         const url = `&url=${encodeURIComponent(sharePageUrl)}`;
                                         window.open(`https://twitter.com/intent/tweet?text=${text}${url}`, '_blank');
+
+                                        const result = await awardPoints('poster_share', 10, 'Shared to Twitter');
+                                        if (result.success) showAlert('Shared!', 'Shared to Twitter!\n🎉 +10 Points Earned!');
+
                                         setShowShareModal(false);
                                     }}
                                 >
@@ -3254,9 +3326,13 @@ export default function DesktopPosterEditor() {
                                 {/* Facebook */}
                                 <TouchableOpacity
                                     style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1877F2', padding: 16, borderRadius: 12, marginBottom: 12, width: '100%', justifyContent: 'center', gap: 10 }}
-                                    onPress={() => {
+                                    onPress={async () => {
                                         const sharePageUrl = `${BASE_URL}/share/poster?image=${encodeURIComponent(sharedImageUrl || "")}`;
                                         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(sharePageUrl)}`, '_blank');
+
+                                        const result = await awardPoints('poster_share', 10, 'Shared to Facebook');
+                                        if (result.success) showAlert('Shared!', 'Shared to Facebook!\n🎉 +10 Points Earned!');
+
                                         setShowShareModal(false);
                                     }}
                                 >
