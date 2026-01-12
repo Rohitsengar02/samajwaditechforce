@@ -15,21 +15,21 @@ import {
     Platform,
     Linking,
     TouchableWithoutFeedback,
+    ActivityIndicator,
 } from 'react-native';
 import { Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useWindowDimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
+import DesktopHeader from '../components/DesktopHeader';
+import { newsAPI, News, Comment } from '@/services/newsAPI';
 
 // Samajwadi Theme Colors
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
-
-import { newsAPI, News, Comment } from '@/services/newsAPI';
-import { ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CommentItem = ({ author, comment, time, likes }: any) => {
     const [liked, setLiked] = useState(false);
@@ -99,6 +99,11 @@ export default function NewsDetailScreen() {
     const [isVerified, setIsVerified] = useState(false);
     const [showVerifyModal, setShowVerifyModal] = useState(false);
 
+    const { width } = useWindowDimensions();
+    const isMobile = width < 1024; // Align with DesktopHeader threshold
+
+    const [userPoints, setUserPoints] = useState(0);
+
     const likeAnim = useRef(new Animated.Value(1)).current;
     const slideAnim = useRef(new Animated.Value(1000)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -108,10 +113,9 @@ export default function NewsDetailScreen() {
 
     useEffect(() => {
         checkUser();
-        fetchNewsDetail(); // Fetch news once on mount to increment view count
-    }, [newsId]); // Only re-fetch if newsId changes
+        fetchNewsDetail();
+    }, [newsId]);
 
-    // Update liked status when both news and currentUserId are available
     useEffect(() => {
         if (news && currentUserId && news.likes && news.likes.includes(currentUserId)) {
             setLiked(true);
@@ -126,6 +130,7 @@ export default function NewsDetailScreen() {
                 setCurrentUserId(userInfo._id || userInfo.id);
                 setCurrentUserName(userInfo.name || 'User');
                 setIsVerified(userInfo.verificationStatus === 'Verified');
+                setUserPoints(userInfo.points || 0);
             }
         } catch (e) {
             console.error(e);
@@ -178,7 +183,6 @@ export default function NewsDetailScreen() {
             if (response.success) {
                 setNews(response.data);
                 setLikesCount(response.data.likes ? response.data.likes.length : 0);
-                // Like status will be set by the separate useEffect above
             }
         } catch (err) {
             console.error(err);
@@ -206,11 +210,8 @@ export default function NewsDetailScreen() {
                 const userInfo = JSON.parse(userInfoStr);
                 const username = userInfo.username || userInfo.phone || userInfo.email;
                 const response = await newsAPI.toggleLike(news._id, currentUserId, username);
-
-                // Update likes count from backend
                 setLikesCount(response.data.length);
 
-                // Show points notification
                 if (response.firstLike && response.points) {
                     alert(`🎉 +${response.points} points earned for liking!`);
                 }
@@ -230,7 +231,6 @@ export default function NewsDetailScreen() {
     };
 
     const getShareContent = () => {
-        // Use news-detail?id= format to match Expo Router path for correct deep linking
         const shareUrl = `https://samajwaditechforce.com/news-detail?id=${news?._id}`;
         const message = `${news?.title}\n\nRead more at: ${shareUrl}`;
         return { message, shareUrl };
@@ -244,17 +244,14 @@ export default function NewsDetailScreen() {
                 const userInfo = JSON.parse(userInfoStr);
                 const userId = userInfo._id || userInfo.id;
                 const username = userInfo.username || userInfo.phone || userInfo.email;
-
                 const response = await newsAPI.shareNews(news._id, userId, username);
 
-                // Show points notification
                 if (response.firstShare && response.points) {
                     alert(`📤 +${response.points} points earned for sharing!`);
                 }
             }
 
             const { message } = getShareContent();
-            // Include image link
             const whatsAppMessage = news.coverImage
                 ? `${message}\n\n📸 ${news.coverImage}`
                 : message;
@@ -282,18 +279,14 @@ export default function NewsDetailScreen() {
                 const userInfo = JSON.parse(userInfoStr);
                 const userId = userInfo._id || userInfo.id;
                 const username = userInfo.username || userInfo.phone || userInfo.email;
-
                 const response = await newsAPI.shareNews(news._id, userId, username);
 
-                // Show points notification
                 if (response.firstShare && response.points) {
                     alert(`📤 +${response.points} points earned for sharing!`);
                 }
             }
 
             const { message, shareUrl } = getShareContent();
-
-            // Share with message and URL
             await Share.share({
                 message: `${message}\n\n${news.coverImage ? '📸 ' + news.coverImage : ''}`,
                 url: news.coverImage || shareUrl,
@@ -325,8 +318,6 @@ export default function NewsDetailScreen() {
                 if (response.success) {
                     setNews(prev => prev ? { ...prev, comments: response.data } : null);
                     setCommentText('');
-
-                    // Show points notification
                     if (response.firstComment && response.points) {
                         alert(`💬 +${response.points} points earned for commenting!`);
                     }
@@ -355,119 +346,123 @@ export default function NewsDetailScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <LinearGradient
-                colors={[SP_RED, '#b91c1c']}
-                style={styles.header}
-            >
-                <View style={styles.headerContent}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>News Detail</Text>
-                    <TouchableOpacity onPress={() => setSaved(!saved)} style={styles.saveButton}>
-                        <MaterialCommunityIcons
-                            name={saved ? 'bookmark' : 'bookmark-outline'}
-                            size={24}
-                            color="#fff"
-                        />
-                    </TouchableOpacity>
-                </View>
-            </LinearGradient>
+            {isMobile && <DesktopHeader />}
+
+            {!isMobile && (
+                <LinearGradient colors={[SP_RED, '#b91c1c']} style={styles.header}>
+                    <View style={styles.headerContent}>
+                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+                        </TouchableOpacity>
+                        <Text style={styles.headerTitle}>News Detail</Text>
+                        <TouchableOpacity onPress={() => setSaved(!saved)} style={styles.saveButton}>
+                            <MaterialCommunityIcons
+                                name={saved ? 'bookmark' : 'bookmark-outline'}
+                                size={24}
+                                color="#fff"
+                            />
+                        </TouchableOpacity>
+                    </View>
+                </LinearGradient>
+            )}
 
             <ScrollView
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {/* Image Banner */}
-                {news.coverImage && news.coverImage !== 'no-photo.jpg' ? (
-                    <Image
-                        source={{ uri: news.coverImage }}
-                        style={styles.imageBanner}
-                        resizeMode="cover"
-                    />
+                {isMobile ? (
+                    /* Mobile Hero Section */
+                    <View style={styles.mobileHeroContainer}>
+                        {news.coverImage && news.coverImage !== 'no-photo.jpg' ? (
+                            <Image source={{ uri: news.coverImage }} style={styles.mobileHeroImage} resizeMode="cover" />
+                        ) : (
+                            <LinearGradient colors={[SP_RED, '#991b1b']} style={styles.mobileHeroImage}>
+                                <MaterialCommunityIcons name="newspaper" size={80} color="rgba(255,255,255,0.3)" />
+                            </LinearGradient>
+                        )}
+
+                        {/* Floating Navigation Controls */}
+                        <View style={styles.mobileFloatingHeader}>
+                            <TouchableOpacity style={styles.mobileFloatingBack} onPress={() => router.back()}>
+                                <MaterialCommunityIcons name="chevron-left" size={28} color="#fff" />
+                            </TouchableOpacity>
+                            <View style={styles.mobileFloatingPoints}>
+                                <MaterialCommunityIcons name="star" size={16} color="#fbbf24" />
+                                <Text style={styles.mobilePointsText}>{userPoints}</Text>
+                            </View>
+                        </View>
+                    </View>
                 ) : (
-                    <LinearGradient
-                        colors={['#e2e8f0', '#cbd5e1']}
-                        style={styles.imageBanner}
-                    >
-                        <MaterialCommunityIcons
-                            name="newspaper"
-                            size={100}
-                            color={SP_RED}
-                            style={{ opacity: 0.6 }}
-                        />
-                    </LinearGradient>
+                    /* Desktop Hero Banner */
+                    news.coverImage && news.coverImage !== 'no-photo.jpg' ? (
+                        <Image source={{ uri: news.coverImage }} style={styles.imageBanner} resizeMode="cover" />
+                    ) : (
+                        <LinearGradient colors={['#e2e8f0', '#cbd5e1']} style={styles.imageBanner}>
+                            <MaterialCommunityIcons name="newspaper" size={100} color={SP_RED} style={{ opacity: 0.6 }} />
+                        </LinearGradient>
+                    )
                 )}
 
-                <View style={styles.content}>
-                    {/* Category & Time */}
+                <View style={[styles.content, isMobile ? styles.mobileMainCard : styles.desktopCard]}>
                     <View style={styles.metaInfo}>
                         <View style={styles.categoryBadge}>
                             <View style={[styles.categoryDot, { backgroundColor: SP_GREEN }]} />
-                            <Text style={styles.categoryText}>News</Text>
+                            <Text style={styles.categoryText}>Official Update</Text>
                         </View>
                         <View style={styles.timeContainer}>
-                            <MaterialCommunityIcons name="clock-outline" size={14} color="#94a3b8" />
-                            <Text style={styles.timeText}>{new Date(news.createdAt).toLocaleDateString()}</Text>
+                            <MaterialCommunityIcons name="calendar-outline" size={14} color="#94a3b8" />
+                            <Text style={styles.timeText}>
+                                {new Date(news.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </Text>
                         </View>
                     </View>
 
-                    {/* Title */}
-                    <Text style={styles.title}>{news.title}</Text>
+                    <Text style={[styles.title, isMobile && styles.mobileTitle]}>{news.title}</Text>
 
-                    {/* Author */}
-                    <View style={styles.authorInfo}>
-                        <View style={styles.authorAvatar}>
-                            <MaterialCommunityIcons name="account-circle" size={40} color={SP_RED} />
+                    {isMobile ? (
+                        <View style={styles.mobileStatsRow}>
+                            <View style={styles.mobileStatItem}>
+                                <MaterialCommunityIcons name="eye-outline" size={18} color="#64748b" />
+                                <Text style={styles.mobileStatText}>{news.views}</Text>
+                            </View>
+                            <TouchableOpacity style={styles.mobileStatItem} onPress={handleLike}>
+                                <MaterialCommunityIcons name={liked ? "heart" : "heart-outline"} size={18} color={liked ? SP_RED : "#64748b"} />
+                                <Text style={[styles.mobileStatText, liked && { color: SP_RED }]}>{likesCount}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.mobileStatItem} onPress={() => setShowCommentsModal(true)}>
+                                <MaterialCommunityIcons name="comment-outline" size={18} color="#64748b" />
+                                <Text style={styles.mobileStatText}>{news.comments ? news.comments.length : 0}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.mobileStatItem} onPress={handleShare}>
+                                <MaterialCommunityIcons name="share-variant-outline" size={18} color="#64748b" />
+                                <Text style={styles.mobileStatText}>Share</Text>
+                            </TouchableOpacity>
                         </View>
-                        <View>
-                            <Text style={styles.authorName}>Samajwadi Party</Text>
-                            <Text style={styles.authorRole}>Official</Text>
+                    ) : (
+                        /* Desktop Action Bar */
+                        <View style={styles.actionBar}>
+                            <TouchableOpacity style={[styles.actionButton, liked && styles.actionButtonActive]} onPress={handleLike}>
+                                <Animated.View style={{ transform: [{ scale: likeAnim }] }}>
+                                    <MaterialCommunityIcons name={liked ? 'heart' : 'heart-outline'} size={22} color={liked ? SP_RED : '#64748b'} />
+                                </Animated.View>
+                                <Text style={[styles.actionText, liked && { color: SP_RED }]}>{likesCount} Likes</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.actionButton} onPress={() => setShowCommentsModal(true)}>
+                                <MaterialCommunityIcons name="comment-text-outline" size={22} color="#64748b" />
+                                <Text style={styles.actionText}>{news.comments ? news.comments.length : 0} Comments</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+                                <MaterialCommunityIcons name="share-variant-outline" size={22} color="#64748b" />
+                                <Text style={styles.actionText}>Share</Text>
+                            </TouchableOpacity>
                         </View>
-                    </View>
+                    )}
 
-                    {/* Action Bar */}
-                    <View style={styles.actionBar}>
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleLike}
-                        >
-                            <Animated.View style={{ transform: [{ scale: likeAnim }] }}>
-                                <MaterialCommunityIcons
-                                    name={liked ? 'heart' : 'heart-outline'}
-                                    size={24}
-                                    color={liked ? SP_RED : '#64748b'}
-                                />
-                            </Animated.View>
-                            <Text style={[styles.actionText, liked && { color: SP_RED }]}>{likesCount}</Text>
-                        </TouchableOpacity>
+                    <View style={styles.contentSection}>{renderContent(news.content)}</View>
 
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => setShowCommentsModal(true)}
-                        >
-                            <MaterialCommunityIcons name="comment-outline" size={24} color="#64748b" />
-                            <Text style={styles.actionText}>{news.comments ? news.comments.length : 0}</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-                            <MaterialCommunityIcons name="share-variant" size={24} color="#64748b" />
-                            <Text style={styles.actionText}>Share</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.actionButton}>
-                            <MaterialCommunityIcons name="eye-outline" size={24} color="#64748b" />
-                            <Text style={styles.actionText}>{news.views}</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Full Content */}
-                    <View style={styles.contentSection}>
-                        {renderContent(news.content)}
-                    </View>
-
-                    {/* Comments Preview */}
                     <View style={styles.commentsSection}>
                         <View style={styles.commentsSectionHeader}>
                             <Text style={styles.commentsSectionTitle}>Comments ({news.comments ? news.comments.length : 0})</Text>
@@ -476,7 +471,6 @@ export default function NewsDetailScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Comment Input */}
                         <View style={styles.commentInputContainer}>
                             <View style={styles.commentInputAvatar}>
                                 <MaterialCommunityIcons name="account-circle" size={36} color="#94a3b8" />
@@ -494,36 +488,30 @@ export default function NewsDetailScreen() {
                                 onPress={handlePostComment}
                                 disabled={!commentText.trim()}
                             >
-                                <MaterialCommunityIcons
-                                    name="send"
-                                    size={20}
-                                    color={commentText.trim() ? SP_RED : '#cbd5e1'}
-                                />
+                                <MaterialCommunityIcons name="send" size={20} color={commentText.trim() ? SP_RED : '#cbd5e1'} />
                             </TouchableOpacity>
                         </View>
                     </View>
                 </View>
             </ScrollView>
 
-            {/* Share Modal */}
-            <Modal
-                visible={showShareModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowShareModal(false)}
-            >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowShareModal(false)}
-                >
+            <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
+                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowShareModal(false)}>
                     <View style={[styles.commentsModal, { maxHeight: undefined, padding: 24, paddingBottom: 40, borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
                         <View style={styles.modalHandle} />
                         <Text style={[styles.modalTitle, { marginBottom: 20 }]}>Share News</Text>
-
                         <View style={{ gap: 16 }}>
                             <TouchableOpacity
-                                style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: '#f0fdf4', borderRadius: 16, borderWidth: 1, borderColor: '#dcfce7' }}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 16,
+                                    padding: 16,
+                                    backgroundColor: '#f0fdf4',
+                                    borderRadius: 16,
+                                    borderWidth: 1,
+                                    borderColor: '#dcfce7',
+                                }}
                                 onPress={shareToWhatsApp}
                             >
                                 <MaterialCommunityIcons name="whatsapp" size={32} color="#25D366" />
@@ -535,7 +523,16 @@ export default function NewsDetailScreen() {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0' }}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 16,
+                                    padding: 16,
+                                    backgroundColor: '#f8fafc',
+                                    borderRadius: 16,
+                                    borderWidth: 1,
+                                    borderColor: '#e2e8f0',
+                                }}
                                 onPress={shareViaSystem}
                             >
                                 {sharing ? <ActivityIndicator color="#3b82f6" /> : <MaterialCommunityIcons name="share-variant" size={32} color="#3b82f6" />}
@@ -550,39 +547,18 @@ export default function NewsDetailScreen() {
                 </TouchableOpacity>
             </Modal>
 
-            {/* Comments Modal */}
-            <Modal
-                visible={showCommentsModal}
-                transparent
-                animationType="none"
-                onRequestClose={() => setShowCommentsModal(false)}
-            >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowCommentsModal(false)}
-                >
-                    <Animated.View
-                        style={[
-                            styles.commentsModal,
-                            { transform: [{ translateY: slideAnim }] }
-                        ]}
-                    >
-                        <KeyboardAvoidingView
-                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                            style={{ flex: 1 }}
-                            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-                        >
+            <Modal visible={showCommentsModal} transparent animationType="none" onRequestClose={() => setShowCommentsModal(false)}>
+                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowCommentsModal(false)}>
+                    <Animated.View style={[styles.commentsModal, { transform: [{ translateY: slideAnim }] }]}>
+                        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
                             <View style={{ flex: 1 }}>
                                 <View style={styles.modalHandle} />
-
                                 <View style={styles.modalHeader}>
                                     <Text style={styles.modalTitle}>All Comments ({news.comments ? news.comments.length : 0})</Text>
                                     <TouchableOpacity onPress={() => setShowCommentsModal(false)}>
                                         <MaterialCommunityIcons name="close" size={24} color="#64748b" />
                                     </TouchableOpacity>
                                 </View>
-
                                 <ScrollView
                                     style={styles.commentsScroll}
                                     contentContainerStyle={{ paddingBottom: 20 }}
@@ -594,15 +570,8 @@ export default function NewsDetailScreen() {
                                     {news.comments && news.comments.length > 0 ? (
                                         news.comments.map((comment, idx) => (
                                             <View key={comment._id || idx}>
-                                                <CommentItem
-                                                    author={comment.name}
-                                                    comment={comment.text}
-                                                    time={new Date(comment.date).toLocaleDateString()}
-                                                    likes={0}
-                                                />
-                                                {idx < news.comments.length - 1 && (
-                                                    <View style={styles.commentDivider} />
-                                                )}
+                                                <CommentItem author={comment.name} comment={comment.text} time={new Date(comment.date).toLocaleDateString()} likes={0} />
+                                                {idx < news.comments.length - 1 && <View style={styles.commentDivider} />}
                                             </View>
                                         ))
                                     ) : (
@@ -611,7 +580,6 @@ export default function NewsDetailScreen() {
                                         </View>
                                     )}
                                 </ScrollView>
-
                                 <View style={styles.commentInputContainerModal}>
                                     <TextInput
                                         style={styles.commentInputModal}
@@ -622,11 +590,7 @@ export default function NewsDetailScreen() {
                                         multiline
                                         maxLength={500}
                                     />
-                                    <TouchableOpacity
-                                        style={[styles.sendButtonModal, !commentText.trim() && { opacity: 0.5 }]}
-                                        onPress={handlePostComment}
-                                        disabled={!commentText.trim()}
-                                    >
+                                    <TouchableOpacity style={[styles.sendButtonModal, !commentText.trim() && { opacity: 0.5 }]} onPress={handlePostComment} disabled={!commentText.trim()}>
                                         <MaterialCommunityIcons name="send" size={20} color="#fff" />
                                     </TouchableOpacity>
                                 </View>
@@ -636,13 +600,13 @@ export default function NewsDetailScreen() {
                 </TouchableOpacity>
             </Modal>
 
-            {/* Verification Modal */}
-            <Modal
-                animationType="fade"
-                transparent={true}
-                visible={showVerifyModal}
-                onRequestClose={() => setShowVerifyModal(false)}
-            >
+            {isMobile && (
+                <TouchableOpacity style={styles.floatingWhatsApp} onPress={shareToWhatsApp}>
+                    <MaterialCommunityIcons name="whatsapp" size={32} color="#fff" />
+                </TouchableOpacity>
+            )}
+
+            <Modal animationType="fade" transparent={true} visible={showVerifyModal} onRequestClose={() => setShowVerifyModal(false)}>
                 <TouchableWithoutFeedback onPress={() => setShowVerifyModal(false)}>
                     <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
                         <TouchableWithoutFeedback>
@@ -650,31 +614,15 @@ export default function NewsDetailScreen() {
                                 <View style={{ alignItems: 'center', marginBottom: 16 }}>
                                     <MaterialCommunityIcons name="shield-alert" size={48} color={SP_RED} />
                                 </View>
-                                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginBottom: 8, textAlign: 'center' }}>
-                                    Verification Required
-                                </Text>
+                                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginBottom: 8, textAlign: 'center' }}>Verification Required</Text>
                                 <Text style={{ fontSize: 14, color: '#64748b', marginBottom: 24, textAlign: 'center', lineHeight: 20 }}>
                                     You must be a verified member to perform this action.
                                 </Text>
-
                                 <View style={{ gap: 12 }}>
-                                    <Button
-                                        mode="contained"
-                                        buttonColor={SP_RED}
-                                        onPress={() => {
-                                            setShowVerifyModal(false);
-                                            router.push('/(tabs)/profile');
-                                        }}
-                                        style={{ borderRadius: 8 }}
-                                    >
+                                    <Button mode="contained" buttonColor={SP_RED} onPress={() => { setShowVerifyModal(false); router.push('/(tabs)/profile'); }} style={{ borderRadius: 8 }}>
                                         Go to Profile
                                     </Button>
-                                    <Button
-                                        mode="outlined"
-                                        textColor="#64748b"
-                                        onPress={() => setShowVerifyModal(false)}
-                                        style={{ borderRadius: 8, borderColor: '#cbd5e1' }}
-                                    >
+                                    <Button mode="outlined" textColor="#64748b" onPress={() => setShowVerifyModal(false)} style={{ borderRadius: 8, borderColor: '#cbd5e1' }}>
                                         Cancel
                                     </Button>
                                 </View>
@@ -868,9 +816,6 @@ const styles = StyleSheet.create({
     commentSendButtonDisabled: {
         opacity: 0.5,
     },
-    commentsList: {
-        gap: 16,
-    },
     commentItem: {
         backgroundColor: '#fff',
         padding: 16,
@@ -914,50 +859,6 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         color: '#475569',
     },
-    relatedSection: {
-        marginTop: 20,
-    },
-    relatedTitle: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#1e293b',
-        marginBottom: 16,
-    },
-    relatedItem: {
-        flexDirection: 'row',
-        backgroundColor: '#fff',
-        padding: 12,
-        borderRadius: 12,
-        gap: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    relatedImage: {
-        width: 80,
-        height: 80,
-        borderRadius: 12,
-        backgroundColor: '#f8fafc',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    relatedInfo: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    relatedItemTitle: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#1e293b',
-        marginBottom: 4,
-    },
-    relatedTime: {
-        fontSize: 12,
-        color: '#94a3b8',
-    },
-    // Modal Styles
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -967,8 +868,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        height: '40%',
-        minHeight: 300,
+        height: '70%',
         paddingBottom: Platform.OS === 'ios' ? 40 : 20,
     },
     modalHandle: {
@@ -1017,7 +917,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         marginVertical: 16,
     },
-    // Comment Input Modal Styles
     commentInputContainerModal: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1026,11 +925,6 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#e2e8f0',
         backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 4,
     },
     commentInputModal: {
         flex: 1,
@@ -1044,16 +938,170 @@ const styles = StyleSheet.create({
         maxHeight: 100,
     },
     sendButtonModal: {
-        backgroundColor: '#E30512',
+        backgroundColor: SP_RED,
         width: 40,
         height: 40,
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#E30512',
-        shadowOffset: { width: 0, height: 2 },
+    },
+    desktopCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 32,
+        marginTop: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5,
+    },
+    mobileMainCard: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 24,
+        marginTop: -30,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 10,
+        minHeight: 500,
+    },
+    mobileHeroContainer: {
+        width: '100%',
+        height: 350,
+        backgroundColor: '#f1f5f9',
+    },
+    mobileHeroImage: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    mobileFloatingHeader: {
+        position: 'absolute',
+        top: 20,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        zIndex: 100,
+    },
+    mobileFloatingBack: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    mobileFloatingPoints: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    mobilePointsText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 14,
+    },
+    mobileTitle: {
+        fontSize: 26,
+        fontWeight: '900',
+        color: '#0f172a',
+        lineHeight: 34,
+        marginBottom: 20,
+    },
+    mobileStatsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 16,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: '#f1f5f9',
+        marginBottom: 24,
+    },
+    mobileStatItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    mobileStatText: {
+        fontSize: 13,
+        color: '#64748b',
+        fontWeight: '600',
+    },
+    floatingWhatsApp: {
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#25D366',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#25D366',
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowRadius: 10,
+        elevation: 10,
+        zIndex: 100,
+    },
+    mobileIntegratedHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
+    },
+    backToNewsMobile: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    backIconCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#fef2f2',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    backToNewsTextMobile: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: SP_RED,
+    },
+    pointsBadgeMobileIntegrated: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: SP_GREEN,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+    },
+    pointsBadgeTextMobile: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 12,
+    },
+    actionButtonActive: {
+        backgroundColor: '#fff1f2',
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
     },
 });

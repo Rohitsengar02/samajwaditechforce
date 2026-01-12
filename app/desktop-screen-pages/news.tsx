@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Image, Dimensions, Pressable, ActivityIndicator, Modal, TextInput, Animated, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Dimensions, Pressable, ActivityIndicator, Modal, TextInput, Animated, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Text, Chip, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,8 @@ import DesktopHeader from '../../components/DesktopHeader';
 
 export default function DesktopNews() {
     const router = useRouter();
+    const { width } = useWindowDimensions();
+    const isMobile = width < 768;
     const [news, setNews] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -435,21 +437,39 @@ export default function DesktopNews() {
 
     return (
         <View style={styles.container}>
-            <DesktopHeader />
+            {!isMobile && <DesktopHeader />}
+
+            {isMobile && (
+                <TouchableOpacity
+                    onPress={() => {
+                        if (router.canGoBack()) {
+                            router.back();
+                        } else {
+                            router.replace('/(tabs)/home' as any);
+                        }
+                    }}
+                    style={styles.backButtonMobile}
+                >
+                    <MaterialCommunityIcons name="arrow-left" size={24} color="#1e293b" />
+                </TouchableOpacity>
+            )}
 
             {/* Points Badge Fixed on Screen */}
-            <View style={styles.fixedPointsBadge}>
+            <View style={[styles.fixedPointsBadge, isMobile && { right: 20 }]}>
                 <View style={styles.pointsIconBg}>
                     <MaterialCommunityIcons name="star" size={16} color="#FFB800" />
                 </View>
                 <Text style={styles.pointsValue}>{points} Pts</Text>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={isMobile && { paddingTop: 60 }}
+            >
                 {/* Top 3 Featured News in a Row */}
                 {!loading && news.length > 0 && (
-                    <View style={styles.topFeaturedSection}>
-                        <View style={styles.topFeaturedRow}>
+                    <View style={[styles.topFeaturedSection, isMobile && { paddingHorizontal: 16, paddingTop: 20 }]}>
+                        <View style={[styles.topFeaturedRow, isMobile && { flexDirection: 'column' }]}>
                             {news.slice(0, 3).map((item, index) => (
                                 <Pressable
                                     key={item._id || index}
@@ -505,7 +525,7 @@ export default function DesktopNews() {
                 )}
 
                 {/* Category Filter */}
-                <View style={styles.filterSection}>
+                <View style={[styles.filterSection, isMobile && { paddingHorizontal: 16, paddingVertical: 20, flexDirection: 'column', alignItems: 'flex-start', gap: 16 }]}>
                     <Text style={styles.sectionTitle}>Recently Added</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
                         {categories.map((cat) => (
@@ -532,11 +552,11 @@ export default function DesktopNews() {
                 {loading ? (
                     <ActivityIndicator size="large" color={SP_RED} style={{ marginTop: 50 }} />
                 ) : (
-                    <View style={styles.newsGrid}>
+                    <View style={[styles.newsGrid, isMobile && { padding: 16 }]}>
                         {filteredNews.slice(3).map((item, index) => (
                             <Pressable
                                 key={item._id || index}
-                                style={styles.newsCard}
+                                style={[styles.newsCard, isMobile && { width: '100%' }]}
                                 onPress={() => router.push(`/news/${item._id}` as any)}
                             >
                                 <Image
@@ -1366,7 +1386,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 60,
         paddingVertical: 20,
         backgroundColor: '#fff',
         borderBottomWidth: 1,
@@ -1476,5 +1495,22 @@ const styles = StyleSheet.create({
     megaMenuSubtitle: {
         fontSize: 12,
         color: '#64748b',
+    },
+    backButtonMobile: {
+        position: 'absolute',
+        top: 20,
+        left: 20,
+        zIndex: 200,
+        backgroundColor: '#fff',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
 });

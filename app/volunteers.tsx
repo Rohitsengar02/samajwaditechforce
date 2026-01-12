@@ -184,8 +184,20 @@ export default function VolunteersPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [verifiedMembers, setVerifiedMembers] = useState<VerifiedMember[]>([]);
+    const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
 
     const API_URL = getApiUrl();
+
+    // Extract unique districts from verified members
+    const uniqueDistricts = React.useMemo(() => {
+        const districtSet = new Set<string>();
+        verifiedMembers.forEach(member => {
+            if (member.district && member.district.toLowerCase() !== 'agra') {
+                districtSet.add(member.district);
+            }
+        });
+        return Array.from(districtSet).sort();
+    }, [verifiedMembers]);
 
     // Fetch verified members from API
     useEffect(() => {
@@ -233,8 +245,17 @@ export default function VolunteersPage() {
         }
     };
 
-    // Apply search filter
+    // Apply search and district filter
     const filteredVolunteers = verifiedMembers.filter((vol) => {
+        // District filter
+        if (selectedDistrict !== 'all') {
+            const volDistrict = vol.district || '';
+            if (!volDistrict.toLowerCase().includes(selectedDistrict.toLowerCase())) {
+                return false;
+            }
+        }
+
+        // Search filter
         if (!searchQuery) return true;
 
         const searchLower = searchQuery.toLowerCase();
@@ -248,7 +269,7 @@ export default function VolunteersPage() {
     });
 
     // Stats
-    const totalVerified = verifiedMembers.length;
+    const totalVerified = selectedDistrict === 'all' ? verifiedMembers.length : filteredVolunteers.length;
 
     return (
         <View style={styles.container}>
@@ -280,13 +301,48 @@ export default function VolunteersPage() {
                     </View>
                 </LinearGradient>
 
+                {/* District Filter Pills */}
+                <View style={styles.districtFilterContainer}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.districtScrollContent}
+                    >
+                        {/* All Districts */}
+                        <TouchableOpacity
+                            style={[styles.districtPill, selectedDistrict === 'all' && styles.districtPillActive]}
+                            onPress={() => setSelectedDistrict('all')}
+                        >
+                            <Text style={[styles.districtPillText, selectedDistrict === 'all' && styles.districtPillTextActive]}>
+                                All Districts
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* District Pills */}
+                        {uniqueDistricts.map((districtName: string) => {
+                            const isActive = selectedDistrict === districtName;
+                            return (
+                                <TouchableOpacity
+                                    key={districtName}
+                                    style={[styles.districtPill, isActive && styles.districtPillActive]}
+                                    onPress={() => setSelectedDistrict(districtName)}
+                                >
+                                    <Text style={[styles.districtPillText, isActive && styles.districtPillTextActive]}>
+                                        {districtName}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+
                 <View style={styles.content}>
                     {/* Search Bar */}
                     <View style={styles.searchContainer}>
                         <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="Search by name, email, or phone..."
+                            placeholder="Search by name..."
                             placeholderTextColor="#94A3B8"
                             value={searchQuery}
                             onChangeText={setSearchQuery}
@@ -400,6 +456,38 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: 'rgba(255,255,255,0.9)',
         marginTop: 2,
+    },
+    // District Filter Styles
+    districtFilterContainer: {
+        backgroundColor: '#fff',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e2e8f0',
+    },
+    districtScrollContent: {
+        paddingHorizontal: 16,
+        gap: 8,
+    },
+    districtPill: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#f1f5f9',
+        marginRight: 8,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    districtPillActive: {
+        backgroundColor: '#E30512',
+        borderColor: '#E30512',
+    },
+    districtPillText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#64748b',
+    },
+    districtPillTextActive: {
+        color: '#fff',
     },
     content: {
         padding: 20,
