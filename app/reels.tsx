@@ -506,7 +506,11 @@ export default function ReelsPage() {
     const handleWebShare = async (type: string) => {
         if (!selectedReel) return;
 
-        const shareUrl = window.location.href; // Reverting to direct frontend URL
+        // Manually construct the URL to ensure it always includes the ID
+        // This ensures the link is specific: https://www.samajwaditechforce.com/reels?id=...
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareUrl = `${baseUrl}?id=${selectedReel.id}`;
+
         const shareText = `Check out this reel: ${selectedReel.title}`;
         const shareData = {
             title: selectedReel.title,
