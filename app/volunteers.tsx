@@ -184,12 +184,29 @@ export default function VolunteersPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [verifiedMembers, setVerifiedMembers] = useState<VerifiedMember[]>([]);
+    const [districts, setDistricts] = useState<any[]>([]);
+    const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
 
     const API_URL = getApiUrl();
+
+    // Fetch districts
+    const fetchDistricts = async () => {
+        try {
+            const response = await fetch(`${API_URL}/districts`);
+            if (response.ok) {
+                const data = await response.json();
+                const districtList = Array.isArray(data) ? data : (data.data || []);
+                setDistricts(districtList);
+            }
+        } catch (error) {
+            console.error('Error fetching districts:', error);
+        }
+    };
 
     // Fetch verified members from API
     useEffect(() => {
         fetchVerifiedMembers();
+        fetchDistricts();
     }, []);
 
     // Debug: Log when verifiedMembers changes
@@ -233,8 +250,17 @@ export default function VolunteersPage() {
         }
     };
 
-    // Apply search filter
+    // Apply search and district filter
     const filteredVolunteers = verifiedMembers.filter((vol) => {
+        // District filter
+        if (selectedDistrict !== 'all') {
+            const volDistrict = vol.district || '';
+            if (!volDistrict.toLowerCase().includes(selectedDistrict.toLowerCase())) {
+                return false;
+            }
+        }
+
+        // Search filter
         if (!searchQuery) return true;
 
         const searchLower = searchQuery.toLowerCase();
@@ -248,7 +274,7 @@ export default function VolunteersPage() {
     });
 
     // Stats
-    const totalVerified = verifiedMembers.length;
+    const totalVerified = selectedDistrict === 'all' ? verifiedMembers.length : filteredVolunteers.length;
 
     return (
         <View style={styles.container}>
@@ -274,11 +300,59 @@ export default function VolunteersPage() {
                         <View style={[styles.statCard, { flex: 1 }]}>
                             <Text style={styles.statNumber}>{totalVerified}</Text>
                             <Text style={styles.statLabel}>
-                                <TranslatedText>Total Verified Members</TranslatedText>
+                                <TranslatedText>{selectedDistrict === 'all' ? 'Total Verified Members' : `Members in ${selectedDistrict}`}</TranslatedText>
                             </Text>
                         </View>
                     </View>
                 </LinearGradient>
+
+                {/* District Filter Pills */}
+                <View style={styles.districtFilterContainer}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.districtScrollContent}
+                    >
+                        {/* All Districts Option */}
+                        <TouchableOpacity
+                            style={[
+                                styles.districtPill,
+                                selectedDistrict === 'all' && styles.districtPillActive
+                            ]}
+                            onPress={() => setSelectedDistrict('all')}
+                        >
+                            <Text style={[
+                                styles.districtPillText,
+                                selectedDistrict === 'all' && styles.districtPillTextActive
+                            ]}>
+                                All Districts
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* District Pills */}
+                        {districts.map((district: any) => {
+                            const districtName = district.name || district.districtName || district;
+                            const isActive = selectedDistrict === districtName;
+                            return (
+                                <TouchableOpacity
+                                    key={district._id || districtName}
+                                    style={[
+                                        styles.districtPill,
+                                        isActive && styles.districtPillActive
+                                    ]}
+                                    onPress={() => setSelectedDistrict(districtName)}
+                                >
+                                    <Text style={[
+                                        styles.districtPillText,
+                                        isActive && styles.districtPillTextActive
+                                    ]}>
+                                        {districtName}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
 
                 <View style={styles.content}>
                     {/* Search Bar */}
@@ -318,10 +392,10 @@ export default function VolunteersPage() {
                                 <View style={styles.emptyState}>
                                     <MaterialCommunityIcons name="account-search" size={64} color="#CBD5E1" />
                                     <Text style={styles.emptyText}>
-                                        <TranslatedText>No verified members found</TranslatedText>
+                                        <TranslatedText>{selectedDistrict === 'all' ? 'No verified members found' : `No members found in ${selectedDistrict}`}</TranslatedText>
                                     </Text>
                                     <Text style={styles.emptySubtext}>
-                                        <TranslatedText>Try a different search</TranslatedText>
+                                        <TranslatedText>Try a different search or district</TranslatedText>
                                     </Text>
                                 </View>
                             ) : (
@@ -400,6 +474,39 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: 'rgba(255,255,255,0.9)',
         marginTop: 2,
+        textAlign: 'center',
+    },
+    // District Filter Styles
+    districtFilterContainer: {
+        backgroundColor: '#fff',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e2e8f0',
+    },
+    districtScrollContent: {
+        paddingHorizontal: 16,
+        gap: 8,
+    },
+    districtPill: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#f1f5f9',
+        marginRight: 8,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    districtPillActive: {
+        backgroundColor: SP_RED,
+        borderColor: SP_RED,
+    },
+    districtPillText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#64748b',
+    },
+    districtPillTextActive: {
+        color: '#fff',
     },
     content: {
         padding: 20,
@@ -561,6 +668,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#94A3B8',
         marginTop: 16,
+        textAlign: 'center',
     },
     emptySubtext: {
         fontSize: 14,
