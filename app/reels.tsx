@@ -506,7 +506,12 @@ export default function ReelsPage() {
     const handleWebShare = async (type: string) => {
         if (!selectedReel) return;
 
-        const shareUrl = window.location.href; // Or specific reel URL if you have routing
+        // Use the backend share route for social previews
+        const url = getApiUrl();
+        // Construct the share URL pointing to the backend which serves the HTML with meta tags
+        // The backend share route is: [API_URL]/share/reels/[REEL_ID]
+        // Example: https://api.samajwaditechforce.com/share/reels/12345
+        const shareUrl = `${url.replace('/api', '')}/share/reels/${selectedReel.id}`;
         const shareText = `Check out this reel: ${selectedReel.title}`;
         const shareData = {
             title: selectedReel.title,
