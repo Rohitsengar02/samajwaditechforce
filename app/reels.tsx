@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useWindowDimensions } from 'react-native';
 import {
     View,
     Text,
@@ -32,7 +33,7 @@ const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
-const ReelVideoCard = ({ item, index, activeIndex, onLike, onComment, onShare, onDownload }: any) => {
+const ReelVideoCard = ({ item, index, activeIndex, onLike, onComment, onShare, onDownload, containerStyle }: any) => {
     const videoRef = useRef<Video>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -84,21 +85,30 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike, onComment, onShare, o
         }
 
         return (
-            <View style={styles.reelContainer}>
+            <View style={[styles.reelContainer, containerStyle]}>
                 <View style={styles.videoContainer}>
                     {shouldPlay ? (
-                        <WebView
-                            source={{ uri }}
-                            style={styles.webView}
-                            javaScriptEnabled={true}
-                            domStorageEnabled={true}
-                            allowsInlineMediaPlayback={true}
-                            mediaPlaybackRequiresUserAction={false}
-                            scrollEnabled={false}
-                            bounces={false}
-                            scalesPageToFit={true}
-                            userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
-                        />
+                        Platform.OS === 'web' ? (
+                            <iframe
+                                src={uri}
+                                style={{ width: '100%', height: '100%', border: 'none' }}
+                                allow="autoplay; encrypted-media"
+                                allowFullScreen
+                            />
+                        ) : (
+                            <WebView
+                                source={{ uri }}
+                                style={styles.webView}
+                                javaScriptEnabled={true}
+                                domStorageEnabled={true}
+                                allowsInlineMediaPlayback={true}
+                                mediaPlaybackRequiresUserAction={false}
+                                scrollEnabled={false}
+                                bounces={false}
+                                scalesPageToFit={true}
+                                userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+                            />
+                        )
                     ) : (
                         <View style={styles.placeholder}>
                             <MaterialCommunityIcons name="play-circle-outline" size={80} color="rgba(255,255,255,0.7)" />
@@ -164,7 +174,7 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike, onComment, onShare, o
 
     // Render regular video files
     return (
-        <View style={styles.reelContainer}>
+        <View style={[styles.reelContainer, containerStyle]}>
             <View style={styles.videoContainer}>
                 <Video
                     ref={videoRef}
@@ -290,6 +300,10 @@ const Toast = ({ visible, message, onHide }: any) => {
 
 export default function ReelsPage() {
     const router = useRouter();
+    // Safely get search params for web compatibility
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const initialReelId = params ? params.get('id') : null;
+
     const [activeIndex, setActiveIndex] = useState(0);
     const [reels, setReels] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -297,6 +311,7 @@ export default function ReelsPage() {
 
     // Comment Modal State
     const [showCommentModal, setShowCommentModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
     const [selectedReel, setSelectedReel] = useState<any>(null);
     const [commentText, setCommentText] = useState('');
     const [submittingComment, setSubmittingComment] = useState(false);
@@ -306,6 +321,12 @@ export default function ReelsPage() {
     // Toast State
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
+
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    // Calculate Web-friendly dimensions
+    const isWeb = Platform.OS === 'web';
+    const cardWidth = isWeb && windowWidth > 500 ? 480 : windowWidth;
+    const containerStyle = { width: cardWidth, height: windowHeight };
 
     const showToast = (message: string) => {
         setToastMessage(message);
@@ -330,7 +351,7 @@ export default function ReelsPage() {
             const userId = userInfo?._id || userInfo?.id;
 
             if (data.success && Array.isArray(data.data)) {
-                const mappedReels = data.data.map((item: any) => ({
+                let mappedReels = data.data.map((item: any) => ({
                     id: item._id,
                     videoUrl: item.videoUrl,
                     title: item.title,
@@ -342,6 +363,17 @@ export default function ReelsPage() {
                     downloadsCount: item.downloads?.length || 0,
                     isLiked: userId ? item.likes?.some((l: any) => l.user?.toString() === userId) : false,
                 }));
+
+                // Handle Shared Reel ID
+                if (initialReelId) {
+                    const sharedReelIndex = mappedReels.findIndex((r: any) => r.id === initialReelId);
+                    if (sharedReelIndex !== -1) {
+                        // Move shared reel to the top
+                        const sharedReel = mappedReels[sharedReelIndex];
+                        mappedReels.splice(sharedReelIndex, 1);
+                        mappedReels.unshift(sharedReel);
+                    }
+                }
 
                 // Create infinite scroll by duplicating reels with unique keys
                 const infiniteReels = [
@@ -429,6 +461,12 @@ export default function ReelsPage() {
     };
 
     const handleShare = async (reel: any) => {
+        setSelectedReel(reel);
+        if (Platform.OS === 'web') {
+            setShowShareModal(true);
+            return;
+        }
+
         try {
             const AsyncStorage = require('@react-native-async-storage/async-storage').default;
             const userInfoStr = await AsyncStorage.getItem('userInfo');
@@ -465,6 +503,64 @@ export default function ReelsPage() {
         }
     };
 
+    const handleWebShare = async (type: string) => {
+        if (!selectedReel) return;
+
+        const shareUrl = window.location.href; // Or specific reel URL if you have routing
+        const shareText = `Check out this reel: ${selectedReel.title}`;
+        const shareData = {
+            title: selectedReel.title,
+            text: shareText,
+            url: shareUrl
+        };
+
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const userInfoStr = await AsyncStorage.getItem('userInfo');
+        const userInfo = userInfoStr ? JSON.parse(userInfoStr) : {};
+        const userId = userInfo?._id || userInfo?.id;
+        const username = userInfo?.username || userInfo?.phone || userInfo?.email;
+
+
+        const trackShare = async () => {
+            if (!userId) return;
+            try {
+                const url = getApiUrl();
+                const res = await fetch(`${url}/reels/${selectedReel.id}/share`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, userId })
+                });
+                const data = await res.json();
+                if (data.firstShare && data.points) {
+                    showToast(`📤 +${data.points} points for sharing!`);
+                }
+            } catch (e) { console.error(e); }
+        };
+
+
+        if (type === 'copy') {
+            navigator.clipboard.writeText(shareUrl);
+            setShowShareModal(false);
+            showToast('✅ Link copied to clipboard!');
+            trackShare();
+        } else if (type === 'whatsapp') {
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`;
+            window.open(whatsappUrl, '_blank');
+            setShowShareModal(false);
+            trackShare();
+        } else if (type === 'native') {
+            if (navigator.share) {
+                try {
+                    await navigator.share(shareData);
+                    setShowShareModal(false);
+                    trackShare();
+                } catch (e) { console.log('Share cancelled'); }
+            } else {
+                showToast('❌ Native sharing not supported');
+            }
+        }
+    };
+
     const handleDownload = async (reel: any) => {
         try {
             const AsyncStorage = require('@react-native-async-storage/async-storage').default;
@@ -493,13 +589,27 @@ export default function ReelsPage() {
 
             // --- ACTUAL DOWNLOAD LOGIC ---
             if (Platform.OS === 'web') {
-                const link = document.createElement('a');
-                link.href = reel.videoUrl;
-                link.download = (reel.title || 'video').replace(/[^a-zA-Z0-9]/g, '_') + '.mp4';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast('✅ Download started');
+                try {
+                    // Fetch the video file
+                    const response = await fetch(reel.videoUrl);
+                    const blob = await response.blob();
+
+                    // Create a download link
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = (reel.title || 'video').replace(/[^a-zA-Z0-9]/g, '_') + '.mp4';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(downloadUrl);
+                    showToast('✅ Download started');
+                } catch (downloadError) {
+                    console.error('Download error:', downloadError);
+                    // Fallback: open in new tab if CORS blocks download
+                    window.open(reel.videoUrl, '_blank');
+                    showToast('⚠️ Opened in new tab');
+                }
                 return;
             }
 
@@ -648,6 +758,7 @@ export default function ReelsPage() {
             <FlatList
                 ref={flatListRef}
                 data={reels}
+                contentContainerStyle={{ alignItems: 'center' }}
                 renderItem={({ item, index }) => (
                     <ReelVideoCard
                         item={item}
@@ -657,23 +768,24 @@ export default function ReelsPage() {
                         onComment={handleComment}
                         onShare={handleShare}
                         onDownload={handleDownload}
+                        containerStyle={containerStyle}
                     />
                 )}
                 keyExtractor={item => item.uniqueKey || item.id}
                 pagingEnabled
                 showsVerticalScrollIndicator={false}
-                snapToInterval={height}
+                snapToInterval={windowHeight}
                 snapToAlignment="start"
                 decelerationRate="fast"
                 onViewableItemsChanged={onViewableItemsChanged}
                 viewabilityConfig={viewabilityConfig}
                 getItemLayout={(data, index) => ({
-                    length: height,
-                    offset: height * index,
+                    length: windowHeight,
+                    offset: windowHeight * index,
                     index,
                 })}
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
+                    <View style={[styles.emptyContainer, { height: windowHeight }]}>
                         <MaterialCommunityIcons name="video-off-outline" size={80} color="#666" />
                         <Text style={styles.emptyText}>
                             <TranslatedText>No reels available</TranslatedText>
@@ -768,6 +880,51 @@ export default function ReelsPage() {
                 </KeyboardAvoidingView>
             </Modal>
 
+            {/* Share Modal */}
+            <Modal
+                visible={showShareModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowShareModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowShareModal(false)}
+                >
+                    <View style={styles.shareModalContent}>
+                        <Text style={styles.shareTitle}>Share Reel</Text>
+                        <View style={styles.shareOptions}>
+                            <TouchableOpacity style={styles.shareOption} onPress={() => handleWebShare('copy')}>
+                                <View style={[styles.shareIconContainer, { backgroundColor: '#f3f4f6' }]}>
+                                    <MaterialCommunityIcons name="content-copy" size={24} color="#374151" />
+                                </View>
+                                <Text style={styles.shareOptionText}>Copy Link</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.shareOption} onPress={() => handleWebShare('whatsapp')}>
+                                <View style={[styles.shareIconContainer, { backgroundColor: '#dcfce7' }]}>
+                                    <MaterialCommunityIcons name="whatsapp" size={24} color="#16a34a" />
+                                </View>
+                                <Text style={styles.shareOptionText}>WhatsApp</Text>
+                            </TouchableOpacity>
+
+                            {Platform.OS === 'web' && typeof navigator !== 'undefined' && 'share' in navigator && (
+                                <TouchableOpacity style={styles.shareOption} onPress={() => handleWebShare('native')}>
+                                    <View style={[styles.shareIconContainer, { backgroundColor: '#e0f2fe' }]}>
+                                        <MaterialCommunityIcons name="share-variant" size={24} color="#0284c7" />
+                                    </View>
+                                    <Text style={styles.shareOptionText}>More...</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <TouchableOpacity style={styles.closeShareButton} onPress={() => setShowShareModal(false)}>
+                            <Text style={styles.closeShareText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
             {/* Toast Notification */}
             <Toast
                 visible={toastVisible}
@@ -808,9 +965,11 @@ const styles = StyleSheet.create({
         textShadowRadius: 4,
     },
     reelContainer: {
-        width: width,
-        height: height,
+        // width: width,  <-- REMOVED to allow containerStyle to control width
+        // height: height, <-- REMOVED
         backgroundColor: '#000',
+        width: Platform.OS === 'web' ? '100%' : width,
+        height: Platform.OS === 'web' ? '100%' : height,
     },
     videoContainer: {
         position: 'absolute',
@@ -1088,5 +1247,62 @@ const styles = StyleSheet.create({
     noCommentsText: {
         color: '#888',
         fontStyle: 'italic',
+    },
+    // Share Modal Styles
+    shareModalContent: {
+        backgroundColor: '#fff',
+        width: '80%',
+        maxWidth: 300,
+        borderRadius: 20,
+        padding: 20,
+        alignSelf: 'center',
+        marginTop: 'auto',
+        marginBottom: 'auto',
+        alignItems: 'center',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+    },
+    shareTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        color: '#1f2937',
+    },
+    shareOptions: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        width: '100%',
+        marginBottom: 20,
+    },
+    shareOption: {
+        alignItems: 'center',
+        gap: 8,
+    },
+    shareIconContainer: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    shareOptionText: {
+        fontSize: 12,
+        color: '#4b5563',
+        fontWeight: '500',
+    },
+    closeShareButton: {
+        width: '100%',
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#f3f4f6',
+        alignItems: 'center',
+    },
+    closeShareText: {
+        color: SP_RED,
+        fontWeight: '600',
+        fontSize: 16,
     },
 });

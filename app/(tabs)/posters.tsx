@@ -151,7 +151,7 @@ export default function PostersScreen() {
             setDownloading(poster._id);
 
             // Track download
-            const token = await AsyncStorage.getItem('token');
+            const token = await AsyncStorage.getItem('userToken');
             if (token) {
                 const trackRes = await fetch(`${API_URL}/posters/${poster._id}/download`, {
                     method: 'POST',

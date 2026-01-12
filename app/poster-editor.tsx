@@ -100,7 +100,7 @@ const FILTERS = [
 export default function PosterEditor() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { imageUrl, title } = params;
+    const { imageUrl, title, id: posterId } = params;
 
     const canvasRef = useRef(null);
     const [elements, setElements] = useState<EditorElement[]>([]);
@@ -197,6 +197,25 @@ export default function PosterEditor() {
             }
         } catch (error) {
             console.error('Error awarding points:', error);
+        }
+    };
+
+    const trackPosterDownload = async () => {
+        if (!posterId) return;
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) return;
+
+            const res = await fetch(`${API_URL}/posters/${posterId}/download`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            console.log('✅ Poster download tracked:', posterId);
+        } catch (error) {
+            console.error('Error tracking poster download:', error);
         }
     };
 
@@ -995,6 +1014,7 @@ export default function PosterEditor() {
                             document.body.removeChild(link);
 
                             Alert.alert('Success', 'Poster downloaded successfully!');
+                            trackPosterDownload();
                             awardPoints('poster_create', 10, `Created poster on web: ${posterName}`);
                         }
                     } else {
@@ -1016,6 +1036,7 @@ export default function PosterEditor() {
                         if (status === 'granted') {
                             await MediaLibrary.saveToLibraryAsync(uri);
                             Alert.alert('Success', 'Poster saved to gallery!');
+                            trackPosterDownload();
                             awardPoints('poster_create', 10, `Created poster: ${posterName}`);
                         } else {
                             Alert.alert('Permission Required', 'Please grant permission to save photos to your gallery.');

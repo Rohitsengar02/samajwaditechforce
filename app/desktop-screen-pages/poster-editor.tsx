@@ -88,7 +88,7 @@ const FILTERS = [
 export default function DesktopPosterEditor() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { imageUrl, title } = params;
+    const { imageUrl, title, id: posterId } = params;
     const { width: windowWidth } = useWindowDimensions();
     const isMobile = windowWidth < 768;
 
@@ -196,6 +196,25 @@ export default function DesktopPosterEditor() {
         } catch (error: any) {
             console.error('Error awarding points:', error);
             return { success: false, message: error.message || 'Network Error' };
+        }
+    };
+
+    const trackPosterDownload = async () => {
+        if (!posterId) return;
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) return;
+
+            await fetch(`${API_URL}/posters/${posterId}/download`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            console.log('✅ Poster download tracked:', posterId);
+        } catch (error) {
+            console.error('Error tracking poster download:', error);
         }
     };
 
@@ -778,6 +797,7 @@ export default function DesktopPosterEditor() {
                     pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
                     pdf.save(`poster-${Date.now()}.pdf`);
 
+                    trackPosterDownload();
                     setShowPreviewModal(false);
                     Alert.alert('Success', 'Poster PDF downloaded successfully!');
                     awardPoints('poster_create', 10, `Created PDF poster: ${title || 'Untitled'}`);
@@ -881,6 +901,8 @@ export default function DesktopPosterEditor() {
                                 link.click();
                                 setShowPreviewModal(false);
 
+                                // Track Download and Award Points
+                                trackPosterDownload();
                                 const result = await awardPoints('poster_create', 10, `Created Smart-Master Poster: ${title || 'Untitled'}`);
 
                                 if (result.success) {

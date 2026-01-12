@@ -181,7 +181,7 @@ export default function DesktopHeader() {
                                     <MaterialCommunityIcons name="calendar" size={24} color="#64748b" />
                                     <Text style={styles.sidebarLinkText}>Events</Text>
                                 </Pressable>
-                                <Pressable style={styles.sidebarLink} onPress={() => navigateTo('/desktop-screen-pages/reels')}>
+                                <Pressable style={styles.sidebarLink} onPress={() => navigateTo('/reels')}>
                                     <MaterialCommunityIcons name="video-outline" size={24} color="#64748b" />
                                     <Text style={styles.sidebarLinkText}>Reels</Text>
                                 </Pressable>
@@ -284,7 +284,7 @@ export default function DesktopHeader() {
                     {showMegaMenu && (
                         <View style={styles.megaMenu}>
                             <View style={styles.megaMenuGrid}>
-                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/desktop-screen-pages/reels')}>
+                                <Pressable style={styles.megaMenuItem} onPress={() => navigateTo('/reels')}>
                                     <View style={[styles.megaMenuIcon, { backgroundColor: '#f59e0b15' }]}>
                                         <MaterialCommunityIcons name="video-outline" size={24} color="#f59e0b" />
                                     </View>
