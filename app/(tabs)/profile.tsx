@@ -146,22 +146,12 @@ export default function ProfileScreen() {
         if (response.ok) {
           const freshData = await response.json();
 
-          // Generate referral code if it doesn't exist
-          if (!freshData.referralCode && freshData._id) {
-            freshData.referralCode = `SP${freshData._id.substring(0, 6).toUpperCase()}`;
-          }
-
           setUser(freshData);
           await AsyncStorage.setItem('userInfo', JSON.stringify(freshData));
         }
       } else if (localUserInfo) {
-        // Even for local data, ensure referral code exists
         const data = JSON.parse(localUserInfo);
-        if (!data.referralCode && data._id) {
-          data.referralCode = `SP${data._id.substring(0, 6).toUpperCase()}`;
-          setUser(data);
-          await AsyncStorage.setItem('userInfo', JSON.stringify(data));
-        }
+        setUser(data);
       }
     } catch (error) {
       console.error('Failed to load user profile', error);
@@ -177,7 +167,7 @@ export default function ProfileScreen() {
   const performReferShare = async (platform: string) => {
     if (!user) return;
 
-    const referralCode = user.referralCode || `SP${(user._id || 'USER').substring(0, 6).toUpperCase()}`;
+    const referralCode = user.referralCode || 'STF_MEMBER';
     const websiteUrl = 'https://samajwaditechforce.com';
     const shareMessage = `Join Samajwadi Tech Force! 🚲\n\nBe the digital voice of socialism. Use my referral code *${referralCode}* to sign up and start contributing.\n\nDownload app: ${websiteUrl}`;
 

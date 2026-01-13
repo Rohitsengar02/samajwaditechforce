@@ -69,6 +69,9 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
     }
   }, [googleData]);
 
+  // Referral Code State
+  const [referralCode, setReferralCode] = useState('');
+
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -126,6 +129,7 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
       password, // Include password
       profileImage: photo,
       isGoogleUser: !!googleData,
+      referralCode: referralCode.trim().toUpperCase(),
     };
 
     // Simulate async processing
@@ -248,6 +252,23 @@ export default function ProfileSetupScreen({ navigation, route }: ProfileSetupPr
             value={email}
             editable={false}
           />
+
+          <View style={{ marginTop: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <MaterialCommunityIcons name="gift-outline" size={16} color={RED} />
+              <Text style={styles.label}>Referral Code (Optional)</Text>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={referralCode}
+              onChangeText={setReferralCode}
+              placeholder="Enter code to earn 10 bonus points"
+              autoCapitalize="characters"
+            />
+            <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, marginLeft: 2 }}>
+              If you were invited, enter the code here to get a 10 points reward
+            </Text>
+          </View>
         </View>
 
         <TouchableOpacity
