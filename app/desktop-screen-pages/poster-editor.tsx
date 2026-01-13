@@ -700,6 +700,7 @@ export default function DesktopPosterEditor() {
         }
         try {
             setSelectedElementId(null);
+            setIsCapturing(true);
 
             // Load jsPDF and html2canvas sequentially
             if (typeof window !== 'undefined') {
@@ -809,6 +810,8 @@ export default function DesktopPosterEditor() {
 
                     console.error('PDF generation error:', innerError);
                     showAlert('Error', 'Failed to generate PDF.');
+                } finally {
+                    setIsCapturing(false);
                 }
             }, 100);
         } catch (error) {
@@ -828,6 +831,7 @@ export default function DesktopPosterEditor() {
         }
         try {
             setSelectedElementId(null);
+            setIsCapturing(true);
             setTimeout(async () => {
                 try {
                     const canvasElement = canvasRef.current as any;
@@ -920,6 +924,8 @@ export default function DesktopPosterEditor() {
                 } catch (error) {
                     console.error('Download error:', error);
                     Alert.alert('Error', 'Failed to download poster');
+                } finally {
+                    setIsCapturing(false);
                 }
             }, 100);
         } catch (error) {
@@ -3210,29 +3216,94 @@ export default function DesktopPosterEditor() {
                         {/* Action Buttons */}
                         <View style={{ flexDirection: 'row', gap: 6, padding: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' }}>
                             <TouchableOpacity
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#3b82f6', paddingVertical: 12, paddingHorizontal: 4, borderRadius: 8 }}
-                                onPress={() => handleSharePoster()}
+                                style={{
+                                    flex: 1,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 6,
+                                    backgroundColor: (isCapturing || isUploadingForShare) ? '#94a3b8' : '#3b82f6',
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 4,
+                                    borderRadius: 8
+                                }}
+                                onPress={() => !isCapturing && !isUploadingForShare && handleSharePoster()}
+                                disabled={isCapturing || isUploadingForShare}
                             >
                                 <MaterialCommunityIcons name="share-variant" size={18} color="#fff" />
                                 <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }} numberOfLines={1}>Share</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#10b981', paddingVertical: 12, paddingHorizontal: 4, borderRadius: 8 }}
-                                onPress={() => handleDownloadPNG()}
+                                style={{
+                                    flex: 1,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 6,
+                                    backgroundColor: isCapturing ? '#94a3b8' : '#10b981',
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 4,
+                                    borderRadius: 8
+                                }}
+                                onPress={() => !isCapturing && handleDownloadPNG()}
+                                disabled={isCapturing}
                             >
                                 <MaterialCommunityIcons name="download" size={18} color="#fff" />
                                 <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }} numberOfLines={1}>Download</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: '#f59e0b', paddingVertical: 12, paddingHorizontal: 4, borderRadius: 8 }}
-                                onPress={() => setShowPreviewModal(false)}
+                                style={{
+                                    flex: 1,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 6,
+                                    backgroundColor: isCapturing ? '#94a3b8' : '#f59e0b',
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 4,
+                                    borderRadius: 8
+                                }}
+                                onPress={() => !isCapturing && setShowPreviewModal(false)}
+                                disabled={isCapturing}
                             >
                                 <MaterialCommunityIcons name="pencil" size={18} color="#fff" />
                                 <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }} numberOfLines={1}>Edit</Text>
                             </TouchableOpacity>
                         </View>
+
+                        {/* Full Screen Loading Overlay for Capture */}
+                        {(isCapturing || isUploadingForShare) && (
+                            <View style={{
+                                ...StyleSheet.absoluteFillObject,
+                                backgroundColor: 'rgba(255,255,255,0.92)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                zIndex: 100,
+                            }}>
+                                <View style={{ alignItems: 'center', padding: 32 }}>
+                                    <ActivityIndicator size="large" color={SP_RED} />
+                                    <Text style={{
+                                        marginTop: 20,
+                                        fontSize: 20,
+                                        fontWeight: '800',
+                                        color: '#1e293b',
+                                        textAlign: 'center'
+                                    }}>
+                                        {isUploadingForShare ? 'Generating Share Link...' : 'Preparing Ultra-HD Poster...'}
+                                    </Text>
+                                    <Text style={{
+                                        marginTop: 8,
+                                        fontSize: 14,
+                                        color: '#64748b',
+                                        textAlign: 'center'
+                                    }}>
+                                        Please wait while we render your custom design
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
                     </View>
                 </View>
             </Modal>

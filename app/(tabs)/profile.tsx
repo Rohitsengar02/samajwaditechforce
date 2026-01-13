@@ -15,6 +15,8 @@ import {
   Modal,
   TextInput,
   FlatList,
+  Share,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -98,6 +100,7 @@ export default function ProfileScreen() {
   const currentLanguageName = availableLanguages.find((l: any) => l.code === language)?.name || 'English';
 
   const [showVerifiedSuccess, setShowVerifiedSuccess] = useState(false);
+  const [showReferModal, setShowReferModal] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -142,9 +145,22 @@ export default function ProfileScreen() {
 
         if (response.ok) {
           const freshData = await response.json();
+
+          // Generate referral code if it doesn't exist
+          if (!freshData.referralCode && freshData._id) {
+            freshData.referralCode = `SP${freshData._id.substring(0, 6).toUpperCase()}`;
+          }
+
           setUser(freshData);
-          // Update local storage
           await AsyncStorage.setItem('userInfo', JSON.stringify(freshData));
+        }
+      } else if (localUserInfo) {
+        // Even for local data, ensure referral code exists
+        const data = JSON.parse(localUserInfo);
+        if (!data.referralCode && data._id) {
+          data.referralCode = `SP${data._id.substring(0, 6).toUpperCase()}`;
+          setUser(data);
+          await AsyncStorage.setItem('userInfo', JSON.stringify(data));
         }
       }
     } catch (error) {
@@ -152,6 +168,47 @@ export default function ProfileScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReferAndEarn = () => {
+    setShowReferModal(true);
+  };
+
+  const performReferShare = async (platform: string) => {
+    if (!user) return;
+
+    const referralCode = user.referralCode || `SP${(user._id || 'USER').substring(0, 6).toUpperCase()}`;
+    const websiteUrl = 'https://samajwaditechforce.com';
+    const shareMessage = `Join Samajwadi Tech Force! 🚲\n\nBe the digital voice of socialism. Use my referral code *${referralCode}* to sign up and start contributing.\n\nDownload app: ${websiteUrl}`;
+
+    try {
+      switch (platform) {
+        case 'whatsapp':
+          const waUrl = `whatsapp://send?text=${encodeURIComponent(shareMessage)}`;
+          const waSupported = await Linking.canOpenURL(waUrl);
+          if (waSupported) {
+            await Linking.openURL(waUrl);
+          } else {
+            await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`);
+          }
+          break;
+        case 'facebook':
+          const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(websiteUrl)}&quote=${encodeURIComponent(shareMessage)}`;
+          await Linking.openURL(fbUrl);
+          break;
+        case 'copy':
+          if (Platform.OS === 'web') {
+            await navigator.clipboard.writeText(shareMessage);
+            alert('Referral link and code copied to clipboard!');
+          } else {
+            await Share.share({ message: shareMessage });
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+    setShowReferModal(false);
   };
 
   const onRefresh = async () => {
@@ -429,6 +486,13 @@ export default function ProfileScreen() {
                   delay={100}
                 />
                 <ProfileOption
+                  icon="gift"
+                  title="Refer & Earn"
+                  subtitle="Invite friends & earn points"
+                  onPress={handleReferAndEarn}
+                  delay={150}
+                />
+                <ProfileOption
                   icon="shield-account"
                   title="Privacy & Policy"
                   subtitle="Read our privacy policy"
@@ -666,6 +730,68 @@ export default function ProfileScreen() {
             </LinearGradient>
           </Animated.View>
         </View>
+      </Modal>
+
+      {/* Refer & Earn Modal */}
+      <Modal
+        visible={showReferModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowReferModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowReferModal(false)}
+        >
+          <View style={styles.referModalContent}>
+            <View style={styles.referModalHeader}>
+              <Text style={styles.referModalTitle}>Refer & Earn</Text>
+              <TouchableOpacity onPress={() => setShowReferModal(false)}>
+                <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.referCodeBox}>
+              <Text style={styles.referCodeLabel}>Your Unique Code</Text>
+              <Text style={styles.referCodeValue}>{user?.referralCode || 'GENERATING...'}</Text>
+            </View>
+
+            <Text style={styles.referSubtitle}>Share with your friends and family</Text>
+
+            <View style={styles.referOptionsContainer}>
+              <TouchableOpacity
+                style={styles.referOption}
+                onPress={() => performReferShare('whatsapp')}
+              >
+                <View style={[styles.referIconBg, { backgroundColor: '#25D366' }]}>
+                  <MaterialCommunityIcons name="whatsapp" size={32} color="#fff" />
+                </View>
+                <Text style={styles.referOptionText}>WhatsApp</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.referOption}
+                onPress={() => performReferShare('facebook')}
+              >
+                <View style={[styles.referIconBg, { backgroundColor: '#1877F2' }]}>
+                  <MaterialCommunityIcons name="facebook" size={32} color="#fff" />
+                </View>
+                <Text style={styles.referOptionText}>Facebook</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.referOption}
+                onPress={() => performReferShare('copy')}
+              >
+                <View style={[styles.referIconBg, { backgroundColor: '#64748b' }]}>
+                  <MaterialCommunityIcons name="content-copy" size={32} color="#fff" />
+                </View>
+                <Text style={styles.referOptionText}>Copy Link</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </View >
   );
@@ -1205,5 +1331,89 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '800',
+  },
+  // Refer Modal Styles
+  referModalContent: {
+    backgroundColor: '#fff',
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  referModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  referModalTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1e293b',
+  },
+  referCodeBox: {
+    width: '100%',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#cbd5e1',
+  },
+  referCodeLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  referCodeValue: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: SP_RED,
+    letterSpacing: 2,
+  },
+  referSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 24,
+    fontWeight: '600',
+  },
+  referOptionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 10,
+  },
+  referOption: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  referIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  referOptionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1e293b',
   },
 });
