@@ -1,13 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Modal, TextInput, Platform, Linking, Animated, Share as RNShare, Alert, TouchableWithoutFeedback } from 'react-native';
+import {
+    View,
+    ScrollView,
+    StyleSheet,
+    Image,
+    ActivityIndicator,
+    TouchableOpacity,
+    Modal,
+    TextInput,
+    Platform,
+    Linking,
+    Animated,
+    Share as RNShare,
+    Alert,
+    TouchableWithoutFeedback,
+    useWindowDimensions
+} from 'react-native';
 import { Text, Button, Avatar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../../utils/api';
-import { newsAPI } from '../../services/newsAPI'; // Ensure this path is correct
+import { newsAPI } from '../../services/newsAPI';
 import DesktopHeader from '../../components/DesktopHeader';
-import { transparent } from 'react-native-paper/lib/typescript/styles/themes/v2/colors';
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
@@ -15,6 +31,8 @@ const SP_GREEN = '#009933';
 export default function DesktopNewsDetail() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
+    const { width } = useWindowDimensions();
+    const isMobile = width < 1024;
 
     // Data State
     const [news, setNews] = useState<any>(null);
@@ -68,7 +86,7 @@ export default function DesktopNewsDetail() {
     // Theme Logic
     const isProgram = news && (news.type === 'Program' || news.type === 'program' || news.type === 'Programs' || news.type === 'programs');
     const themeColor = isProgram ? SP_GREEN : SP_RED;
-    const themeBgLight = isProgram ? '#f0fdf4' : '#fef2f2'; // Green tint vs Red tint
+    const themeBgLight = isProgram ? '#f0fdf4' : '#fef2f2';
 
     const checkUser = async () => {
         try {
@@ -97,7 +115,6 @@ export default function DesktopNewsDetail() {
                     setCommentsCount(item.comments ? item.comments.length : 0);
                     setSharesCount((item as any).sharedBy ? (item as any).sharedBy.length : 0);
 
-                    // Check user interaction status
                     if (currentUserId) {
                         const userIdStr = currentUserId.toString();
                         setAwardedPoints({
@@ -107,11 +124,8 @@ export default function DesktopNewsDetail() {
                         });
                     }
                 } else {
-                    console.log('Item found but is not News:', item.type);
                     setNews(null);
                 }
-            } else {
-                console.error('Failed to fetch news via service');
             }
         } catch (error) {
             console.error('Error fetching news detail:', error);
@@ -123,15 +137,12 @@ export default function DesktopNewsDetail() {
     const showPointsAnimation = (amount: number) => {
         setEarnedPoints(amount);
         setShowPointPopup(true);
-
         fadeAnim.setValue(0);
         slideAnim.setValue(50);
-
         Animated.parallel([
             Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
             Animated.spring(slideAnim, { toValue: 0, friction: 5, useNativeDriver: true })
         ]).start();
-
         setTimeout(() => {
             Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true })
                 .start(() => setShowPointPopup(false));
@@ -141,48 +152,31 @@ export default function DesktopNewsDetail() {
     const handleLike = async () => {
         if (!isVerified) { setShowVerifyModal(true); return; }
         if (!news || !currentUserId || !userInfo) return;
-
         const isLiked = liked;
-
-        // Optimistic UI update
         setLiked(!isLiked);
         setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
-
         Animated.sequence([
             Animated.timing(likeAnim, { toValue: 1.3, duration: 150, useNativeDriver: true }),
             Animated.spring(likeAnim, { toValue: 1, friction: 3, useNativeDriver: true }),
         ]).start();
-
         try {
             const response = await fetch(`${getApiUrl()}/news/${news._id}/like`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: currentUserId,
-                    username: userInfo.name
-                })
+                body: JSON.stringify({ userId: currentUserId, username: userInfo.name })
             });
-
             const data = await response.json();
-
             if (data.success) {
                 setLikesCount(data.data.length);
-
                 if (data.points) {
                     showPointsAnimation(data.points);
                     setPoints(prev => prev + data.points);
                     setAwardedPoints(prev => ({ ...prev, liked: !data.removed }));
-                } else if (data.removed) {
-                    showPointsAnimation(-5);
-                    setPoints(prev => prev - 5);
-                    setAwardedPoints(prev => ({ ...prev, liked: false }));
                 }
             }
         } catch (err) {
-            // Revert on error
             setLiked(isLiked);
             setLikesCount(prev => isLiked ? prev + 1 : prev - 1);
-            console.error('Error liking news:', err);
         }
     };
 
@@ -193,79 +187,52 @@ export default function DesktopNewsDetail() {
 
     const performShare = async (platform: string) => {
         if (!news || !currentUserId || !userInfo) return;
-
-        // Use the backend share route for rich previews
         const shareUrl = `${getApiUrl().replace('/api', '')}/share/news/${news._id}`;
         const title = news.title;
         const text = `${title} - Samajwadi Tech Force`;
         let shareUrlPlatform = '';
-
         switch (platform) {
             case 'whatsapp':
-                // WhatsApp will fetch OG tags from the share URL
                 shareUrlPlatform = `https://wa.me/?text=${encodeURIComponent(text + '\n' + shareUrl)}`;
                 break;
             case 'facebook':
-                // Facebook will show rich preview with OG tags
                 shareUrlPlatform = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
                 break;
             case 'twitter':
-                // Twitter will show card with OG tags
                 shareUrlPlatform = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`;
                 break;
             case 'copy':
                 if (Platform.OS === 'web' && navigator.clipboard) {
                     await navigator.clipboard.writeText(shareUrl);
-                    alert(`Link copied!\n\n${shareUrl}\n\nThis link will show a rich preview with image when shared on social media.`);
+                    alert(`Link copied!\n\n${shareUrl}`);
                 } else {
                     RNShare.share({ message: text + '\n' + shareUrl });
                 }
                 break;
         }
-
         if (shareUrlPlatform) {
-            if (Platform.OS === 'web') {
-                window.open(shareUrlPlatform, '_blank');
-            } else {
-                await Linking.openURL(shareUrlPlatform);
-            }
+            if (Platform.OS === 'web') { window.open(shareUrlPlatform, '_blank'); }
+            else { await Linking.openURL(shareUrlPlatform); }
         }
-
-        // Call share API for point tracking
         try {
             const response = await fetch(`${getApiUrl()}/news/${news._id}/share`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: currentUserId,
-                    username: userInfo.name
-                })
+                body: JSON.stringify({ userId: currentUserId, username: userInfo.name })
             });
-
             const data = await response.json();
-
-            if (data.success) {
-                setSharesCount(prev => prev + 1);
-
-                if (data.points) {
-                    showPointsAnimation(data.points);
-                    setPoints(prev => prev + data.points);
-                    setAwardedPoints(prev => ({ ...prev, shared: true }));
-                } else {
-                    alert('You can only earn points once per article for sharing!');
-                }
+            if (data.success && data.points) {
+                showPointsAnimation(data.points);
+                setPoints(prev => prev + data.points);
+                setAwardedPoints(prev => ({ ...prev, shared: true }));
             }
-        } catch (error) {
-            console.error('Error sharing news:', error);
-        }
-
+        } catch (error) { console.error(error); }
         setShowShareModal(false);
     };
 
     const handlePostComment = async () => {
         if (!isVerified) { setShowVerifyModal(true); return; }
         if (!commentText.trim() || !news || !currentUserId || !userInfo) return;
-
         try {
             const response = await fetch(`${getApiUrl()}/news/${news._id}/comment`, {
                 method: 'POST',
@@ -277,25 +244,18 @@ export default function DesktopNewsDetail() {
                     username: userInfo.name
                 })
             });
-
             const data = await response.json();
-
             if (data.success) {
                 setNews((prev: any) => prev ? { ...prev, comments: data.data } : null);
                 setCommentsCount(data.data.length);
                 setCommentText('');
-
                 if (data.points) {
                     showPointsAnimation(data.points);
                     setPoints(prev => prev + data.points);
                     setAwardedPoints(prev => ({ ...prev, commented: true }));
-                } else {
-                    alert('You can only earn points once per article for commenting!');
                 }
             }
-        } catch (err) {
-            console.error('Error posting comment:', err);
-        }
+        } catch (err) { console.error(err); }
     };
 
     if (loading) {
@@ -317,20 +277,51 @@ export default function DesktopNewsDetail() {
 
     return (
         <View style={styles.container}>
-            <DesktopHeader />
-            <ScrollView contentContainerStyle={styles.content}>
-                <Button
-                    mode="text"
-                    icon="arrow-left"
-                    textColor={themeColor}
-                    style={styles.backButton}
-                    onPress={() => router.back()}
-                >
-                    Back to {isProgram ? 'Programs' : 'News'}
-                </Button>
+            {!isMobile && <DesktopHeader />}
 
-                <View style={styles.articleContainer}>
-                    <Text style={styles.title}>{news.title}</Text>
+            <ScrollView
+                contentContainerStyle={isMobile ? styles.mobileScrollContent : styles.content}
+                showsVerticalScrollIndicator={false}
+            >
+                {isMobile && (
+                    <View style={styles.mobileTopHeader}>
+                        <TouchableOpacity style={styles.mobileBackCircle} onPress={() => router.back()}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#1e293b" />
+                        </TouchableOpacity>
+                        <View style={styles.mobilePointsCapsule}>
+                            <MaterialCommunityIcons name="star" size={16} color="#fbbf24" style={styles.mobileStarIcon} />
+                            <Text style={styles.mobilePointsText}>{points} Pts</Text>
+                        </View>
+                    </View>
+                )}
+
+                {isMobile ? (
+                    <View style={styles.mobileHeroContainer}>
+                        {news.coverImage && news.coverImage !== 'no-photo.jpg' ? (
+                            <Image source={{ uri: news.coverImage }} style={styles.mobileHeroImage} />
+                        ) : (
+                            <LinearGradient colors={[themeColor, '#991b1b']} style={styles.mobileHeroImage}>
+                                <MaterialCommunityIcons name="newspaper" size={80} color="rgba(255,255,255,0.3)" />
+                            </LinearGradient>
+                        )}
+                    </View>
+                ) : (
+                    <Button
+                        mode="text"
+                        icon="arrow-left"
+                        textColor={themeColor}
+                        style={styles.backButton}
+                        onPress={() => router.back()}
+                    >
+                        Back to {isProgram ? 'Programs' : 'News'}
+                    </Button>
+                )}
+
+                <View style={[
+                    styles.articleContainer,
+                    isMobile && styles.mobileArticleContainer
+                ]}>
+                    <Text style={[styles.title, isMobile && styles.mobileTitle]}>{news.title}</Text>
 
                     <View style={styles.metaRow}>
                         <View style={styles.metaItem}>
@@ -338,7 +329,7 @@ export default function DesktopNewsDetail() {
                             <Text style={styles.metaText}>
                                 {new Date(news.createdAt).toLocaleDateString('en-US', {
                                     year: 'numeric',
-                                    month: 'long',
+                                    month: 'short',
                                     day: 'numeric'
                                 })}
                             </Text>
@@ -349,10 +340,12 @@ export default function DesktopNewsDetail() {
                         </View>
                     </View>
 
-                    <Image
-                        source={{ uri: news.coverImage || 'https://via.placeholder.com/800x400' }}
-                        style={styles.coverImage}
-                    />
+                    {!isMobile && (
+                        <Image
+                            source={{ uri: news.coverImage || 'https://via.placeholder.com/800x400' }}
+                            style={styles.coverImage}
+                        />
+                    )}
 
                     {/* Action Bar */}
                     <View style={styles.actionBar}>
@@ -360,7 +353,7 @@ export default function DesktopNewsDetail() {
                             <Animated.View style={{ transform: [{ scale: likeAnim }] }}>
                                 <MaterialCommunityIcons
                                     name={liked ? 'heart' : 'heart-outline'}
-                                    size={24}
+                                    size={isMobile ? 22 : 24}
                                     color={liked ? themeColor : '#64748b'}
                                 />
                             </Animated.View>
@@ -371,13 +364,13 @@ export default function DesktopNewsDetail() {
                             if (!isVerified) { setShowVerifyModal(true); return; }
                             setShowCommentsModal(true);
                         }}>
-                            <MaterialCommunityIcons name="comment-outline" size={24} color="#64748b" />
-                            <Text style={styles.actionText}>{news.comments ? news.comments.length : 0} Comments</Text>
+                            <MaterialCommunityIcons name="comment-outline" size={isMobile ? 22 : 24} color="#64748b" />
+                            <Text style={styles.actionText}>{commentsCount} Comments</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-                            <MaterialCommunityIcons name="share-variant" size={24} color="#64748b" />
-                            <Text style={styles.actionText}>{sharesCount > 0 ? sharesCount : ''} Share</Text>
+                            <MaterialCommunityIcons name="share-variant" size={isMobile ? 22 : 24} color="#64748b" />
+                            <Text style={styles.actionText}>Share</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -385,7 +378,17 @@ export default function DesktopNewsDetail() {
                         {news.content && news.content.map((block: any, index: number) => {
                             if (block.type === 'paragraph') {
                                 return (
-                                    <Text key={index} style={styles.paragraph}>
+                                    <Text key={index} style={[styles.paragraph, isMobile && styles.mobileParagraph]}>
+                                        {block.content}
+                                    </Text>
+                                );
+                            } else if (block.type === 'image') {
+                                return (
+                                    <Image key={index} source={{ uri: block.content }} style={styles.blockImage} resizeMode="cover" />
+                                );
+                            } else if (block.type === 'heading') {
+                                return (
+                                    <Text key={index} style={styles.blockHeading}>
                                         {block.content}
                                     </Text>
                                 );
@@ -393,18 +396,25 @@ export default function DesktopNewsDetail() {
                             return null;
                         })}
                         {(!news.content || news.content.length === 0) && (
-                            <Text style={styles.paragraph}>{news.excerpt || news.description}</Text>
+                            <Text style={[styles.paragraph, isMobile && styles.mobileParagraph]}>
+                                {news.excerpt || news.description}
+                            </Text>
                         )}
                     </View>
                 </View>
             </ScrollView>
 
-            {/* Points Badge */}
-            {points > 0 && (
+            {!isMobile && points > 0 && (
                 <View style={styles.fixedPointsBadge}>
                     <MaterialCommunityIcons name="star" size={20} color="#fff" />
                     <Text style={styles.pointsBadgeText}>{points}</Text>
                 </View>
+            )}
+
+            {isMobile && (
+                <TouchableOpacity style={styles.mobileFloatingWhatsApp} onPress={() => performShare('whatsapp')}>
+                    <MaterialCommunityIcons name="whatsapp" size={32} color="#fff" />
+                </TouchableOpacity>
             )}
 
             {/* Share Modal */}
@@ -902,5 +912,113 @@ const styles = StyleSheet.create({
     popupPoints: {
         color: SP_GREEN,
         fontWeight: '700',
+    },
+    mobileScrollContent: {
+        paddingTop: 50,
+        paddingBottom: 60,
+    },
+    mobileHeroContainer: {
+        width: '100%',
+        height: 350,
+        backgroundColor: '#f1f5f9',
+    },
+    mobileHeroImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    mobileTopHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        backgroundColor: '#f8fafc', // Matching container bg
+    },
+    mobileBackCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    mobilePointsCapsule: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 25,
+        backgroundColor: '#1e293b', // Dark background like in image
+        gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 5,
+        elevation: 4,
+    },
+    mobileStarIcon: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        padding: 4,
+        borderRadius: 12,
+    },
+    mobilePointsText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 14,
+    },
+    mobileArticleContainer: {
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        marginTop: -30,
+        padding: 24,
+        paddingTop: 32,
+        minHeight: 500,
+    },
+    mobileTitle: {
+        fontSize: 24,
+        lineHeight: 32,
+        fontWeight: '900',
+        marginBottom: 16,
+    },
+    mobileParagraph: {
+        fontSize: 16,
+        lineHeight: 28,
+        color: '#475569',
+    },
+    blockImage: {
+        width: '100%',
+        height: 220,
+        borderRadius: 16,
+        marginVertical: 12,
+    },
+    blockHeading: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#1e293b',
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    mobileFloatingWhatsApp: {
+        position: 'absolute',
+        bottom: 30,
+        right: 24,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#25D366',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#25D366',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 8,
+        zIndex: 999,
     },
 });
