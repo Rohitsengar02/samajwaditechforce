@@ -2,57 +2,69 @@ import { Platform } from 'react-native';
 
 export const removeBackground = async (imageUri: string): Promise<string | null> => {
     try {
-        console.log('🏗️ Removing background via Backend Proxy...');
+        const API_URL = process.env.EXPO_PUBLIC_BG_REMOVAL_URL || "http://192.168.1.41:5002/api/remove-bg";
+        const API_KEY = process.env.EXPO_PUBLIC_REMOVE_BG_API_KEY || "sk_pjgibx25e5na4prkedombh";
 
-        // 1. SMART RESIZING (Web) to avoid 413 "Request Entity Too Large"
-        let processedUri = imageUri;
+        console.log(`🏗️ Removing background via Local Buildora (${API_URL})...`);
+
+        const formData = new FormData();
+
         if (Platform.OS === 'web') {
-            try {
-                processedUri = await resizeImageWeb(imageUri, 1024, 1024);
-            } catch (e) {
-                console.warn('Resize failed, using original:', e);
-            }
+            const response = await fetch(imageUri);
+            const blob = await response.blob();
+            formData.append('image', blob, 'image.png');
+        } else {
+            formData.append('image', {
+                uri: imageUri,
+                name: 'image.png',
+                type: 'image/png',
+            } as any);
         }
 
-        // 2. Prepare Base64 Data
-        const response = await fetch(processedUri);
+        const response = await fetch(API_URL, {
+            method: "POST",
+            body: formData,
+            headers: {
+                "x-api-key": API_KEY,
+            }
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server Error (${response.status}): ${errText}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+
+        // Handle JSON Response (e.g., {"success": true, "image": "data:..."})
+        if (contentType && contentType.includes("application/json")) {
+            console.log('📥 Received JSON response from BG Service');
+            const data = await response.json();
+
+            if (data.image) return data.image;
+            if (data.imageUrl) return data.imageUrl;
+            if (data.url) return data.url;
+            if (data.base64) return `data:image/png;base64,${data.base64}`;
+
+            throw new Error("JSON response did not contain a recognized image field");
+        }
+
+        // Handle Binary/Blob Response (Raw Image)
+        console.log('📥 Received Binary response from BG Service');
         const blob = await response.blob();
-        const base64 = await new Promise<string>((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
+            reader.onloadend = () => {
+                const result = reader.result as string;
+                // Ensure we return a clean data URI
+                resolve(result);
+            };
+            reader.onerror = () => {
+                reject(new Error('Failed to read blob data'));
+            };
             reader.readAsDataURL(blob);
         });
-        const base64Data = base64.split(',')[1];
 
-        // 3. Call OUR BACKEND Proxy
-        // This solves CORS and allows the backend to handle fallbacks
-        let API_URL = 'https://api-samajwaditechforce.onrender.com/api';
-
-        // Use local API if in development
-        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-            API_URL = 'http://localhost:5001/api';
-        }
-
-        const backendResponse = await fetch(`${API_URL}/background-removal/remove`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                imageUrl: imageUri,
-                imageBase64: base64Data
-            }),
-        });
-
-        const data = await backendResponse.json();
-
-        if (data.success && data.imageUrl) {
-            console.log('✅ Background removed successfully via Proxy');
-            return data.imageUrl;
-        } else {
-            throw new Error(data.message || 'Failed to remove background');
-        }
     } catch (error) {
         console.error("Background Removal Error:", (error as any).message || error);
         return null;
