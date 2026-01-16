@@ -317,6 +317,13 @@ function MobileSignInScreen() {
                 />
               </View>
 
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/forgot-password', params: { email: email.trim() } })}
+                style={styles.forgotPasswordContainer}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity activeOpacity={0.9} onPress={handleLogin} disabled={loading}>
                 <LinearGradient
                   colors={loading ? ['#666', '#444'] : [SP_RED, '#b91c1c']}
@@ -661,6 +668,13 @@ function DesktopSignInScreen() {
                   value={password}
                   onChangeText={setPassword}
                 />
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/forgot-password', params: { email: email.trim() } })}
+                  style={styles.desktopForgotPasswordContainer}
+                >
+                  <Text style={styles.desktopForgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+
               </View>
 
               <TouchableOpacity
@@ -1096,6 +1110,25 @@ const styles = StyleSheet.create({
   },
   desktopSignFooterLink: {
     color: SP_RED,
+    fontWeight: '700',
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 24,
+  },
+  forgotPasswordText: {
+    color: SP_RED,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  desktopForgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  desktopForgotPasswordText: {
+    color: '#666',
+    fontSize: 13,
     fontWeight: '700',
   },
 });
