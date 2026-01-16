@@ -1,75 +1,69 @@
 import { Platform } from 'react-native';
+import { getApiUrl } from './api';
 
 export const removeBackground = async (imageUri: string): Promise<string | null> => {
     try {
-        const API_URL = process.env.EXPO_PUBLIC_BG_REMOVAL_URL || "http://192.168.1.41:5002/api/remove-bg";
-        const API_KEY = process.env.EXPO_PUBLIC_REMOVE_BG_API_KEY || "sk_pjgibx25e5na4prkedombh";
+        // Use the backend proxy to avoid CORS issues
+        const API_URL = `${getApiUrl()}/background-removal/remove`;
 
-        console.log(`🏗️ Removing background via Local Buildora (${API_URL})...`);
+        console.log(`🏗️ Removing background via Backend Proxy (${API_URL})...`);
 
-        const formData = new FormData();
+        let imageBase64 = '';
 
         if (Platform.OS === 'web') {
             const response = await fetch(imageUri);
             const blob = await response.blob();
-            formData.append('image', blob, 'image.png');
+            imageBase64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
         } else {
-            formData.append('image', {
-                uri: imageUri,
-                name: 'image.png',
-                type: 'image/png',
-            } as any);
+            // Native apps (not yet fully implemented case, assuming URI is sufficient or need encoding)
+            // Ideally use Expo FileSystem to read as base64
+            // For now, if it's a remote URL, backend can handle it
+            if (imageUri.startsWith('http')) {
+                // Send as URL
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ imageUrl: imageUri })
+                });
+                return handleBackendResponse(response);
+            }
+
+            throw new Error("Local file support on native requires FileSystem implementation");
         }
 
         const response = await fetch(API_URL, {
             method: "POST",
-            body: formData,
             headers: {
-                "x-api-key": API_KEY,
-            }
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ imageBase64 })
         });
 
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Server Error (${response.status}): ${errText}`);
-        }
-
-        const contentType = response.headers.get("content-type");
-
-        // Handle JSON Response (e.g., {"success": true, "image": "data:..."})
-        if (contentType && contentType.includes("application/json")) {
-            console.log('📥 Received JSON response from BG Service');
-            const data = await response.json();
-
-            if (data.image) return data.image;
-            if (data.imageUrl) return data.imageUrl;
-            if (data.url) return data.url;
-            if (data.base64) return `data:image/png;base64,${data.base64}`;
-
-            throw new Error("JSON response did not contain a recognized image field");
-        }
-
-        // Handle Binary/Blob Response (Raw Image)
-        console.log('📥 Received Binary response from BG Service');
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const result = reader.result as string;
-                // Ensure we return a clean data URI
-                resolve(result);
-            };
-            reader.onerror = () => {
-                reject(new Error('Failed to read blob data'));
-            };
-            reader.readAsDataURL(blob);
-        });
+        return handleBackendResponse(response);
 
     } catch (error) {
         console.error("Background Removal Error:", (error as any).message || error);
         return null;
     }
 };
+
+async function handleBackendResponse(response: Response) {
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Server Error (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    if (data.success && data.imageUrl) {
+        return data.imageUrl;
+    }
+    throw new Error(data.message || 'Background removal failed');
+}
 
 /**
  * Helper to resize image on Web using Canvas
