@@ -71,9 +71,9 @@ export default function DesktopHeader() {
                 <View style={styles.mobileHeader}>
                     <Pressable onPress={() => navigateTo('/desktop-screen-pages/home')} style={styles.logoContainer}>
                         <Image
-                            source={require('../assets/images/icon.png')}
-                            style={styles.logoImageMobile}
-                            resizeMode="contain"
+                            source={require('../assets/images/stf_logo.jpg')}
+                            style={[styles.logoImageMobile, { borderRadius: 20 }]}
+                            resizeMode="cover"
                         />
                     </Pressable>
                     <Pressable onPress={() => setSidebarOpen(true)} style={styles.menuIcon}>
@@ -251,9 +251,9 @@ export default function DesktopHeader() {
         <View style={styles.header}>
             <Pressable onPress={() => navigateTo('/desktop-screen-pages/home')} style={styles.logoContainer}>
                 <Image
-                    source={require('../assets/images/icon.png')}
-                    style={styles.logoImage}
-                    resizeMode="contain"
+                    source={require('../assets/images/stf_logo.jpg')}
+                    style={[styles.logoImage, { borderRadius: 45 }]}
+                    resizeMode="cover"
                 />
             </Pressable>
 

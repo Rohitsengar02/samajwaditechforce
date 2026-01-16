@@ -501,7 +501,11 @@ export default function HomeScreen() {
             <View style={styles.headerContent}>
               <View style={styles.headerLeft}>
                 <Animated.View style={[styles.logoContainer, { transform: [{ scale: pulseAnim }] }]}>
-                  <MaterialCommunityIcons name="bicycle" size={40} color="#fff" />
+                  <Image
+                    source={require('../../assets/images/stf_logo.jpg')}
+                    style={{ width: 50, height: 50, borderRadius: 25 }}
+                    resizeMode="cover"
+                  />
                 </Animated.View>
                 <View>
                   <Text style={styles.headerTitle}>

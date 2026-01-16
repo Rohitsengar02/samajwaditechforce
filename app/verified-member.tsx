@@ -43,6 +43,7 @@ export default function VerifiedMemberScreen() {
     const [qualification, setQualification] = useState('');
     const [canVisitLucknow, setCanVisitLucknow] = useState('No');
     const [email, setEmail] = useState('');
+    const [electionPreparation, setElectionPreparation] = useState('');
 
     useEffect(() => {
         loadUserData();
@@ -113,6 +114,7 @@ export default function VerifiedMemberScreen() {
                 if (parsedUser.socialMedia) setSocialMedia(parsedUser.socialMedia);
                 if (parsedUser.qualification) setQualification(parsedUser.qualification);
                 if (parsedUser.canVisitLucknow) setCanVisitLucknow(parsedUser.canVisitLucknow);
+                if (parsedUser.electionPreparation) setElectionPreparation(parsedUser.electionPreparation);
             }
         } catch (error) {
             console.error('Failed to load user data', error);
@@ -187,6 +189,7 @@ export default function VerifiedMemberScreen() {
                     socialMedia,
                     qualification,
                     canVisitLucknow,
+                    electionPreparation,
                 }),
             });
 
@@ -450,6 +453,71 @@ export default function VerifiedMemberScreen() {
                         </Card.Content>
                     </Card>
 
+                    {/* Election Preparation Section */}
+                    <Card style={styles.card}>
+                        <Card.Content>
+                            <View style={styles.sectionHeader}>
+                                <MaterialCommunityIcons name="vote" size={24} color={SP_RED} />
+                                <Text style={styles.sectionTitle}>Election Preparation</Text>
+                            </View>
+
+                            <Text style={styles.question}>🗳️ क्या आप चुनाव लड़ने की तैयारी कर रहे हैं?</Text>
+                            <RadioButton.Group onValueChange={value => setElectionPreparation(value)} value={electionPreparation}>
+                                <View style={styles.electionRadioContainer}>
+                                    <TouchableOpacity
+                                        style={[styles.electionRadioItem, electionPreparation === 'Zila Panchayat' && styles.electionRadioItemActive]}
+                                        onPress={() => setElectionPreparation('Zila Panchayat')}
+                                    >
+                                        <RadioButton value="Zila Panchayat" color={SP_RED} />
+                                        <Text style={[styles.electionRadioText, electionPreparation === 'Zila Panchayat' && styles.electionRadioTextActive]}>
+                                            जिला पंचायत चुनाव
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.electionRadioItem, electionPreparation === 'Gram Pradhan' && styles.electionRadioItemActive]}
+                                        onPress={() => setElectionPreparation('Gram Pradhan')}
+                                    >
+                                        <RadioButton value="Gram Pradhan" color={SP_RED} />
+                                        <Text style={[styles.electionRadioText, electionPreparation === 'Gram Pradhan' && styles.electionRadioTextActive]}>
+                                            ग्राम प्रधान चुनाव
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.electionRadioItem, electionPreparation === 'Vidhansabha' && styles.electionRadioItemActive]}
+                                        onPress={() => setElectionPreparation('Vidhansabha')}
+                                    >
+                                        <RadioButton value="Vidhansabha" color={SP_RED} />
+                                        <Text style={[styles.electionRadioText, electionPreparation === 'Vidhansabha' && styles.electionRadioTextActive]}>
+                                            विधानसभा चुनाव
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.electionRadioItem, electionPreparation === 'Other' && styles.electionRadioItemActive]}
+                                        onPress={() => setElectionPreparation('Other')}
+                                    >
+                                        <RadioButton value="Other" color={SP_RED} />
+                                        <Text style={[styles.electionRadioText, electionPreparation === 'Other' && styles.electionRadioTextActive]}>
+                                            कोई अन्य चुनाव
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.electionRadioItem, electionPreparation === 'No' && styles.electionRadioItemActive]}
+                                        onPress={() => setElectionPreparation('No')}
+                                    >
+                                        <RadioButton value="No" color={SP_RED} />
+                                        <Text style={[styles.electionRadioText, electionPreparation === 'No' && styles.electionRadioTextActive]}>
+                                            नहीं, कोई चुनाव की तैयारी नहीं कर रहा हूँ
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </RadioButton.Group>
+                        </Card.Content>
+                    </Card>
+
                     <Card style={styles.card}>
                         <Card.Content>
                             <View style={styles.sectionHeader}>
@@ -687,5 +755,34 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#b45309',
         lineHeight: 20,
+    },
+    // Election Preparation Styles
+    electionRadioContainer: {
+        marginTop: 12,
+        gap: 8,
+    },
+    electionRadioItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    electionRadioItemActive: {
+        backgroundColor: '#fef2f2',
+        borderColor: SP_RED,
+    },
+    electionRadioText: {
+        fontSize: 15,
+        color: '#334155',
+        fontWeight: '500',
+        flex: 1,
+    },
+    electionRadioTextActive: {
+        color: SP_RED,
+        fontWeight: '600',
     },
 });
