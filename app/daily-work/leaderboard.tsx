@@ -206,6 +206,7 @@ export default function LeaderboardScreen() {
 
             <Animated.View style={[styles.listWrapper, { opacity: fadeAnim }]}>
                 <FlatList
+                    key={loading ? 'loading' : 'loaded'} // Force fresh layout calculation on data load
                     data={restOfList}
                     keyExtractor={item => item._id}
                     showsVerticalScrollIndicator={false}
@@ -444,13 +445,12 @@ const styles = StyleSheet.create({
     },
     listWrapper: {
         flex: 1,
-        marginTop: -30,
+        // Removed negative margin to prevent overlap issues on web causing scroll freeze
         backgroundColor: '#F8FAFC',
         borderTopLeftRadius: 35,
         borderTopRightRadius: 35,
         paddingTop: 20,
-        // Ensure the list takes available space and allows scrolling
-        minHeight: Dimensions.get('window').height - 300,
+        marginTop: 0,
     },
     listContent: {
         paddingHorizontal: 20,
