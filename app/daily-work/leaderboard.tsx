@@ -449,6 +449,8 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 35,
         borderTopRightRadius: 35,
         paddingTop: 20,
+        // Ensure the list takes available space and allows scrolling
+        minHeight: Dimensions.get('window').height - 300,
     },
     listContent: {
         paddingHorizontal: 20,
