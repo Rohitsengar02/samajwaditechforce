@@ -1608,55 +1608,66 @@ export default function DesktopPosterEditor() {
             <View style={[styles.workspace, isMobile && { flexDirection: 'column' }]}>
                 {/* Left Toolbar - Enhanced Scrollable (Horizontal on Mobile) */}
                 {isMobile ? (
-                    // Mobile Bottom Tab Bar (Fixed View)
-                    <View style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        width: '100%',
-                        height: 50,
-                        zIndex: 20,
-                        backgroundColor: '#fff',
-                        borderTopWidth: 1,
-                        borderTopColor: '#e2e8f0',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingHorizontal: 0
-                    }}>
+                    // Mobile Bottom Tab Bar (Scrollable with Labels)
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: 90, // Increased height for Icon + Text
+                            zIndex: 20,
+                            backgroundColor: '#ffffff',
+                            borderTopWidth: 1,
+                            borderTopColor: '#e2e8f0',
+                        }}
+                        contentContainerStyle={{
+                            alignItems: 'center',
+                            paddingHorizontal: 16,
+                        }}
+                    >
                         {tools.map((tool) => (
                             <TouchableOpacity
                                 key={tool.id}
                                 style={{
-                                    flex: 1,
-                                    height: 50,
-                                    justifyContent: 'center',
                                     alignItems: 'center',
-                                    backgroundColor: selectedTool === tool.id ? '#f1f5f9' : 'transparent',
+                                    justifyContent: 'center',
+                                    marginRight: 20,
+                                    paddingVertical: 10,
+                                    minWidth: 60,
                                 }}
                                 onPress={() => handleToolPress(tool.id)}
                             >
-                                <View style={{ width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                                <View style={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 22, // Circle
+                                    backgroundColor: selectedTool === tool.id ? '#eff6ff' : '#f8fafc',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    marginBottom: 6,
+                                    borderWidth: 1,
+                                    borderColor: selectedTool === tool.id ? '#3b82f6' : 'transparent'
+                                }}>
                                     <MaterialCommunityIcons
                                         name={tool.icon as any}
                                         size={24}
                                         color={selectedTool === tool.id ? '#3b82f6' : '#64748b'}
                                     />
                                 </View>
-                                {selectedTool === tool.id && (
-                                    <View style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        height: 2,
-                                        backgroundColor: '#3b82f6'
-                                    }} />
-                                )}
+                                <Text style={{
+                                    fontSize: 11,
+                                    fontWeight: selectedTool === tool.id ? '700' : '500',
+                                    color: selectedTool === tool.id ? '#1e293b' : '#64748b',
+                                    textAlign: 'center'
+                                }}>
+                                    {tool.name}
+                                </Text>
                             </TouchableOpacity>
                         ))}
-                    </View>
+                    </ScrollView>
                 ) : (
                     // Desktop Left Sidebar (ScrollView)
                     <ScrollView
@@ -1747,7 +1758,8 @@ export default function DesktopPosterEditor() {
                         <TouchableOpacity
                             activeOpacity={1}
                             onPress={() => {
-                                setSelectedTool('content');
+                                setSelectedTool(null);
+                                setSelectedElementId(null);
                                 setShowBottomBarModal(false);
                             }}
                         >

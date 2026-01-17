@@ -1979,28 +1979,51 @@ export default function PosterEditor() {
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.toolbarScroll}
+                        contentContainerStyle={{
+                            paddingHorizontal: 20,
+                            paddingBottom: 20, // increased padding to ensure text isn't cut off
+                            alignItems: 'center',
+                        }}
                     >
                         {tools.map((tool) => (
                             <TouchableOpacity
                                 key={tool.id}
-                                style={styles.toolItem}
+                                style={{
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginRight: 24, // Explicit spacing between items
+                                    minWidth: 60,
+                                }}
                                 onPress={() => handleToolPress(tool.id)}
                             >
                                 <View style={[
                                     styles.toolIconWrapper,
-                                    selectedTool === tool.id && styles.selectedTool
+                                    selectedTool === tool.id && styles.selectedTool,
+                                    {
+                                        marginBottom: 8, // Explicit space between icon and text
+                                        width: 50, // Slightly larger touch target
+                                        height: 50,
+                                        borderRadius: 25,
+                                        elevation: 2, // Subtle shadow for depth
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 1 },
+                                        shadowOpacity: 0.1,
+                                        shadowRadius: 2,
+                                    }
                                 ]}>
                                     <MaterialCommunityIcons
                                         name={tool.icon as any}
                                         size={24}
-                                        color={selectedTool === tool.id ? '#fff' : '#64748b'}
+                                        color={selectedTool === tool.id ? '#fff' : '#475569'}
                                     />
                                 </View>
-                                <Text style={[
-                                    styles.toolName,
-                                    selectedTool === tool.id && styles.selectedToolText
-                                ]}>
+                                <Text style={{
+                                    fontSize: 12,
+                                    fontWeight: selectedTool === tool.id ? '600' : '500',
+                                    color: selectedTool === tool.id ? '#0f172a' : '#64748b',
+                                    textAlign: 'center',
+                                    width: '100%',
+                                }}>
                                     {tool.name}
                                 </Text>
                             </TouchableOpacity>
