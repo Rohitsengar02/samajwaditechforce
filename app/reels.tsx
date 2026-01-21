@@ -27,7 +27,7 @@ import { useRouter } from 'expo-router';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { WebView } from 'react-native-webview';
 import { TranslatedText } from '../components/TranslatedText';
-import { getApiUrl } from '../utils/api';
+import { getApiUrl, getBaseUrl } from '../utils/api';
 
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
@@ -478,22 +478,28 @@ export default function ReelsPage() {
             const userId = userInfo._id || userInfo.id;
             const username = userInfo.username || userInfo.phone || userInfo.email;
 
-            const url = getApiUrl();
-            const res = await fetch(`${url}/reels/${reel.id}/share`, {
+            // Track share backend
+            const trackUrl = getApiUrl();
+            const trackRes = await fetch(`${trackUrl}/reels/${reel.id}/share`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, userId })
             });
-            const data = await res.json();
+            const trackData = await trackRes.json();
 
-            if (data.firstShare && data.points) {
-                showToast(`📤 +${data.points} points for sharing!`);
+            if (trackData.firstShare && trackData.points) {
+                showToast(`📤 +${trackData.points} points for sharing!`);
             }
+
+            // Construct the Shareable Backend Link for Preview
+            const baseUrl = getBaseUrl();
+            const shareUrl = `${baseUrl}/share/reels/${reel.id}`;
+            const shareText = `Check out this reel: ${reel.title}`;
 
             // Share using native share
             const Share = require('react-native').Share;
             await Share.share({
-                message: `Check out this reel: ${reel.title}`,
+                message: `${shareText}\n\n${shareUrl}`,
                 title: reel.title
             });
         } catch (error: any) {
@@ -506,10 +512,9 @@ export default function ReelsPage() {
     const handleWebShare = async (type: string) => {
         if (!selectedReel) return;
 
-        // Manually construct the URL to ensure it always includes the ID
-        // This ensures the link is specific: https://www.samajwaditechforce.com/reels?id=...
-        const baseUrl = window.location.origin + window.location.pathname;
-        const shareUrl = `${baseUrl}?id=${selectedReel.id}`;
+        // Use the backend share page for professional social previews
+        const baseUrl = getBaseUrl();
+        const shareUrl = `${baseUrl}/share/reels/${selectedReel.id}`;
 
         const shareText = `Check out this reel: ${selectedReel.title}`;
         const shareData = {
