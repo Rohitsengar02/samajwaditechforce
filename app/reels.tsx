@@ -492,8 +492,9 @@ export default function ReelsPage() {
             }
 
             // Construct the Shareable Backend Link for Preview
-            const baseUrl = getBaseUrl();
-            const shareUrl = `${baseUrl}/share/reels/${reel.id}`;
+            // Hardcoding to backend URL to ensure social media crawlers find the OG tags
+            const backendShareBase = 'https://api-samajwaditechforce.onrender.com';
+            const shareUrl = `${backendShareBase}/share/reels/${reel.id}`;
             const shareText = `Check out this reel: ${reel.title}`;
 
             // Share using native share
@@ -512,9 +513,9 @@ export default function ReelsPage() {
     const handleWebShare = async (type: string) => {
         if (!selectedReel) return;
 
-        // Use the backend share page for professional social previews
-        const baseUrl = getBaseUrl();
-        const shareUrl = `${baseUrl}/share/reels/${selectedReel.id}`;
+        // Force the backend URL for previews so WhatsApp etc. can find the metadata
+        const backendShareBase = 'https://api-samajwaditechforce.onrender.com';
+        const shareUrl = `${backendShareBase}/share/reels/${selectedReel.id}`;
 
         const shareText = `Check out this reel: ${selectedReel.title}`;
         const shareData = {
