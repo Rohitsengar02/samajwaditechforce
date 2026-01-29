@@ -70,6 +70,31 @@ export default function DesktopPosters() {
         }
     };
 
+    const handleDownload = async (poster: any) => {
+        try {
+            const userInfo = await AsyncStorage.getItem('userInfo');
+            const user = userInfo ? JSON.parse(userInfo) : null;
+
+            if (!user || user.verificationStatus !== 'Verified') {
+                setShowVerifyModal(true);
+                return;
+            }
+
+            router.push({
+                pathname: '/desktop-screen-pages/poster-editor',
+                params: {
+                    id: poster._id,
+                    imageUrl: poster.imageUrl,
+                    title: poster.title,
+                    autoPreview: 'true'
+                }
+            } as any);
+        } catch (error) {
+            console.error('Error checking verification:', error);
+            setShowVerifyModal(true);
+        }
+    };
+
     const filteredPosters = posters.filter(poster =>
         (selectedCategory === 'All' || poster.category === selectedCategory) &&
         (poster.title?.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -106,7 +131,25 @@ export default function DesktopPosters() {
                                     <Image source={{ uri: poster.imageUrl }} style={styles.image} />
                                     <View style={styles.cardFooter}>
                                         <Text style={styles.cardTitle} numberOfLines={1}>{poster.title}</Text>
-                                        <Button mode="contained" buttonColor={"#ffffff"} compact onPress={() => handlePosterPress(poster)}>Edit</Button>
+                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                            <Button
+                                                mode="outlined"
+                                                textColor={SP_RED}
+                                                style={{ borderColor: SP_RED }}
+                                                compact
+                                                onPress={() => handlePosterPress(poster)}
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                mode="contained"
+                                                buttonColor={SP_RED}
+                                                compact
+                                                onPress={() => handleDownload(poster)}
+                                            >
+                                                Download
+                                            </Button>
+                                        </View>
                                     </View>
                                 </Pressable>
                             ))}

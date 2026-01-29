@@ -407,13 +407,19 @@ export default function DesktopPosterEditor() {
         loadUserData();
     }, []);
 
+    const [isAutoGenerating, setIsAutoGenerating] = useState(false);
+
     // Auto-Preview/Download Logic (Triggered from Grid "Download" button)
     useEffect(() => {
         if (params.autoPreview === 'true' && currentImage && !showPreviewModal && !isSaving) {
             console.log('🚀 Auto-triggering preview mode...');
+            setIsAutoGenerating(true); // Start Animation
+
             // Wait for user details to load + canvas to settle
             const timer = setTimeout(() => {
-                handleSave('download_and_preview');
+                handleSave('download_and_preview').then(() => {
+                    setIsAutoGenerating(false); // Stop Animation when done
+                });
             }, 1000);
             return () => clearTimeout(timer);
         }
@@ -3497,6 +3503,42 @@ export default function DesktopPosterEditor() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Auto-Generation Loading Overlay */}
+            {isAutoGenerating && (
+                <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(255,255,255,0.9)',
+                    zIndex: 9999,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(10px)' } : {})
+                }}>
+                    <View style={{ alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color="#E30512" style={{ transform: [{ scale: 1.5 }] }} />
+                        <Text style={{
+                            marginTop: 20,
+                            fontSize: 18,
+                            fontWeight: 'bold',
+                            color: '#333',
+                            textAlign: 'center'
+                        }}>
+                            Generating High-Quality Poster...
+                        </Text>
+                        <Text style={{
+                            marginTop: 8,
+                            fontSize: 14,
+                            color: '#666',
+                        }}>
+                            Adding your details & photo
+                        </Text>
+                    </View>
+                </View>
+            )}
 
             {/* Point Award Toast */}
             <PosterToast
