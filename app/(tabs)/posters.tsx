@@ -148,55 +148,35 @@ export default function PostersScreen() {
 
     const handleDownload = async (poster: Poster) => {
         try {
+            // Check verification first (Security consistency)
+            const userInfoStr = await AsyncStorage.getItem('userInfo');
+            const user = userInfoStr ? JSON.parse(userInfoStr) : null;
+
+            if (!user || user.verificationStatus !== 'Verified') {
+                setShowVerifyModal(true);
+                return;
+            }
+
             setDownloading(poster._id);
 
-            // Track download
-            const token = await AsyncStorage.getItem('userToken');
-            if (token) {
-                const trackRes = await fetch(`${API_URL}/posters/${poster._id}/download`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
+            // Navigate to Editor in "Auto Preview" mode
+            // This ensures the user gets the PERSONALIZED poster (with name/photo)
+            // instead of the raw background image.
+            setTimeout(() => {
+                setDownloading(null); // Reset state
+                router.push({
+                    pathname: '/desktop-screen-pages/poster-editor',
+                    params: {
+                        id: poster._id,
+                        imageUrl: poster.imageUrl,
+                        title: poster.title,
+                        autoPreview: 'true'
                     }
                 });
-                const trackData = await trackRes.json();
-                if (trackData.pointsAwarded) {
-                    Alert.alert('🎉 Points Earned', `+${trackData.points} points for downloading!`);
-                } else {
-                    Alert.alert('⬇️ Downloaded', 'You have already earned points for this poster.');
-                }
-            } else {
-                Alert.alert('⚠️ Not Logged In', 'Please login to track downloads and earn points.');
-            }
-
-            if (Platform.OS === 'web') {
-                // Web: Download image directly
-                const link = document.createElement('a');
-                link.href = poster.imageUrl;
-                link.download = `${poster.title}.jpg`;
-                link.click();
-                Alert.alert('Success', 'Poster downloaded!');
-            } else {
-                // Mobile: Use FileSystem and Sharing
-                const fileUri = FileSystem.documentDirectory + `${poster.title}.jpg`;
-                const downloadResult = await FileSystem.downloadAsync(
-                    poster.imageUrl,
-                    fileUri
-                );
-
-                if (downloadResult.uri) {
-                    await Sharing.shareAsync(downloadResult.uri, {
-                        mimeType: 'image/jpeg',
-                        dialogTitle: 'Save Poster'
-                    });
-                    Alert.alert('Success', 'Poster ready to download!');
-                }
-            }
+            }, 500); // Small delay for visual feedback of button press
         } catch (error) {
-            console.error('Download error:', error);
-            Alert.alert('Error', 'Failed to download poster');
-        } finally {
-            setDownloading(null);
+            console.error('Download setup error:', error);
+            Alert.alert('Error', 'Failed to initiate download');
         }
     };
 
@@ -235,31 +215,47 @@ export default function PostersScreen() {
                 {/* Posters Grid - 2 per row */}
                 <View style={styles.postersGrid}>
                     {posters.map((poster) => (
-                        <TouchableOpacity
-                            key={poster._id}
-                            style={styles.posterCard}
-                            onPress={() => handlePosterPress(poster)}
-                            disabled={downloading === poster._id}
-                        >
-                            {/* Poster Image */}
-                            <Image
-                                source={{ uri: poster.imageUrl }}
-                                style={styles.posterImage}
-                                resizeMode="cover"
-                            />
+                        <View key={poster._id} style={{ width: '48%', marginBottom: 12 }}>
+                            <TouchableOpacity
+                                style={styles.posterCard}
+                                onPress={() => handlePosterPress(poster)}
+                                disabled={downloading === poster._id}
+                            >
+                                {/* Poster Image */}
+                                <Image
+                                    source={{ uri: poster.imageUrl }}
+                                    style={styles.posterImage}
+                                    resizeMode="cover"
+                                />
 
-                            {/* Edit Overlay Hint */}
-                            <View style={styles.editOverlay}>
-                                <MaterialCommunityIcons name="pencil-circle" size={32} color="#fff" />
-                            </View>
-
-                            {/* Download Indicator */}
-                            {downloading === poster._id && (
-                                <View style={styles.downloadingOverlay}>
-                                    <ActivityIndicator size="large" color="#fff" />
+                                {/* Edit Overlay Hint */}
+                                <View style={styles.editOverlay}>
+                                    <MaterialCommunityIcons name="pencil-circle" size={32} color="#fff" />
                                 </View>
-                            )}
-                        </TouchableOpacity>
+
+                                {/* Download Indicator */}
+                                {downloading === poster._id && (
+                                    <View style={styles.downloadingOverlay}>
+                                        <ActivityIndicator size="large" color="#fff" />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.cardDownloadButton}
+                                onPress={() => handleDownload(poster)}
+                                disabled={downloading === poster._id}
+                            >
+                                {downloading === poster._id ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <>
+                                        <MaterialCommunityIcons name="download" size={16} color="#fff" style={{ marginRight: 4 }} />
+                                        <Text style={styles.cardDownloadText}>Download</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     ))}
                 </View>
 
@@ -426,11 +422,11 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     posterCard: {
-        width: '48%',
+        width: '100%',
         aspectRatio: 1 / 1.3,
         backgroundColor: '#e2e8f0',
         borderRadius: 12,
-        marginBottom: 12,
+        // marginBottom: 12, // Moved margin to container view
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -513,5 +509,19 @@ const styles = StyleSheet.create({
     buttonSubtitle: {
         fontSize: 13,
         color: '#64748b',
+    },
+    cardDownloadButton: {
+        backgroundColor: '#16a34a',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        borderRadius: 8,
+        marginTop: 4,
+    },
+    cardDownloadText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: 'bold',
     },
 });

@@ -407,6 +407,18 @@ export default function DesktopPosterEditor() {
         loadUserData();
     }, []);
 
+    // Auto-Preview/Download Logic (Triggered from Grid "Download" button)
+    useEffect(() => {
+        if (params.autoPreview === 'true' && currentImage && !showPreviewModal && !isSaving) {
+            console.log('🚀 Auto-triggering preview mode...');
+            // Wait for user details to load + canvas to settle
+            const timer = setTimeout(() => {
+                handleSave('download_and_preview');
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [params.autoPreview, currentImage, bottomBarDetails.name]);
+
     const loadUserData = async () => {
         try {
             // First, try to load saved poster details (user's preference)
@@ -629,7 +641,7 @@ export default function DesktopPosterEditor() {
 
 
 
-    const handleSave = async (action: 'download' | 'share' | 'preview') => {
+    const handleSave = async (action: 'download' | 'share' | 'preview' | 'download_and_preview') => {
         if (isRemovingFooterPhotoBg) {
             setShowBgWaitModal(true);
             return;
@@ -661,7 +673,8 @@ export default function DesktopPosterEditor() {
             if (result.success) {
                 const masterUrl = result.imageUrl;
 
-                if (action === 'download') {
+                // Handle Download
+                if (action === 'download' || action === 'download_and_preview') {
                     const link = document.createElement('a');
                     link.href = masterUrl;
                     link.target = '_blank';
@@ -669,14 +682,24 @@ export default function DesktopPosterEditor() {
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-                    const result = await awardPoints('poster_create', 10, `Created Master Poster: ${title || 'Untitled'}`);
-                    if (result.success) {
-                        showAlert('Success', 'Ultra-HD Poster Downloaded!\n🎉 +10 Points Earned!');
+                    const pointRes = await awardPoints('poster_create', 10, `Created Master Poster: ${title || 'Untitled'}`);
+
+                    // Only show alert if NOT in auto-mode (to avoid double popup with modal)
+                    if (action !== 'download_and_preview') {
+                        if (pointRes.success) {
+                            showAlert('Success', 'Ultra-HD Poster Downloaded!\n🎉 +10 Points Earned!');
+                        } else {
+                            const isLimit = pointRes.message?.includes('limit');
+                            showAlert(isLimit ? '⚠️ Limit Reached' : 'Success', `Ultra-HD Poster Downloaded!\n${pointRes.message}`);
+                        }
                     } else {
-                        const isLimit = result.message?.includes('limit');
-                        showAlert(isLimit ? '⚠️ Limit Reached' : 'Success', `Ultra-HD Poster Downloaded!\n${result.message}`);
+                        // For auto-mode, maybe just a toast or lesser intrusive notification
+                        console.log('Auto-download started');
                     }
-                } else { // This 'else' branch handles 'share' or 'preview'
+                }
+
+                // Handle Preview / Modal Display
+                if (action === 'preview' || action === 'share' || action === 'download_and_preview') {
                     setSharedImageUrl(masterUrl);
                     setShowPreviewModal(true);
                 }
