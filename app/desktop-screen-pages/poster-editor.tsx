@@ -647,6 +647,55 @@ export default function DesktopPosterEditor() {
 
 
 
+    // --- CLIENT-SIDE FALLBACK CAPTURE ---
+    const performClientSideCapture = async (action: string) => {
+        try {
+            console.log('🔄 Falling back to client-side capture...');
+            await loadHtml2Canvas();
+            const html2canvas = (window as any).html2canvas;
+
+            const elementToCapture = (previewRef.current || canvasRef.current) as unknown as HTMLElement;
+            if (!elementToCapture) throw new Error('Canvas not found');
+
+            const canvas = await html2canvas(elementToCapture, {
+                useCORS: true,
+                scale: 2, // 2x quality boost
+                backgroundColor: null,
+                logging: false
+            });
+
+            const dataUrl = canvas.toDataURL('image/png');
+
+            if (action === 'download' || action === 'download_and_preview') {
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = `poster-${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // Award points for fallback too
+                await awardPoints('poster_create', 10, `Created Poster (Standard): ${title || 'Untitled'}`);
+
+                // Show a gentle notice
+                if (action !== 'download_and_preview') {
+                    showAlert('Success', 'Poster Downloaded! (Standard HD Mode)\n🎉 +10 Points Earned!');
+                }
+            }
+
+            if (action === 'preview' || action === 'share' || action === 'download_and_preview') {
+                setSharedImageUrl(dataUrl);
+                setShowPreviewModal(true);
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Fallback Capture Failed:', error);
+            showAlert('Error', 'Failed to generate poster locally. Please refresh and try again.');
+            return false;
+        }
+    };
+
     const handleSave = async (action: 'download' | 'share' | 'preview' | 'download_and_preview') => {
         if (isRemovingFooterPhotoBg) {
             setShowBgWaitModal(true);
@@ -713,8 +762,9 @@ export default function DesktopPosterEditor() {
                 throw new Error(result.message || 'Render failed');
             }
         } catch (err) {
-            console.error('Pro Render Error:', err);
-            showAlert('Error', 'Master render failed. Please try again.');
+            console.warn('Pro Render failed, trying fallback...', err);
+            // AUTO-FALLBACK: If master render fails (500 error), use client-side capture
+            await performClientSideCapture(action);
         } finally {
             setIsSaving(false);
         }
@@ -1808,6 +1858,7 @@ export default function DesktopPosterEditor() {
                                     source={{ uri: currentImage }}
                                     style={[styles.baseImage, { height: canvasSize.h }]}
                                     resizeMode="cover"
+                                    {...({ crossOrigin: 'anonymous' } as any)}
                                 />
 
                                 {/* Filter Overlay */}
