@@ -14,14 +14,20 @@ export const getApiUrl = () => {
             url = url.replace('192.168.1.38', 'localhost');
         }
 
+        // Handle Android Emulator case for localhost
+        if (Platform.OS === 'android' && url.includes('localhost')) {
+            url = url.replace('localhost', '10.0.2.2');
+        }
+
         console.log('🔧 Using Configured API URL:', url);
         return url;
     }
 
     // 2. Force Local Dev if __DEV__ is true AND no env var is set
     if (__DEV__) {
-        console.log('🔧 DEV Mode: Using localhost for API');
-        return 'http://localhost:5001/api';
+        const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+        console.log(`🔧 DEV Mode: Using ${host} for API`);
+        return `http://${host}:5001/api`;
     }
 
     // 3. In Production (EAS Build / Release), default to Render URL

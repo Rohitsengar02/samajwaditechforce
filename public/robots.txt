@@ -1,7 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /admin/
-Disallow: /_expo/
-Disallow: /profile
-Disallow: /settings
+
+# Sitemaps
+Sitemap: https://samajwaditechforce.com/sitemap.xml

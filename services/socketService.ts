@@ -9,27 +9,25 @@ const getSocketUrl = () => {
         let url = process.env.EXPO_PUBLIC_API_URL;
         // Remove /api if present to get best base URL
         url = url.replace(/\/api\/?$/, '');
+
+        // Handle Android Emulator case for localhost
+        if (Platform.OS === 'android' && url.includes('localhost')) {
+            url = url.replace('localhost', '10.0.2.2');
+        }
+
         console.log('🔌 Using Configured Socket URL:', url);
         return url;
     }
 
-    // 2. In DEV, force local IP logic if no env var
+    // 2. In DEV, use environment detection
     if (__DEV__) {
-        console.log('🔌 DEV Mode: Forcing Local Socket URL (192.168.1.38)');
-        return 'http://192.168.1.38:5001';
+        const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+        console.log(`🔌 DEV Mode: Using ${host} for Socket.IO`);
+        return `http://${host}:5001`;
     }
 
     // 3. Fallback / Production default
-    // If we're here in production (and no env var), we assume Render
-    // Or if we are in a weird state, default to localhost
-    let url = 'https://api-samajwaditechforce.onrender.com';
-
-    // Development Fallback (Localhost)
-    if (Platform.OS === 'android' && __DEV__) {
-        return 'http://192.168.1.38:5001';
-    }
-
-    return url;
+    return 'https://api-samajwaditechforce.onrender.com';
 };
 
 const SOCKET_URL = getSocketUrl();
