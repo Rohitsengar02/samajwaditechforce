@@ -10,6 +10,7 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
+import CachedImage from '../../components/CachedImage';
 
 export default function DesktopPosters() {
     const router = useRouter();
@@ -128,7 +129,7 @@ export default function DesktopPosters() {
                         <View style={styles.grid}>
                             {filteredPosters.map((poster, index) => (
                                 <Pressable key={poster._id || index} style={styles.card} onPress={() => handlePosterPress(poster)}>
-                                    <Image source={{ uri: poster.imageUrl }} style={styles.image} />
+                                    <CachedImage source={poster.imageUrl} style={styles.image} />
                                     <View style={styles.cardFooter}>
                                         <Text style={styles.cardTitle} numberOfLines={1}>{poster.title}</Text>
                                         <View style={{ flexDirection: 'row', gap: 8 }}>

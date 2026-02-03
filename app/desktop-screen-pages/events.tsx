@@ -9,6 +9,7 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
+import CachedImage from '../../components/CachedImage';
 
 export default function DesktopEvents() {
     const router = useRouter();
@@ -115,8 +116,8 @@ export default function DesktopEvents() {
                                 style={styles.eventCard}
                                 onPress={() => { }}
                             >
-                                <Image
-                                    source={{ uri: event.image || 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400' }}
+                                <CachedImage
+                                    source={event.image || 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400'}
                                     style={styles.eventImage}
                                     resizeMode="cover"
                                 />

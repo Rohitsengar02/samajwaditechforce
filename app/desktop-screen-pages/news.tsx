@@ -10,6 +10,7 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
+import CachedImage from '../../components/CachedImage';
 
 export default function DesktopNews() {
     const router = useRouter();
@@ -476,8 +477,8 @@ export default function DesktopNews() {
                                     style={styles.topFeaturedCard}
                                     onPress={() => router.push(`/news/${item._id}` as any)}
                                 >
-                                    <Image
-                                        source={{ uri: item.coverImage || 'https://via.placeholder.com/400x300' }}
+                                    <CachedImage
+                                        source={item.coverImage || 'https://via.placeholder.com/400x300'}
                                         style={styles.topFeaturedImage}
                                         resizeMode="cover"
                                     />
@@ -559,8 +560,8 @@ export default function DesktopNews() {
                                 style={[styles.newsCard, isMobile && { width: '100%' }]}
                                 onPress={() => router.push(`/news/${item._id}` as any)}
                             >
-                                <Image
-                                    source={{ uri: item.coverImage || 'https://via.placeholder.com/350x230' }}
+                                <CachedImage
+                                    source={item.coverImage || 'https://via.placeholder.com/350x230'}
                                     style={styles.newsImage}
                                     resizeMode="cover"
                                 />

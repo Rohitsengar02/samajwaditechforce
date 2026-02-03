@@ -12,6 +12,7 @@ const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
 
 import DesktopHeader from '../../components/DesktopHeader';
+import CachedImage from '../../components/CachedImage';
 import Footer from '../../components/Footer';
 import { TranslatedText } from '../../components/TranslatedText';
 
@@ -314,7 +315,7 @@ export default function DesktopHome() {
                                 style={styles.newsCard}
                                 onPress={() => router.push(`/news/${item._id}` as any)}
                             >
-                                <Image source={{ uri: item.coverImage }} style={styles.newsImage} />
+                                <CachedImage source={item.coverImage} style={styles.newsImage} />
                                 <View style={styles.newsContent}>
                                     <Text style={styles.newsDate}>
                                         {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -342,7 +343,7 @@ export default function DesktopHome() {
                                 style={styles.galleryItem}
                                 onPress={() => router.push('/posters' as any)}
                             >
-                                <Image source={{ uri: poster.imageUrl }} style={styles.galleryImage} />
+                                <CachedImage source={poster.imageUrl} style={styles.galleryImage} />
                                 <Text style={styles.galleryTitle}>{poster.title}</Text>
                             </Pressable>
                         ))}

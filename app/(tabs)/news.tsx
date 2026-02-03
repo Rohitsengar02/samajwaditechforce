@@ -29,6 +29,7 @@ import { newsAPI } from '@/services/newsAPI';
 import { TranslatedText } from '../../components/TranslatedText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DesktopNews from '../desktop-screen-pages/news';
+import CachedImage from '../../components/CachedImage';
 
 const { width } = Dimensions.get('window');
 
@@ -261,8 +262,8 @@ const NewsCard = ({ id, title, description, category, time, image, likes: initia
                 {/* Enhanced Image Banner with Gradient Overlay */}
                 <View style={styles.imageContainer}>
                     {image ? (
-                        <Image
-                            source={{ uri: image }}
+                        <CachedImage
+                            source={image}
                             style={styles.newsBanner}
                             resizeMode="cover"
                         />
@@ -542,8 +543,8 @@ const TrendingCarousel = ({ trendingNews }: any) => {
             activeOpacity={0.9}
             onPress={() => router.push(`/news-detail?id=${item.id}` as any)}
         >
-            <Image
-                source={{ uri: item.image }}
+            <CachedImage
+                source={item.image}
                 style={styles.trendingImage}
                 resizeMode="cover"
             />

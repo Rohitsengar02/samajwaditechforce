@@ -31,6 +31,7 @@ import { removeBackground as imglyRemoveBackground } from '../utils/backgroundRe
 import { getApiUrl, getBaseUrl } from '../utils/api';
 import { TEMPLATES, RenderBottomBar } from '../components/posteredit/MobileBottomBarTemplates';
 import FrameSelector from '../components/posteredit/FrameSelector';
+import CachedImage from '../components/CachedImage';
 import { FlatList } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -1382,14 +1383,13 @@ export default function PosterEditor() {
                                 ]}
                             >
                                 {/* Base Poster Image - Changed to Cover for Fixed Square Canvas */}
-                                <Image
-                                    source={{ uri: currentImage }}
+                                <CachedImage
+                                    source={currentImage}
                                     style={[
                                         styles.baseImage,
                                         { height: canvasSize.h, width: '100%', backgroundColor: '#f1f5f9' }
                                     ]}
                                     resizeMode="cover"
-                                    {...(Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {})}
                                 />
 
                                 {/* Filter Overlay */}

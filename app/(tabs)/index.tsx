@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { getApiUrl } from '../../utils/api';
 import { DEFAULT_VOLUNTEERS } from '../../constants/volunteersData';
+import CachedImage from '../../components/CachedImage';
 
 let volunteersData: any[] = [];
 try {

@@ -6,6 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { View, TouchableOpacity, StyleSheet, Linking, Image, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { Provider as PaperProvider } from 'react-native-paper';
@@ -52,6 +54,8 @@ Notifications.setNotificationHandler({
 
 import { WhatsAppButton } from '../components/WhatsAppButton';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+
+const queryClient = new QueryClient();
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -159,28 +163,37 @@ export default function RootLayout() {
   console.log('Current route:', currentRoute, 'Segments:', segments, 'Should hide WhatsApp:', shouldHideWhatsApp);
 
   return (
-    <ErrorBoundary>
-      <LanguageProvider>
-        <PaperProvider>
-          <View style={{ flex: 1 }}>
-            {!appIsReady ? null : (
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="onboarding" />
-                <Stack.Screen name="signin" />
-                <Stack.Screen name="register" />
-                <Stack.Screen name="google-signup" />
-                <Stack.Screen name="google-signin" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-            )}
-            {!shouldHideWhatsApp && <WhatsAppButton />}
-            <StatusBar style="auto" />
-          </View>
-        </PaperProvider>
-      </LanguageProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <ErrorBoundary>
+          <LanguageProvider>
+            <PaperProvider>
+              <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
+                {!appIsReady ? (
+                  <View style={{ flex: 1, backgroundColor: '#E30512', justifyContent: 'center', alignItems: 'center' }}>
+                    <Image
+                      source={require('../assets/images/icon.png')}
+                      style={{ width: 100, height: 100, borderRadius: 20 }}
+                    />
+                  </View>
+                ) : (
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="onboarding" />
+                    <Stack.Screen name="signin" />
+                    <Stack.Screen name="register" />
+                    <Stack.Screen name="google-signup" />
+                    <Stack.Screen name="google-signin" />
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="+not-found" />
+                  </Stack>
+                )}
+                {!shouldHideWhatsApp && <WhatsAppButton />}
+                <StatusBar style="auto" />
+              </View>
+            </PaperProvider>
+          </LanguageProvider>
+        </ErrorBoundary>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
-
-

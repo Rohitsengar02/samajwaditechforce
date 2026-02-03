@@ -260,7 +260,7 @@ function MobileSignInScreen() {
       <View style={[styles.bgCircleMobile, { backgroundColor: 'rgba(227, 5, 18, 0.08)' }]} />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>

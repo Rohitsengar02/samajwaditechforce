@@ -301,7 +301,7 @@ export default function AddressFormScreen({ navigation, route }: AddressFormProp
 
             {/* Bottom Sheet Form */}
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={styles.formContainer}
             >
                 <Surface style={styles.formSheet} elevation={5}>

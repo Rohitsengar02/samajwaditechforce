@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, Image, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
+import CachedImage from '../../components/CachedImage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -97,7 +98,7 @@ export default function DesktopGallery() {
                 <View style={styles.galleryGrid}>
                     {filteredGallery.map((item) => (
                         <Pressable key={item.id} style={styles.galleryCard}>
-                            <Image source={{ uri: item.image }} style={styles.galleryImage} resizeMode="cover" />
+                            <CachedImage source={item.image} style={styles.galleryImage} resizeMode="cover" />
                             <View style={styles.galleryOverlay}>
                                 <Text style={styles.galleryTitle}>{item.title}</Text>
                             </View>

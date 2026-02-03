@@ -190,7 +190,15 @@ export default function RegisterScreen() {
         case STEPS.COMPLETE:
           return <InteractiveCompleteScreen navigation={completeNavigation} />;
         default:
-          return null;
+          console.warn('⚠️ Register: Invalid step reached:', step);
+          return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <Text>Redirecting to Login...</Text>
+              <TouchableOpacity onPress={() => setStep(STEPS.LOGIN)}>
+                <Text style={{ color: '#E30512', marginTop: 10 }}>Go Back</Text>
+              </TouchableOpacity>
+            </View>
+          );
       }
     } catch (error) {
       console.error('Error rendering step:', step, error);

@@ -323,7 +323,7 @@ export default function InteractiveGoogleSigninScreen() {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
             <View style={styles.container}>
                 {/* Gradient Background */}

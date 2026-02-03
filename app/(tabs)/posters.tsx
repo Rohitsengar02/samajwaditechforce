@@ -24,6 +24,7 @@ import { Button } from 'react-native-paper';
 import { getApiUrl } from '../../utils/api';
 import { TranslatedText } from '../../components/TranslatedText';
 import DesktopPosters from '../desktop-screen-pages/posters';
+import CachedImage from '../../components/CachedImage';
 
 const { width } = Dimensions.get('window');
 const SP_RED = '#E30512';
@@ -222,8 +223,8 @@ export default function PostersScreen() {
                                 disabled={downloading === poster._id}
                             >
                                 {/* Poster Image */}
-                                <Image
-                                    source={{ uri: poster.imageUrl }}
+                                <CachedImage
+                                    source={poster.imageUrl}
                                     style={styles.posterImage}
                                     resizeMode="cover"
                                 />

@@ -26,6 +26,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import DesktopHeader from '../components/DesktopHeader';
 import { newsAPI, News, Comment } from '@/services/newsAPI';
+import CachedImage from '../components/CachedImage';
 
 // Samajwadi Theme Colors
 const SP_RED = '#E30512';
@@ -69,9 +70,9 @@ const renderContent = (content: any[]) => {
                 return <Text key={index} style={styles.contentText}>{item.content}</Text>;
             case 'image':
                 return (
-                    <Image
+                    <CachedImage
                         key={index}
-                        source={{ uri: item.content }}
+                        source={item.content}
                         style={styles.contentImage}
                         resizeMode="cover"
                     />

@@ -28,6 +28,8 @@ import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { WebView } from 'react-native-webview';
 import { TranslatedText } from '../components/TranslatedText';
 import { getApiUrl, getBaseUrl } from '../utils/api';
+import CachedVideo from '../components/CachedVideo';
+import { useQuery } from '@tanstack/react-query';
 
 const { width, height } = Dimensions.get('window');
 const SP_RED = '#E30512';
@@ -176,9 +178,9 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike, onComment, onShare, o
     return (
         <View style={[styles.reelContainer, containerStyle]}>
             <View style={styles.videoContainer}>
-                <Video
+                <CachedVideo
                     ref={videoRef}
-                    source={{ uri: item.videoUrl }}
+                    source={item.videoUrl}
                     style={styles.video}
                     resizeMode={ResizeMode.COVER}
                     shouldPlay={shouldPlay}
@@ -333,17 +335,28 @@ export default function ReelsPage() {
         setToastVisible(true);
     };
 
+    const fetchReelsFn = async () => {
+        const url = getApiUrl();
+        const res = await fetch(`${url}/reels`);
+        const data = await res.json();
+        return data;
+    };
+
+    const { data: apiData, isLoading: isQueryLoading, refetch } = useQuery({
+        queryKey: ['reels'],
+        queryFn: fetchReelsFn,
+        staleTime: 1000 * 60 * 60, // 1 hour cache
+    });
+
     useEffect(() => {
-        fetchReels();
-    }, []);
+        if (apiData) {
+            processReelsData(apiData);
+            setLoading(false);
+        }
+    }, [apiData]);
 
-    const fetchReels = async () => {
+    const processReelsData = async (data: any) => {
         try {
-            setLoading(true);
-            const url = getApiUrl();
-            const res = await fetch(`${url}/reels`);
-            const data = await res.json();
-
             // Get user info
             const AsyncStorage = require('@react-native-async-storage/async-storage').default;
             const userInfoStr = await AsyncStorage.getItem('userInfo');
@@ -384,9 +397,7 @@ export default function ReelsPage() {
                 setReels(infiniteReels);
             }
         } catch (err) {
-            console.error('Failed to fetch reels:', err);
-        } finally {
-            setLoading(false);
+            console.error('Failed to process reels:', err);
         }
     };
 

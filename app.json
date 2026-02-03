@@ -11,7 +11,7 @@
       "com.googleusercontent.apps.905993531472-8nh7kkchsn6rvgba1ss7oq3jabtf4std"
     ],
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
@@ -98,8 +98,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4236b374-1227-4a2d-96d1-209d6b20e081"
+        "projectId": "ac41f7d9-50aa-49ac-8ea5-b3a643bc0ef9"
       }
-    }
+    },
+    "owner": "adarsh5544"
   }
 }
