@@ -27,10 +27,19 @@ export default function ExportMaster() {
     return (
         <View style={{ width: MASTER_WIDTH, height: MASTER_HEIGHT, backgroundColor: '#fff', position: 'relative', overflow: 'hidden' }}>
             {/* 1. Main Background Template */}
-            <Image
-                source={{ uri: config.currentImage }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
+            {/* 1. Main Background Template - Use HTML img for Web/Puppeteer to support CORS */}
+            <img
+                src={config.currentImage}
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                }}
+                crossOrigin="anonymous"
+                alt="Poster Background"
             />
 
             {/* 2. Custom Layers */}
@@ -60,10 +69,15 @@ export default function ExportMaster() {
                         </Text>
                     )}
                     {el.type === 'image' && (
-                        <Image
-                            source={{ uri: el.content }}
-                            style={{ width: el.width, height: el.height }}
-                            resizeMode="contain"
+                        <img
+                            src={el.content}
+                            style={{
+                                width: el.width,
+                                height: el.height,
+                                objectFit: 'contain'
+                            }}
+                            crossOrigin="anonymous"
+                            alt="Sticker"
                         />
                     )}
                 </View>

@@ -706,14 +706,51 @@ export default function DesktopPosterEditor() {
         setIsSaving(true);
 
         try {
+            // Helper to convert Blob/File URI to Base64
+            const convertToBase64 = async (uri: string | null): Promise<string | null> => {
+                if (!uri) return null;
+                // If it's already a remote URL (http/https) or base64 (data:), return as is
+                if (uri.startsWith('http') || uri.startsWith('data:')) return uri;
+
+                // If local blob/file, convert to base64
+                try {
+                    const response = await fetch(uri);
+                    const blob = await response.blob();
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (e) {
+                    console.warn('Failed to convert blob to base64:', e);
+                    return uri; // Fallback
+                }
+            };
+
+            const processedDetails = { ...bottomBarDetails };
+            processedDetails.photo = await convertToBase64(processedDetails.photo);
+            processedDetails.photoNoBg = await convertToBase64(processedDetails.photoNoBg);
+
+            // Process Elements (Stickers/Added Images)
+            const processedElements = await Promise.all(elements.map(async (el) => {
+                if (el.type === 'image' && el.content) {
+                    return {
+                        ...el,
+                        content: await convertToBase64(el.content)
+                    };
+                }
+                return el;
+            }));
+
             // --- PRO BLUEPRINT ARCHITECTURE ---
             const designBlueprint = {
                 currentImage,
-                elements,
+                elements: processedElements,
                 canvasWidth: canvasSize.w,
                 canvasHeight: canvasSize.h,
                 selectedTemplate: selectedBottomBarTemplate,
-                details: bottomBarDetails,
+                details: processedDetails,
                 customization: {}
             };
 

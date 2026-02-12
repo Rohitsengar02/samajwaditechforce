@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, ImageBackground, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, ImageBackground, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -11,6 +11,8 @@ const logo = require('../../assets/images/icon.png');
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
+
+const WEB_PROPS = Platform.OS === 'web' ? { crossOrigin: 'anonymous' } : {};
 
 // Helper function to get social media icon
 const getSocialIcon = (platform?: string): string => {
@@ -103,7 +105,7 @@ const BoldStripBar = ({ details, width, customization, onPhotoPress }: TemplateP
                     }]}
                 >
                     {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={styles.photo} />
+                        <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={styles.photo} />
                     ) : (
                         <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                     )}
@@ -185,7 +187,7 @@ const MinimalWhiteBar = ({ details, width, customization }: TemplateProps) => {
                     borderWidth: customization?.imageBorderWidth || 2,
                 }]}>
                     {details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={[styles.photo, { borderRadius: 10 }]} />
+                        <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={[styles.photo, { borderRadius: 10 }]} />
                     ) : (
                         <Image source={require('../../assets/images/icon.png')} style={[styles.photo, { borderRadius: 10 }]} />
                     )}
@@ -262,7 +264,7 @@ const RedAccentBar = ({ details, width, customization }: TemplateProps) => {
                             borderWidth: 2,
                         }]}>
                             {details?.photo ? (
-                                <Image source={{ uri: details.photo }} style={styles.photo} />
+                                <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={styles.photo} />
                             ) : (
                                 <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                             )}
@@ -357,7 +359,7 @@ const YellowThemeBar = ({ details, width, customization }: TemplateProps) => {
                         borderWidth: 3,
                     }]}>
                         {details?.photo ? (
-                            <Image source={{ uri: details.photo }} style={styles.photo} />
+                            <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={styles.photo} />
                         ) : (
                             <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                         )}
@@ -426,7 +428,7 @@ const GradientWaveBar = ({ details, width, customization, onPhotoPress }: Templa
                         borderWidth: 2,
                     }]}>
                         {details?.photo ? (
-                            <Image source={{ uri: details.photo }} style={styles.photo} />
+                            <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={styles.photo} />
                         ) : (
                             <Image source={require('../../assets/images/icon.png')} style={styles.photo} />
                         )}
@@ -493,9 +495,9 @@ const StfBoldFrame = ({ details, width, customization, photoPosition, isPhotoFli
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
                     {details?.photoNoBg ? (
-                        <Image source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Image {...(WEB_PROPS as any)} source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
@@ -551,9 +553,9 @@ const StfRoundedFrame = ({ details, width, customization, photoPosition, isPhoto
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
                     {details?.photoNoBg ? (
-                        <Image source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Image {...(WEB_PROPS as any)} source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
@@ -614,9 +616,9 @@ const StfTabbedFrame = ({ details, width, customization, photoPosition, isPhotoF
                     transform: [{ scaleX: isPhotoFlipped ? -1 : 1 }]
                 }}>
                     {details?.photoNoBg ? (
-                        <Image source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Image {...(WEB_PROPS as any)} source={{ uri: details.photoNoBg }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : details?.photo ? (
-                        <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons name="account" size={80} color="#cbd5e1" />
@@ -687,7 +689,7 @@ const ImageFrame1 = ({ details, width, customization }: TemplateProps) => {
                 <View style={{ marginBottom: 15 }}>
                     <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
                         {details?.photo ? (
-                            <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
+                            <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
                         ) : (
                             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                                 <MaterialCommunityIcons name="account" size={40} color="#cbd5e1" />
@@ -734,7 +736,7 @@ const ImageFrame2 = ({ details, width, customization }: TemplateProps) => {
                 <View style={{ marginBottom: 15 }}>
                     <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
                         {details?.photo ? (
-                            <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
+                            <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
                         ) : (
                             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                                 <MaterialCommunityIcons name="account" size={40} color="#cbd5e1" />
@@ -781,7 +783,7 @@ const ImageFrame3 = ({ details, width, customization }: TemplateProps) => {
                 <View style={{ marginBottom: 15 }}>
                     <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#fff', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
                         {details?.photo ? (
-                            <Image source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
+                            <Image {...(WEB_PROPS as any)} source={{ uri: details.photo }} style={{ width: '100%', height: '100%' }} />
                         ) : (
                             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                                 <MaterialCommunityIcons name="account" size={40} color="#cbd5e1" />
