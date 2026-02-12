@@ -1106,7 +1106,7 @@ export default function DesktopPosterEditor() {
                                         setSharedImageUrl(remoteUrl);
                                     }
                                 } catch (uerr) {
-                                    console.error('Cloudinary upload error:', uerr);
+                                    console.error('Share upload error:', uerr);
                                 } finally {
                                     setIsUploadingForShare(false);
                                     setIsCapturing(false);

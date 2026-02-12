@@ -967,7 +967,7 @@ export default function PosterEditor() {
                         }
 
                         if (action === 'share') {
-                            // Upload to Cloudinary for better sharing previews
+                            // Upload to R2 for better sharing previews
                             setIsUploadingForShare(true);
                             try {
                                 const uploadResponse = await fetch(`${API_URL}/upload/poster-share`, {
@@ -980,7 +980,7 @@ export default function PosterEditor() {
                                     setSharedImageUrl(uploadResult.data.url);
                                 }
                             } catch (uerr) {
-                                console.error('Cloudinary upload error:', uerr);
+                                console.error('Share upload error:', uerr);
                             } finally {
                                 setIsUploadingForShare(false);
                             }

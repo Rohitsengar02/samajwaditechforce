@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import IDCardPreview from './IDCardPreview';
+import { uploadImageToAPI } from '../../utils/upload';
 
 const { width, height } = Dimensions.get('window');
 
@@ -132,38 +133,15 @@ export default function MemberFormScreen() {
             const imageUri = result.assets[0].uri;
 
             try {
-                // Upload to Cloudinary
-                const formData = new FormData();
-                formData.append('file', {
-                    uri: imageUri,
-                    type: 'image/jpeg',
-                    name: `member_${Date.now()}.jpg`,
-                } as any);
-                formData.append('upload_preset', 'patelpulse478');
-                formData.append('cloud_name', 'djufxsut9');
-
-                const response = await fetch(
-                    'https://api.cloudinary.com/v1_1/djufxsut9/image/upload',
-                    {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                        },
-                    }
-                );
-
-                const data = await response.json();
-
-                if (data.secure_url) {
-                    // Store the Cloudinary URL
-                    setPhotoUri(data.secure_url);
+                // Upload to R2 via Backend API
+                const uploadedUrl = await uploadImageToAPI(imageUri, 'members');
+                if (uploadedUrl) {
+                    setPhotoUri(uploadedUrl);
                 } else {
-                    // Fallback to local URI
                     setPhotoUri(imageUri);
                 }
             } catch (error) {
-                console.error('Cloudinary upload error:', error);
+                console.error('Upload error:', error);
                 // Fallback to local URI
                 setPhotoUri(imageUri);
             }

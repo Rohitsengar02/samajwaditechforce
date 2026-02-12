@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getApiUrl } from '../utils/api';
+import { uploadImageToAPI } from '../utils/upload';
 
 // Samajwadi Theme Colors
 const SP_RED = '#E30512';
@@ -72,45 +73,7 @@ export default function EditProfileScreen() {
         }
     };
 
-    // Cloudinary Config
-    const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dssmutzly/image/upload";
-    const UPLOAD_PRESET = "multimallpro";
 
-    const uploadImageToCloudinary = async (uri: string) => {
-        const data = new FormData();
-
-        try {
-            if (Platform.OS === 'web') {
-                const response = await fetch(uri);
-                const blob = await response.blob();
-                data.append('file', blob, 'profile_image.jpg');
-            } else {
-                data.append('file', {
-                    uri,
-                    type: 'image/jpeg',
-                    name: 'profile_image.jpg',
-                } as any);
-            }
-
-            data.append('upload_preset', UPLOAD_PRESET);
-            data.append('cloud_name', 'dssmutzly');
-
-            const res = await fetch(CLOUDINARY_URL, {
-                method: 'POST',
-                body: data,
-            });
-            const result = await res.json();
-            if (result.secure_url) {
-                return result.secure_url;
-            } else {
-                console.error('Cloudinary Error:', result);
-                throw new Error('Image upload failed');
-            }
-        } catch (error) {
-            console.error('Cloudinary Upload Error:', error);
-            return null;
-        }
-    };
 
     const handleSave = async () => {
         setLoading(true);
@@ -120,10 +83,12 @@ export default function EditProfileScreen() {
             // Upload image if it's a local URI (not already a URL)
             if (profileImage && !profileImage.startsWith('http')) {
                 setUploading(true);
-                const uploadedUrl = await uploadImageToCloudinary(profileImage);
-                if (uploadedUrl) {
-                    imageUrl = uploadedUrl;
-                } else {
+                try {
+                    const uploadedUrl = await uploadImageToAPI(profileImage, 'users');
+                    if (uploadedUrl) {
+                        imageUrl = uploadedUrl;
+                    }
+                } catch (error) {
                     Alert.alert('Error', 'Failed to upload image');
                     setLoading(false);
                     setUploading(false);
