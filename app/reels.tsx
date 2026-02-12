@@ -23,7 +23,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { WebView } from 'react-native-webview';
 import { TranslatedText } from '../components/TranslatedText';
@@ -302,16 +302,19 @@ const Toast = ({ visible, message, onHide }: any) => {
 
 export default function ReelsPage() {
     const router = useRouter();
-    // Safely get search params for web compatibility
-    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const initialReelId = params ? params.get('id') : null;
+    const params = useLocalSearchParams();
+    const initialReelId = params.id as string;
 
     const [activeIndex, setActiveIndex] = useState(0);
     const [reels, setReels] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     // Comment Modal State
+    // ... (rest of the state remains same)
     const [showCommentModal, setShowCommentModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [selectedReel, setSelectedReel] = useState<any>(null);
@@ -335,27 +338,40 @@ export default function ReelsPage() {
         setToastVisible(true);
     };
 
-    const fetchReelsFn = async () => {
-        const url = getApiUrl();
-        const res = await fetch(`${url}/reels`);
-        const data = await res.json();
-        return data;
+    const fetchReels = async (pageNum: number = 1) => {
+        try {
+            if (pageNum === 1) setLoading(true);
+            else setLoadingMore(true);
+
+            const url = getApiUrl();
+            const res = await fetch(`${url}/reels?page=${pageNum}&limit=5`);
+            const data = await res.json();
+
+            if (data.success && Array.isArray(data.data)) {
+                await processReelsData(data, pageNum > 1);
+
+                if (data.pagination) {
+                    setHasMore(data.pagination.current < data.pagination.total);
+                } else {
+                    setHasMore(data.data.length > 0);
+                }
+            } else {
+                setHasMore(false);
+            }
+        } catch (error) {
+            console.error('Fetch reels error:', error);
+            setHasMore(false);
+        } finally {
+            setLoading(false);
+            setLoadingMore(false);
+        }
     };
 
-    const { data: apiData, isLoading: isQueryLoading, refetch } = useQuery({
-        queryKey: ['reels'],
-        queryFn: fetchReelsFn,
-        staleTime: 1000 * 60 * 60, // 1 hour cache
-    });
-
     useEffect(() => {
-        if (apiData) {
-            processReelsData(apiData);
-            setLoading(false);
-        }
-    }, [apiData]);
+        fetchReels(1);
+    }, []);
 
-    const processReelsData = async (data: any) => {
+    const processReelsData = async (data: any, append: boolean = false) => {
         try {
             // Get user info
             const AsyncStorage = require('@react-native-async-storage/async-storage').default;
@@ -375,29 +391,35 @@ export default function ReelsPage() {
                     sharesCount: item.shares?.length || 0,
                     downloadsCount: item.downloads?.length || 0,
                     isLiked: userId ? item.likes?.some((l: any) => l.user?.toString() === userId) : false,
+                    uniqueKey: `${item._id}-${Math.random()}`
                 }));
 
-                // Handle Shared Reel ID
-                if (initialReelId) {
-                    const sharedReelIndex = mappedReels.findIndex((r: any) => r.id === initialReelId);
-                    if (sharedReelIndex !== -1) {
-                        // Move shared reel to the top
-                        const sharedReel = mappedReels[sharedReelIndex];
-                        mappedReels.splice(sharedReelIndex, 1);
-                        mappedReels.unshift(sharedReel);
+                if (append) {
+                    setReels(prev => [...prev, ...mappedReels]);
+                } else {
+                    // Handle Shared Reel ID
+                    if (initialReelId) {
+                        const sharedReelIndex = mappedReels.findIndex((r: any) => r.id === initialReelId);
+                        if (sharedReelIndex !== -1) {
+                            // Move shared reel to the top
+                            const sharedReel = mappedReels[sharedReelIndex];
+                            mappedReels.splice(sharedReelIndex, 1);
+                            mappedReels.unshift(sharedReel);
+                        }
                     }
+                    setReels(mappedReels);
                 }
-
-                // Create infinite scroll by duplicating reels with unique keys
-                const infiniteReels = [
-                    ...mappedReels.map((r: any, i: number) => ({ ...r, uniqueKey: `set1-${r.id}-${i}` })),
-                    ...mappedReels.map((r: any, i: number) => ({ ...r, uniqueKey: `set2-${r.id}-${i}` })),
-                    ...mappedReels.map((r: any, i: number) => ({ ...r, uniqueKey: `set3-${r.id}-${i}` })),
-                ];
-                setReels(infiniteReels);
             }
         } catch (err) {
             console.error('Failed to process reels:', err);
+        }
+    };
+
+    const loadMore = () => {
+        if (!loadingMore && hasMore) {
+            const nextPage = page + 1;
+            setPage(nextPage);
+            fetchReels(nextPage);
         }
     };
 
@@ -721,28 +743,6 @@ export default function ReelsPage() {
         if (viewableItems.length > 0) {
             const newIndex = viewableItems[0].index;
             setActiveIndex(newIndex);
-
-            // Infinite scroll logic - when reaching end, jump back to middle set
-            if (reels.length > 0) {
-                const originalLength = reels.length / 3;
-                if (newIndex >= reels.length - 2) {
-                    // Near end, jump to middle set
-                    setTimeout(() => {
-                        flatListRef.current?.scrollToIndex({
-                            index: originalLength,
-                            animated: false,
-                        });
-                    }, 100);
-                } else if (newIndex <= 1) {
-                    // Near start, jump to middle set
-                    setTimeout(() => {
-                        flatListRef.current?.scrollToIndex({
-                            index: originalLength + newIndex,
-                            animated: false,
-                        });
-                    }, 100);
-                }
-            }
         }
     }).current;
 
@@ -800,11 +800,15 @@ export default function ReelsPage() {
                 decelerationRate="fast"
                 onViewableItemsChanged={onViewableItemsChanged}
                 viewabilityConfig={viewabilityConfig}
-                getItemLayout={(data, index) => ({
-                    length: windowHeight,
-                    offset: windowHeight * index,
-                    index,
-                })}
+                onEndReached={loadMore}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={() => (
+                    loadingMore ? (
+                        <View style={[styles.loadingMore, { height: 100, justifyContent: 'center' }]}>
+                            <ActivityIndicator size="small" color={SP_RED} />
+                        </View>
+                    ) : null
+                )}
                 ListEmptyComponent={
                     <View style={[styles.emptyContainer, { height: windowHeight }]}>
                         <MaterialCommunityIcons name="video-off-outline" size={80} color="#666" />
@@ -1095,6 +1099,10 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         marginTop: 16,
+    },
+    loadingMore: {
+        paddingVertical: 20,
+        alignItems: 'center',
     },
     emptyContainer: {
         height: height,

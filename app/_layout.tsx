@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { Provider as PaperProvider } from 'react-native-paper';
+import socketService from '../services/socketService';
 
 // Google Analytics Configuration
 const GA_MEASUREMENT_ID = 'G-7T9VMCWJYH';
@@ -73,14 +74,22 @@ export default function RootLayout() {
         // Initialize Google Analytics
         initGoogleAnalytics();
 
-        const userToken = await AsyncStorage.getItem('userToken');
-        // NOTE: We allow 'register' even if userToken exists to support the multi-step profile setup flow
-        const inAuthGroup = ['signin', 'onboarding'].includes(currentRoute as string);
+        // Safety timeout to ensure splash screen hides even if async storage hangs
+        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3000));
 
-        if (userToken && inAuthGroup) {
-          // User is logged in but trying to access auth screens, redirect to tabs
-          router.replace('/(tabs)');
-        }
+        const authPromise = (async () => {
+          const userToken = await AsyncStorage.getItem('userToken');
+          // NOTE: We allow 'register' even if userToken exists to support the multi-step profile setup flow
+          const inAuthGroup = ['signin', 'onboarding'].includes(currentRoute as string);
+
+          if (userToken && inAuthGroup) {
+            // User is logged in but trying to access auth screens, redirect to tabs
+            router.replace('/(tabs)');
+          }
+        })();
+
+        // Wait for auth OR timeout, whichever comes first (to prevent black screen hang)
+        await Promise.race([authPromise, timeoutPromise]);
 
         setAppIsReady(true);
       } catch (e) {
@@ -121,7 +130,6 @@ export default function RootLayout() {
   useEffect(() => {
     try {
       // Setup Socket.IO connection for notifications
-      const socketService = require('../services/socketService').default;
       socketService.connect();
 
       // Listener for when notification is received while app is in foreground

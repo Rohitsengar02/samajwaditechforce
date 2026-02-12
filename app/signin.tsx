@@ -20,6 +20,7 @@ import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../utils/api';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -54,30 +55,12 @@ function MobileSignInScreen() {
   const [loading, setLoading] = useState(false);
 
 
-  // Google OAuth Hook
-  // Different redirect URIs for web vs native
-  const redirectUri = Platform.OS === 'web'
-    ? (typeof window !== 'undefined' ? `${window.location.origin}/auth` : AuthSession.makeRedirectUri({ path: 'auth' }))
-    : AuthSession.makeRedirectUri({
-      path: 'auth',
-      preferLocalhost: false,
+  useEffect(() => {
+    // Initialize native Google Sign-In
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
     });
-
-  // For native dev, use Expo proxy (update to match new owner)
-  const proxyRedirectUri = Platform.OS === 'web' ? redirectUri : "https://auth.expo.io/@gaga4422/samajwadi-party";
-
-  const config: any = {
-    clientId: GOOGLE_WEB_CLIENT_ID,
-    // Use web redirect URI for web, proxy for native dev
-    redirectUri: Platform.OS === 'web' ? redirectUri : (__DEV__ ? proxyRedirectUri : redirectUri)
-  };
-
-  console.log('🔹 Mobile Sign In - Using redirectUri:', config.redirectUri);
-
-  if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
-  if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
-
-  const [request, response, promptAsync] = Google.useAuthRequest(config);
+  }, []);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -98,39 +81,21 @@ function MobileSignInScreen() {
     ]).start();
   }, []);
 
-  // Handle Google Response
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.accessToken) {
-        handleGoogleBackendSync(authentication.accessToken);
-      }
-    } else if (response?.type === 'error') {
-      console.error('Google Auth Error:', response.error);
-      Alert.alert('Authentication Error', 'Could not sign in with Google. Check Redirect URI configuration.');
-    }
-  }, [response]);
+  // Handle Google Response removed - logic moved to handleGoogleLogin
 
-  const handleGoogleBackendSync = async (accessToken: string) => {
+  const handleBackendSync = async (user: any) => {
     try {
       setLoading(true);
-      // 1. Get User Details from Google
-      const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const userInfo = await userInfoResponse.json();
-      console.log('🔹 Google User Info:', userInfo);
-
-      // 2. Call Backend API to Create/Login User
+      // 1. Call Backend API to Create/Login User
       const apiUrl = getApiUrl();
       const backendResponse = await fetch(`${apiUrl}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: userInfo.email,
-          name: userInfo.name,
-          photo: userInfo.picture,
-          googleId: userInfo.id
+          email: user.email,
+          name: user.name,
+          photo: user.photo,
+          googleId: user.id
         })
       });
 
@@ -154,7 +119,7 @@ function MobileSignInScreen() {
         // Redirect to Profile Setup for new users
         router.push({
           pathname: '/profile-setup',
-          params: { googleData: JSON.stringify({ name: userInfo.name, email: userInfo.email, photo: userInfo.picture }) }
+          params: { googleData: JSON.stringify({ name: user.name, email: user.email, photo: user.photo }) }
         });
       } else {
         router.push('/(tabs)');
@@ -168,41 +133,30 @@ function MobileSignInScreen() {
   };
 
   const handleGoogleLogin = async () => {
-    // Check if Google Client IDs are configured
-    if (!GOOGLE_WEB_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_IOS_CLIENT_ID) {
-      Alert.alert("Configuration Missing", "Google Client IDs are not configured.");
-      return;
-    }
+    setLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      console.log('🔹 Native Google Response:', response);
 
-    // Force show the Redirect URI
-    const uriToShow = Platform.OS === 'web'
-      ? (typeof window !== 'undefined' ? `${window.location.origin}/auth` : AuthSession.makeRedirectUri({ path: 'auth' }))
-      : (__DEV__ ? proxyRedirectUri : redirectUri);
-
-    console.log('🔹 LOGIN Redirect URI:', uriToShow);
-
-    // On Web, alert might fail or look bad, and we need direct user interaction for popup
-    if (Platform.OS === 'web') {
-      promptAsync();
-      return;
-    }
-
-    if (__DEV__) {
-      Alert.alert(
-        "Redirect URI Info",
-        `Please ensure this URI is added to Google Cloud Console > Authorized redirect URIs:\n\n${uriToShow}`,
-        [{
-          text: "Continue",
-          onPress: () => {
-            promptAsync();
-          }
-        }, {
-          text: "Cancel",
-          style: 'cancel'
-        }]
-      );
-    } else {
-      promptAsync();
+      const user = response.data?.user;
+      if (user) {
+        handleBackendSync(user);
+      } else {
+        setLoading(false);
+      }
+    } catch (error: any) {
+      setLoading(false);
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        console.log('🔹 User cancelled login');
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        console.log('🔹 Sign in in progress');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert('Error', 'Google Play Services not available');
+      } else {
+        console.error('Google login error:', error);
+        Alert.alert('Error', `Failed to start Google sign-in: ${error.message}`);
+      }
     }
   };
 

@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import verifiedUsersData from './(tabs)/समाजवादी टेक फोर्स से जुड़ें — बने समाजवाद की डिजिटल आवाज़! (Responses) (5).json';
+import verifiedUsersData from './(tabs)/verified_users.json';
 import { getApiUrl } from '../utils/api';
 
 const { width, height } = Dimensions.get('window');

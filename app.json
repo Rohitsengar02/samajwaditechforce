@@ -2,13 +2,16 @@
   "expo": {
     "name": "STF",
     "slug": "samajwadi-party",
+    "owner": "rudra553",
     "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "samajwaditechforce",
     "schemes": [
       "samajwaditechforce",
-      "com.googleusercontent.apps.905993531472-8nh7kkchsn6rvgba1ss7oq3jabtf4std"
+      "com.googleusercontent.apps.905993531472-8nh7kkchsn6rvgba1ss7oq3jabtf4std",
+      "com.googleusercontent.apps.905993531472-3q8foue2jcv6ber6o9gjai01hus46vqg",
+      "com.googleusercontent.apps.905993531472-4s0s7hf5r13rh1khmbi3or439vtj99qv"
     ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
@@ -98,9 +101,8 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ac41f7d9-50aa-49ac-8ea5-b3a643bc0ef9"
+        "projectId": "b88b0a29-0fc4-4e41-9576-8b8faffd5d23"
       }
-    },
-    "owner": "adarsh5544"
+    }
   }
 }

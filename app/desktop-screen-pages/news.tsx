@@ -18,6 +18,9 @@ export default function DesktopNews() {
     const isMobile = width < 768;
     const [news, setNews] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('all');
 
     // Interaction State
@@ -57,7 +60,7 @@ export default function DesktopNews() {
 
     useEffect(() => {
         if (userInfo) {
-            fetchNews();
+            fetchNews(1);
         }
     }, [userInfo]);
 
@@ -95,20 +98,47 @@ export default function DesktopNews() {
         }
     };
 
-    const fetchNews = async () => {
+    const fetchNews = async (pageNum: number = 1) => {
         try {
+            if (pageNum === 1) setLoading(true);
+            else setLoadingMore(true);
+
             const url = getApiUrl();
-            const res = await fetch(`${url}/news`);
+            const res = await fetch(`${url}/news?page=${pageNum}&limit=9`);
             const data = await res.json();
+
             if (data.success && Array.isArray(data.data)) {
                 // Filter only 'News' type items
                 const newsItems = data.data.filter((item: any) => !item.type || item.type === 'News');
-                setNews(newsItems);
+
+                if (pageNum === 1) {
+                    setNews(newsItems);
+                } else {
+                    setNews(prev => [...prev, ...newsItems]);
+                }
+
+                if (data.pagination) {
+                    setHasMore(data.pagination.current < data.pagination.total);
+                } else {
+                    setHasMore(newsItems.length > 0);
+                }
+            } else {
+                setHasMore(false);
             }
         } catch (error) {
             console.error('Error fetching news:', error);
+            setHasMore(false);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
+        }
+    };
+
+    const loadMore = () => {
+        if (!loadingMore && hasMore) {
+            const nextPage = page + 1;
+            setPage(nextPage);
+            fetchNews(nextPage);
         }
     };
 
@@ -607,11 +637,21 @@ export default function DesktopNews() {
                 )}
 
                 {/* Load More Button */}
-                {!loading && filteredNews.length > 9 && (
+                {!loading && hasMore && (
                     <View style={styles.loadMoreContainer}>
-                        <Pressable style={styles.loadMoreBtn}>
-                            <Text style={styles.loadMoreText}>Load More Articles</Text>
-                            <MaterialCommunityIcons name="chevron-down" size={20} color={SP_RED} />
+                        <Pressable
+                            style={[styles.loadMoreBtn, loadingMore && { opacity: 0.7 }]}
+                            onPress={loadMore}
+                            disabled={loadingMore}
+                        >
+                            {loadingMore ? (
+                                <ActivityIndicator size="small" color={SP_RED} />
+                            ) : (
+                                <>
+                                    <Text style={styles.loadMoreText}>Load More Articles</Text>
+                                    <MaterialCommunityIcons name="chevron-down" size={20} color={SP_RED} />
+                                </>
+                            )}
                         </Pressable>
                     </View>
                 )}

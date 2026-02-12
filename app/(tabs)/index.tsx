@@ -23,7 +23,7 @@ import CachedImage from '../../components/CachedImage';
 
 let volunteersData: any[] = [];
 try {
-  const rawData = require('./समाजवादी टेक फोर्स से जुड़ें — बने समाजवाद की डिजिटल आवाज़! (Responses) (5).json');
+  const rawData = require('./verified_users.json');
   volunteersData = (rawData as any).default || rawData;
   if (!Array.isArray(volunteersData) || volunteersData.length === 0) {
     volunteersData = DEFAULT_VOLUNTEERS;

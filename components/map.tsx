@@ -15,8 +15,8 @@ interface MapProps {
 export default function Map({ location, onRegionChangeComplete }: MapProps) {
     const webViewRef = useRef<WebView>(null);
 
-    const htmlContent = 
-    < !DOCTYPE html>
+    const htmlContent = `
+    <!DOCTYPE html>
         <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -80,7 +80,7 @@ export default function Map({ location, onRegionChangeComplete }: MapProps) {
 
     useEffect(() => {
         if (location && webViewRef.current) {
-            webViewRef.current.injectJavaScript(`updateLocation(${ location.lat }, ${ location.lng }); true; `);
+            webViewRef.current.injectJavaScript(`updateLocation(${location.lat}, ${location.lng}); true; `);
         }
     }, [location]);
 

@@ -10,6 +10,7 @@ import {
     Dimensions,
     Platform,
     Alert,
+    FlatList,
     RefreshControl,
     Modal,
     TouchableWithoutFeedback
@@ -204,68 +205,68 @@ export default function PostersScreen() {
                 </Text>
             </LinearGradient>
 
-            <ScrollView
-                style={styles.scrollView}
+            <FlatList
+                data={posters}
+                keyExtractor={(item) => item._id}
+                numColumns={2}
+                columnWrapperStyle={styles.columnWrapper}
                 contentContainerStyle={styles.scrollContent}
-                onScroll={handleScroll}
-                scrollEventThrottle={16}
+                onEndReached={loadMore}
+                onEndReachedThreshold={0.5}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[SP_RED]} />
                 }
-            >
-                {/* Posters Grid - 2 per row */}
-                <View style={styles.postersGrid}>
-                    {posters.map((poster) => (
-                        <View key={poster._id} style={{ width: '48%', marginBottom: 12 }}>
-                            <TouchableOpacity
-                                style={styles.posterCard}
-                                onPress={() => handlePosterPress(poster)}
-                                disabled={downloading === poster._id}
-                            >
-                                {/* Poster Image */}
-                                <CachedImage
-                                    source={poster.imageUrl}
-                                    style={styles.posterImage}
-                                    resizeMode="cover"
-                                />
+                renderItem={({ item: poster }) => (
+                    <View style={{ width: '48%', marginBottom: 12 }}>
+                        <TouchableOpacity
+                            style={styles.posterCard}
+                            onPress={() => handlePosterPress(poster)}
+                            disabled={downloading === poster._id}
+                        >
+                            {/* Poster Image */}
+                            <CachedImage
+                                source={poster.imageUrl}
+                                style={styles.posterImage}
+                                resizeMode="cover"
+                            />
 
-                                {/* Edit Overlay Hint */}
-                                <View style={styles.editOverlay}>
-                                    <MaterialCommunityIcons name="pencil-circle" size={32} color="#fff" />
+                            {/* Edit Overlay Hint */}
+                            <View style={styles.editOverlay}>
+                                <MaterialCommunityIcons name="pencil-circle" size={32} color="#fff" />
+                            </View>
+
+                            {/* Download Indicator */}
+                            {downloading === poster._id && (
+                                <View style={styles.downloadingOverlay}>
+                                    <ActivityIndicator size="large" color="#fff" />
                                 </View>
+                            )}
+                        </TouchableOpacity>
 
-                                {/* Download Indicator */}
-                                {downloading === poster._id && (
-                                    <View style={styles.downloadingOverlay}>
-                                        <ActivityIndicator size="large" color="#fff" />
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.cardDownloadButton}
-                                onPress={() => handleDownload(poster)}
-                                disabled={downloading === poster._id}
-                            >
-                                {downloading === poster._id ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <>
-                                        <MaterialCommunityIcons name="download" size={16} color="#fff" style={{ marginRight: 4 }} />
-                                        <Text style={styles.cardDownloadText}>Download</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-                </View>
-
-                {loadingMore && (
-                    <View style={styles.loadingMore}>
-                        <ActivityIndicator size="small" color={SP_RED} />
+                        <TouchableOpacity
+                            style={styles.cardDownloadButton}
+                            onPress={() => handleDownload(poster)}
+                            disabled={downloading === poster._id}
+                        >
+                            {downloading === poster._id ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <>
+                                    <MaterialCommunityIcons name="download" size={16} color="#fff" style={{ marginRight: 4 }} />
+                                    <Text style={styles.cardDownloadText}>Download</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
                     </View>
                 )}
-            </ScrollView>
+                ListFooterComponent={() => (
+                    loadingMore ? (
+                        <View style={styles.loadingMore}>
+                            <ActivityIndicator size="small" color={SP_RED} />
+                        </View>
+                    ) : null
+                )}
+            />
 
             {/* Selection Modal */}
             <Modal
@@ -524,5 +525,9 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
         fontWeight: 'bold',
+    },
+    columnWrapper: {
+        justifyContent: 'space-between',
+        paddingHorizontal: 8,
     },
 });

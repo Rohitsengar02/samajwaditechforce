@@ -5,8 +5,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../utils/api';
+import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import * as AuthSession from 'expo-auth-session';
 
 // Enable web browser redirect for OAuth
 // WebBrowser.maybeCompleteAuthSession(); // MOVED: Calling this at top level can crash Android production builds
@@ -22,8 +23,6 @@ const SP_DARK = '#1a1a1a';
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-// Reverse Client ID for native Android deep linking
-const GOOGLE_REVERSE_CLIENT_ID = 'com.googleusercontent.apps.905993531472-4s0s7hf5r13rh1khmbi3or439vtj99qv';
 
 // Floating Bubble Component
 const FloatingBubble = ({ delay = 0, size = 60, color = SP_RED, duration = 8000 }: any) => {
@@ -94,23 +93,32 @@ export default function InteractiveLoginScreen({ navigation }: any) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  // Safety: Delay rendering complex UI and Initialize Google Sign-In
+  // Safety: Delay rendering complex UI to prevent navigation freeze
   useEffect(() => {
-    console.log('🔹 Configuring Google Sign-In with Web Client ID:', GOOGLE_WEB_CLIENT_ID);
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-    });
-
+    // Check auth session result safely
     if (Platform.OS === 'web') {
       WebBrowser.maybeCompleteAuthSession();
     }
 
+    // Allow navigation transition to finish before rendering heavy content
     const timer = setTimeout(() => setIsReady(true), 100);
     return () => clearTimeout(timer);
   }, []);
 
   // Check if Google OAuth is properly configured
-  const hasGoogleConfig = !!GOOGLE_WEB_CLIENT_ID;
+  const hasGoogleConfig = !!(GOOGLE_WEB_CLIENT_ID || GOOGLE_ANDROID_CLIENT_ID || GOOGLE_IOS_CLIENT_ID);
+
+  // Google OAuth Hook with SAFE configuration
+  const config: any = {
+    clientId: GOOGLE_WEB_CLIENT_ID || 'dummy-client-id',
+  };
+
+  if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
+  if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
+
+  // Only run hook if we actually have config, otherwise pass undefined to disable it
+  // (Though useAuthRequest requires config, passing a safe dummy is better)
+  const [request, response, promptAsync] = Google.useAuthRequest(config);
 
   // Animation Values
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -149,6 +157,18 @@ export default function InteractiveLoginScreen({ navigation }: any) {
     ).start();
   }, []);
 
+  // Handle Google Auth Response
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      if (authentication?.accessToken) {
+        fetchGoogleUserInfo(authentication.accessToken);
+      }
+    } else if (response?.type === 'error') {
+      setLoading(false);
+      Alert.alert('Error', 'Google sign-in failed. Please try again.');
+    }
+  }, [response]);
 
   const fetchGoogleUserInfo = async (accessToken: string) => {
     try {
@@ -194,15 +214,11 @@ export default function InteractiveLoginScreen({ navigation }: any) {
       if (backendData.isNewUser || backendResponse.status === 201) {
         // NEW USER -> Profile Setup
         console.log('🔹 New User -> Profile Setup');
-        console.log('🔹 New User -> Profile Setup');
-        router.push({
-          pathname: '/profile-setup',
-          params: {
-            googleData: JSON.stringify({
-              name: userInfo.name,
-              email: userInfo.email,
-              photo: userInfo.picture,
-            })
+        navigation.navigate('ProfileSetup', {
+          googleData: {
+            name: userInfo.name,
+            email: userInfo.email,
+            photo: userInfo.picture,
           }
         });
       } else {
@@ -235,15 +251,11 @@ export default function InteractiveLoginScreen({ navigation }: any) {
               setTimeout(() => {
                 setLoading(false);
                 // Navigate to Profile Setup page first (not Address directly)
-                // Navigate to Profile Setup page first (not Address directly)
-                router.push({
-                  pathname: '/profile-setup',
-                  params: {
-                    googleData: JSON.stringify({
-                      name: 'Test User',
-                      email: 'test@example.com',
-                      photo: '' // Empty string for no photo
-                    })
+                navigation.navigate('ProfileSetup', {
+                  googleData: {
+                    name: 'Test User',
+                    email: 'test@example.com',
+                    photo: '' // Empty string for no photo
                   }
                 });
               }, 1000);
@@ -256,80 +268,15 @@ export default function InteractiveLoginScreen({ navigation }: any) {
 
     // Real Google Sign-In
     try {
-      await GoogleSignin.hasPlayServices();
-      const response = await GoogleSignin.signIn();
-      console.log('🔹 Native Google Response:', response);
-
-      const user = response.data?.user;
-      if (user) {
-        handleBackendSync(user);
-      } else {
+      const result = await promptAsync();
+      // If result is cancelled or fails, reset loading
+      if (result.type === 'cancel' || result.type === 'dismiss') {
         setLoading(false);
-      }
-    } catch (error: any) {
-      setLoading(false);
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        console.log('🔹 User cancelled the login');
-      } else if (error.code === statusCodes.IN_PROGRESS) {
-        console.log('🔹 Sign in is already in progress');
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        Alert.alert('Error', 'Google Play Services not available');
-      } else {
-        console.error('Google login error:', error);
-        Alert.alert('Error', `Failed to start Google sign-in: ${error.message}`);
-      }
-    }
-  };
-
-  const handleBackendSync = async (user: any) => {
-    try {
-      setLoading(true);
-      const apiUrl = getApiUrl();
-      const backendResponse = await fetch(`${apiUrl}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          name: user.name,
-          photo: user.photo,
-          googleId: user.id
-        })
-      });
-
-      const backendData = await backendResponse.json();
-      console.log('🔹 Backend Response:', backendData);
-
-      setLoading(false);
-
-      if (!backendResponse.ok) {
-        throw new Error(backendData.message || 'Backend sync failed');
-      }
-
-      if (backendData) {
-        await AsyncStorage.setItem('userInfo', JSON.stringify(backendData));
-        if (backendData.token) {
-          await AsyncStorage.setItem('userToken', backendData.token);
-        }
-      }
-
-      if (backendData.isNewUser || backendResponse.status === 201) {
-        router.push({
-          pathname: '/profile-setup',
-          params: {
-            googleData: JSON.stringify({
-              name: user.name,
-              email: user.email,
-              photo: user.photo,
-            })
-          }
-        });
-      } else {
-        router.replace('/(tabs)');
       }
     } catch (error) {
       setLoading(false);
-      console.error('Error syncing with backend:', error);
-      Alert.alert('Error', 'Failed to verify user with server.');
+      console.error('Google login error:', error);
+      Alert.alert('Error', 'Failed to start Google sign-in. Please try again or use email sign-in.');
     }
   };
 
@@ -459,7 +406,7 @@ export default function InteractiveLoginScreen({ navigation }: any) {
             {/* Sign In Button */}
             <TouchableOpacity
               style={styles.signInButton}
-              onPress={() => router.push('/signin')}
+              onPress={() => navigation.navigate('LoginForm')}
               activeOpacity={0.7}
             >
               <Text style={styles.signInText}>Already have an account? </Text>
