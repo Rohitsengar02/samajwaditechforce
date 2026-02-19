@@ -14,7 +14,8 @@ import {
     Share as RNShare,
     Alert,
     TouchableWithoutFeedback,
-    useWindowDimensions
+    useWindowDimensions,
+    KeyboardAvoidingView
 } from 'react-native';
 import { Text, Button, Avatar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,6 +25,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../../utils/api';
 import { newsAPI } from '../../services/newsAPI';
 import DesktopHeader from '../../components/DesktopHeader';
+import { Dimensions } from 'react-native';
+
+const { height: screenHeight } = Dimensions.get('window');
 
 const SP_RED = '#E30512';
 const SP_GREEN = '#009933';
@@ -31,7 +35,7 @@ const SP_GREEN = '#009933';
 export default function DesktopNewsDetail() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { width } = useWindowDimensions();
+    const { width, height: windowHeight } = useWindowDimensions();
     const isMobile = width < 1024;
 
     // Data State
@@ -475,68 +479,99 @@ export default function DesktopNewsDetail() {
                 </View>
             </Modal>
 
-            {/* Comments Modal (Desktop Style: Centered Popup) */}
+            {/* Comments Modal (Mobile: Bottom Sheet | Desktop: Centered Popup) */}
             <Modal
                 visible={showCommentsModal}
                 transparent
-                animationType="fade"
+                animationType={isMobile ? "slide" : "fade"}
                 onRequestClose={() => setShowCommentsModal(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.commentsModalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Comments ({commentsCount})</Text>
-                            <TouchableOpacity onPress={() => setShowCommentsModal(false)}>
-                                <MaterialCommunityIcons name="close" size={24} color="#64748b" />
-                            </TouchableOpacity>
-                        </View>
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowCommentsModal(false)}
+                >
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        style={isMobile ? styles.mobileModalContainer : styles.modalOverlay}
+                        pointerEvents="box-none"
+                    >
+                        <TouchableWithoutFeedback onPress={() => { }}>
+                            <View style={[
+                                styles.commentsModalContent,
+                                isMobile && styles.mobileCommentsModalContent
+                            ]}>
+                                {isMobile && <View style={styles.modalGrabber} />}
 
-                        <ScrollView style={styles.commentsList}>
-                            {news?.comments && news.comments.map((comment: any, idx: number) => (
-                                <View key={comment._id || idx} style={styles.commentItem}>
-                                    <View style={[styles.commentAvatar, { backgroundColor: themeBgLight }]}>
-                                        <Text style={{ color: themeColor, fontWeight: 'bold' }}>{comment.name?.charAt(0) || 'U'}</Text>
+                                <View style={styles.modalHeader}>
+                                    <View>
+                                        <Text style={styles.modalTitle}>Comments</Text>
+                                        <Text style={styles.modalSubtitle}>{commentsCount} total thoughts</Text>
                                     </View>
-                                    <View style={{ flex: 1 }}>
-                                        <View style={styles.commentMeta}>
-                                            <Text style={styles.commentAuthor}>{comment.name}</Text>
-                                            <Text style={styles.commentDate}>
-                                                {new Date(comment.date).toLocaleDateString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </Text>
+                                    <TouchableOpacity onPress={() => setShowCommentsModal(false)} style={styles.closeBtnCircle}>
+                                        <MaterialCommunityIcons name="close" size={20} color="#64748b" />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <ScrollView
+                                    style={styles.commentsList}
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    keyboardShouldPersistTaps="handled"
+                                >
+                                    {news?.comments && news.comments.map((comment: any, idx: number) => (
+                                        <View key={comment._id || idx} style={styles.commentItem}>
+                                            <View style={[styles.commentAvatar, { backgroundColor: themeBgLight }]}>
+                                                <Text style={{ color: themeColor, fontWeight: 'bold' }}>{comment.name?.charAt(0) || 'U'}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <View style={styles.commentMeta}>
+                                                    <Text style={styles.commentAuthor}>{comment.name}</Text>
+                                                    <Text style={styles.commentDate}>
+                                                        {new Date(comment.date).toLocaleDateString('en-US', {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </Text>
+                                                </View>
+                                                <Text style={styles.commentText}>{comment.text}</Text>
+                                            </View>
                                         </View>
-                                        <Text style={styles.commentText}>{comment.text}</Text>
+                                    ))}
+                                    {!news?.comments?.length && (
+                                        <View style={{ alignItems: 'center', padding: 40 }}>
+                                            <MaterialCommunityIcons name="comment-off-outline" size={48} color="#cbd5e1" />
+                                            <Text style={{ textAlign: 'center', padding: 20, color: '#64748b', fontWeight: '600', fontSize: 16, marginTop: 12 }}>No comments yet</Text>
+                                            <Text style={{ color: '#94a3b8', fontSize: 14 }}>Be the first to share your thoughts!</Text>
+                                        </View>
+                                    )}
+                                </ScrollView>
+
+                                <View style={[styles.commentInputBox, isMobile && styles.mobileCommentInputBox]}>
+                                    <View style={styles.inputWrapper}>
+                                        <TextInput
+                                            style={styles.inputfield}
+                                            placeholder="Write a comment... (+10 Points)"
+                                            placeholderTextColor="#94a3b8"
+                                            value={commentText}
+                                            onChangeText={setCommentText}
+                                            multiline
+                                        />
+                                        <TouchableOpacity
+                                            style={[styles.sendBtnMobile, !commentText.trim() && { opacity: 0.5 }]}
+                                            onPress={handlePostComment}
+                                            disabled={!commentText.trim()}
+                                        >
+                                            <MaterialCommunityIcons name="send" size={20} color="#fff" />
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
-                            ))}
-                            {!news?.comments?.length && (
-                                <View style={{ alignItems: 'center', padding: 40 }}>
-                                    <MaterialCommunityIcons name="comment-off-outline" size={48} color="#cbd5e1" />
-                                    <Text style={{ textAlign: 'center', padding: 20, color: '#64748b', fontWeight: '600', fontSize: 16, marginTop: 12 }}>No comments yet</Text>
-                                    <Text style={{ color: '#94a3b8', fontSize: 14 }}>Be the first to share your thoughts!</Text>
-                                </View>
-                            )}
-                        </ScrollView>
-
-                        <View style={styles.commentInputBox}>
-                            <TextInput
-                                style={styles.inputfield}
-                                placeholder="Write a comment... ✨ Earn +10 Points"
-                                value={commentText}
-                                onChangeText={setCommentText}
-                                multiline
-                            />
-                            <TouchableOpacity onPress={handlePostComment} disabled={!commentText.trim()}>
-                                <MaterialCommunityIcons name="send" size={24} color={commentText.trim() ? themeColor : '#ccc'} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </KeyboardAvoidingView>
+                </TouchableOpacity>
             </Modal>
 
             {/* Points Earned Popup Animation */}
@@ -738,15 +773,55 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 24,
     },
+    mobileCommentsModalContent: {
+        width: '100%',
+        flex: 1,
+        maxHeight: screenHeight * 0.85,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingTop: 10,
+        paddingHorizontal: 0,
+        backgroundColor: '#fff',
+    },
+    mobileModalContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        width: '100%',
+    },
+    modalGrabber: {
+        width: 40,
+        height: 5,
+        backgroundColor: '#e2e8f0',
+        borderRadius: 3,
+        alignSelf: 'center',
+        marginBottom: 10,
+    },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
-        borderBottomWidth: 1, borderColor: '#eee', paddingBottom: 10
+        paddingHorizontal: 24,
+        paddingBottom: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
+    },
+    modalSubtitle: {
+        fontSize: 12,
+        color: '#94a3b8',
+        marginTop: 2,
+    },
+    closeBtnCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#f1f5f9',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     commentsList: {
-        marginBottom: 20,
+        flex: 1,
+        paddingHorizontal: 24,
     },
     commentItem: {
         flexDirection: 'row',
@@ -787,16 +862,45 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 12,
         borderTopWidth: 1,
-        borderTopColor: '#e2e8f0',
-        paddingTop: 16,
+        borderTopColor: '#f1f5f9',
+        padding: 16,
+        backgroundColor: '#fff',
+    },
+    mobileCommentInputBox: {
+        paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    inputWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8fafc',
+        borderRadius: 24,
+        paddingHorizontal: 4,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+    },
+    sendBtnMobile: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: SP_RED,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 8,
     },
     inputfield: {
         flex: 1,
-        backgroundColor: '#f1f5f9',
-        borderRadius: 24,
         paddingHorizontal: 16,
         paddingVertical: 8,
-        fontSize: 14,
+        fontSize: 15,
+        color: '#1e293b',
+        maxHeight: 100,
     },
     // Point Badge Styles
     fixedPointsBadge: {

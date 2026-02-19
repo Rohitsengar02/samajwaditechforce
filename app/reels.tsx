@@ -225,9 +225,9 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike, onComment, onShare, o
 
             {/* Bottom Info Overlay */}
             <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.85)']}
+                colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.8)']}
                 style={styles.bottomOverlay}
-                locations={[0, 0.5, 1]}
+                locations={[0, 0.4, 1]}
             >
                 <View style={styles.bottomInfo}>
                     {/* Profile Section */}
@@ -254,7 +254,7 @@ const ReelVideoCard = ({ item, index, activeIndex, onLike, onComment, onShare, o
             {/* Play/Pause Indicator */}
             {!isPlaying && !isLoading && (
                 <View style={styles.playIndicator}>
-                    <MaterialCommunityIcons name="play-circle-outline" size={80} color="rgba(255,255,255,0.7)" />
+                    <MaterialCommunityIcons name="play-circle-outline" size={70} color="rgba(255,255,255,0.7)" />
                 </View>
             )}
         </View>
@@ -526,7 +526,7 @@ export default function ReelsPage() {
 
             // Construct the Shareable Backend Link for Preview
             // Hardcoding to backend URL to ensure social media crawlers find the OG tags
-            const backendShareBase = 'https://api-samajwaditechforce.onrender.com';
+            const backendShareBase = 'https://api.samajwaditechforce.com';
             const shareUrl = `${backendShareBase}/share/reels/${reel.id}`;
             const shareText = `Check out this reel: ${reel.title}`;
 
@@ -547,7 +547,7 @@ export default function ReelsPage() {
         if (!selectedReel) return;
 
         // Force the backend URL for previews so WhatsApp etc. can find the metadata
-        const backendShareBase = 'https://api-samajwaditechforce.onrender.com';
+        const backendShareBase = 'https://api.samajwaditechforce.com';
         const shareUrl = `${backendShareBase}/share/reels/${selectedReel.id}`;
 
         const shareText = `Check out this reel: ${selectedReel.title}`;
@@ -763,20 +763,18 @@ export default function ReelsPage() {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="black" />
+            <StatusBar translucent backgroundColor="transparent" barStyle="light-content" hidden={!isWeb} />
 
-            {/* Header Overlay */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>
-                    <TranslatedText>Reels</TranslatedText>
-                </Text>
+                <Text style={styles.headerTitle}>Reels</Text>
                 <View style={{ width: 40 }} />
             </View>
 
             <FlatList
+                style={{ flex: 1, backgroundColor: '#000' }}
                 ref={flatListRef}
                 data={reels}
                 contentContainerStyle={{ alignItems: 'center' }}
@@ -836,11 +834,15 @@ export default function ReelsPage() {
                         activeOpacity={1}
                         onPress={() => setShowCommentModal(false)}
                     />
-                    <View style={[styles.commentModal, { height: height * 0.7 }]}>
+                    <View style={[styles.commentModal, { height: windowHeight * 0.75 }]}>
+                        <View style={styles.modalGrabber} />
                         <View style={styles.modalHeader}>
-                            <Text style={styles.commentModalTitle}>Comments {comments.length > 0 ? `(${comments.length})` : ''}</Text>
-                            <TouchableOpacity onPress={() => setShowCommentModal(false)}>
-                                <MaterialCommunityIcons name="close" size={24} color="#000" />
+                            <View>
+                                <Text style={styles.commentModalTitle}>Comments</Text>
+                                <Text style={styles.modalSubtitle}>{comments.length} total thoughts</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowCommentModal(false)} style={styles.closeBtnCircle}>
+                                <MaterialCommunityIcons name="close" size={20} color="#64748b" />
                             </TouchableOpacity>
                         </View>
 
@@ -967,7 +969,7 @@ const styles = StyleSheet.create({
     },
     header: {
         position: 'absolute',
-        top: Platform.OS === 'ios' ? 50 : 30,
+        top: Platform.OS === 'ios' ? 60 : 40,
         left: 0,
         right: 0,
         flexDirection: 'row',
@@ -990,8 +992,6 @@ const styles = StyleSheet.create({
         textShadowRadius: 4,
     },
     reelContainer: {
-        // width: width,  <-- REMOVED to allow containerStyle to control width
-        // height: height, <-- REMOVED
         backgroundColor: '#000',
         width: Platform.OS === 'web' ? '100%' : width,
         height: Platform.OS === 'web' ? '100%' : height,
@@ -1036,7 +1036,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         height: '40%',
         justifyContent: 'flex-end',
-        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+        paddingBottom: Platform.OS === 'ios' ? 100 : 90,
         paddingHorizontal: 16,
     },
     bottomInfo: {
@@ -1118,8 +1118,8 @@ const styles = StyleSheet.create({
     // Interaction Sidebar Styles
     interactionSidebar: {
         position: 'absolute',
-        right: 16,
-        bottom: 150,
+        right: 12,
+        bottom: Platform.OS === 'ios' ? 220 : 200,
         gap: 24,
         zIndex: 10,
     },
@@ -1188,7 +1188,28 @@ const styles = StyleSheet.create({
     commentModalTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#000',
+        color: '#1e293b',
+    },
+    modalSubtitle: {
+        fontSize: 12,
+        color: '#94a3b8',
+        marginTop: 2,
+    },
+    closeBtnCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#f1f5f9',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalGrabber: {
+        width: 40,
+        height: 5,
+        backgroundColor: '#e2e8f0',
+        borderRadius: 3,
+        alignSelf: 'center',
+        marginBottom: 10,
     },
     inputContainer: {
         flexDirection: 'row',

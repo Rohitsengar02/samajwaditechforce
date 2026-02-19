@@ -54,13 +54,64 @@ function MobileSignInScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Google OAuth Hook for Web
+  const config: any = {
+    clientId: GOOGLE_WEB_CLIENT_ID,
+  };
+
+  // For Web, explicitly set redirect URI
+  const redirectUri = Platform.OS === 'web'
+    ? (typeof window !== 'undefined' ? `${window.location.origin}/auth` : AuthSession.makeRedirectUri({ path: 'auth' }))
+    : undefined;
+
+  if (redirectUri) {
+    config.redirectUri = redirectUri;
+  }
+
+  if (GOOGLE_ANDROID_CLIENT_ID) config.androidClientId = GOOGLE_ANDROID_CLIENT_ID;
+  if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
+
+  const [request, response, promptAsync] = Google.useAuthRequest(config);
 
   useEffect(() => {
     // Initialize native Google Sign-In
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-    });
+    if (Platform.OS !== 'web') {
+      GoogleSignin.configure({
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+      });
+    }
   }, []);
+
+  // Handle Web Google Response
+  useEffect(() => {
+    if (Platform.OS === 'web' && response?.type === 'success') {
+      const { authentication } = response;
+      if (authentication?.accessToken) {
+        fetchGoogleUserInfoWeb(authentication.accessToken);
+      }
+    }
+  }, [response]);
+
+  const fetchGoogleUserInfoWeb = async (accessToken: string) => {
+    try {
+      setLoading(true);
+      const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const userInfo = await userInfoResponse.json();
+
+      handleBackendSync({
+        email: userInfo.email,
+        name: userInfo.name,
+        photo: userInfo.picture,
+        id: userInfo.id
+      });
+    } catch (error: any) {
+      console.error('Error fetching Google info on web:', error);
+      Alert.alert('Sign In Failed', 'Could not get user info from Google.');
+      setLoading(false);
+    }
+  };
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -113,7 +164,6 @@ function MobileSignInScreen() {
       }
 
       setLoading(false);
-      setLoading(false);
 
       if (backendData.isNewUser || backendResponse.status === 201) {
         // Redirect to Profile Setup for new users
@@ -133,6 +183,11 @@ function MobileSignInScreen() {
   };
 
   const handleGoogleLogin = async () => {
+    if (Platform.OS === 'web') {
+      promptAsync();
+      return;
+    }
+
     setLoading(true);
     try {
       await GoogleSignin.hasPlayServices();

@@ -893,8 +893,8 @@ export default function PosterEditor() {
                         await new Promise((resolve, reject) => {
                             const script = document.createElement('script');
                             script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-                            script.onload = resolve;
-                            script.onerror = reject;
+                            script.onload = () => resolve(true);
+                            script.onerror = () => reject(new Error('Failed to load script'));
                             document.head.appendChild(script);
                         });
                     }
@@ -1022,26 +1022,38 @@ export default function PosterEditor() {
                         throw new Error('html2canvas failed to load');
                     }
                 } else {
-                    // For mobile, use captureRef
-                    uri = await captureRef(canvasRef, {
-                        format: 'png',
-                        quality: 1.0,
-                    });
+                    // For mobile (Android/iOS), use captureRef
+                    try {
+                        console.log('Starting native capture...');
+                        uri = await captureRef(canvasRef, {
+                            format: 'png',
+                            quality: 1.0,
+                            result: 'tmpfile'
+                        });
+                        console.log('Native capture successful:', uri);
 
-                    if (action === 'share') {
-                        await Sharing.shareAsync(uri);
-                        awardPoints('poster_share', 10, `Shared poster: ${posterName}`);
-                    } else {
-                        // Save to Gallery
-                        const { status } = await MediaLibrary.requestPermissionsAsync(true);
-                        if (status === 'granted') {
-                            await MediaLibrary.saveToLibraryAsync(uri);
-                            Alert.alert('Success', 'Poster saved to gallery!');
-                            trackPosterDownload();
-                            awardPoints('poster_create', 10, `Created poster: ${posterName}`);
+                        if (action === 'share') {
+                            if (await Sharing.isAvailableAsync()) {
+                                await Sharing.shareAsync(uri);
+                                awardPoints('poster_share', 10, `Shared poster: ${posterName}`);
+                            } else {
+                                Alert.alert('Error', 'Sharing not available');
+                            }
                         } else {
-                            Alert.alert('Permission Required', 'Please grant permission to save photos to your gallery.');
+                            // Save to Gallery
+                            const { status } = await MediaLibrary.requestPermissionsAsync();
+                            if (status === 'granted') {
+                                await MediaLibrary.saveToLibraryAsync(uri);
+                                Alert.alert('Success', 'Poster saved to gallery!');
+                                trackPosterDownload();
+                                awardPoints('poster_create', 10, `Created poster: ${posterName}`);
+                            } else {
+                                Alert.alert('Permission Required', 'Please grant permission to save photos to your gallery.');
+                            }
                         }
+                    } catch (captureError) {
+                        console.error('Native capture failed:', captureError);
+                        throw new Error('Failed to capture screen');
                     }
                 }
             } catch (innerError: any) {

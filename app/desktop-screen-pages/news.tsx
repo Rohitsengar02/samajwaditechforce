@@ -355,7 +355,7 @@ export default function DesktopNews() {
 
         const articleId = activeShareArticle._id;
         // Use the production backend route for rich previews with OG tags (Avoid localhost)
-        const PRODUCTION_API_URL = 'https://api-samajwaditechforce.onrender.com';
+        const PRODUCTION_API_URL = 'https://api.samajwaditechforce.com';
         const articleUrl = `${PRODUCTION_API_URL}/share/news/${articleId}`;
         const title = activeShareArticle.title;
         const text = `${title} - Samajwadi Tech Force`;

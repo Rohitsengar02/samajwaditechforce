@@ -2,16 +2,18 @@ import { Platform } from 'react-native';
 
 export const getApiUrl = () => {
     // 1. If explicitly set in env (e.g. for specific builds OR dev override), use it
-    // This allows using the Render API in development if EXPO_PUBLIC_API_URL is set in .env
     if (process.env.EXPO_PUBLIC_API_URL) {
         let url = process.env.EXPO_PUBLIC_API_URL;
-        // Fix: Ensure we don't duplicate /api if already present
-        if (!url.endsWith('/api') && !url.endsWith('/api/')) url += '/api';
 
-        // AUTO-FIX: 192.168.1.38 is confirmed dead. Switch to localhost to unblock user.
-        if (url.includes('192.168.1.38')) {
-            console.warn('⚠️ Detected unreachable IP 192.168.1.38 in variables. Auto-switching to localhost.');
-            url = url.replace('192.168.1.38', 'localhost');
+        // Ensure we don't duplicate /api
+        if (!url.endsWith('/api') && !url.endsWith('/api/')) {
+            url = url.replace(/\/$/, '') + '/api';
+        }
+
+        // For web development, localhost is more reliable than the local IP 
+        // which can be blocked by browser security or local firewalls
+        if (Platform.OS === 'web' && __DEV__ && (url.includes('192.168.') || url.includes('172.') || url.includes('10.'))) {
+            url = url.replace(/(\d{1,3}\.){3}\d{1,3}/, 'localhost');
         }
 
         // Handle Android Emulator case for localhost
@@ -19,19 +21,19 @@ export const getApiUrl = () => {
             url = url.replace('localhost', '10.0.2.2');
         }
 
-        console.log('🔧 Using Configured API URL:', url);
         return url;
     }
 
-    // 2. Force Local Dev if __DEV__ is true AND no env var is set
+    // 2. Local Dev Fallback
     if (__DEV__) {
+        // For physical devices, we should ideally use the computer's IP
+        // For now, using a smart fallback: 10.0.2.2 for emulator, localhost for web/iOS
         const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-        console.log(`🔧 DEV Mode: Using ${host} for API`);
         return `http://${host}:5001/api`;
     }
 
-    // 3. In Production (EAS Build / Release), default to Render URL
-    return 'https://api-samajwaditechforce.onrender.com/api';
+    // 3. Absolute Production Default
+    return 'https://api.samajwaditechforce.com/api';
 };
 
 export const getBaseUrl = () => {
@@ -39,7 +41,7 @@ export const getBaseUrl = () => {
     if (apiUrl.includes('localhost')) {
         // Use production URL for sharing links even in local dev
         // so that WhatsApp/social media can reach the preview page
-        return 'https://api-samajwaditechforce.onrender.com';
+        return 'https://api.samajwaditechforce.com';
     }
     return apiUrl.replace(/\/api\/?$/, '');
 };

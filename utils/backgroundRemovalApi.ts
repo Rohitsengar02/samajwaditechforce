@@ -33,12 +33,12 @@ const removeBackgroundWithHuggingFace = async (imageUri: string, apiToken: strin
             // FORCE valid local backend if running locally, preventing accidental prod hits
             if (isLocal) {
                 // Check if the configured URL is actually a production URL
-                if (!API_URL || API_URL.includes('onrender.com')) {
+                if (!API_URL || API_URL.includes('samajwaditechforce.com')) {
                     API_URL = 'http://localhost:5001/api';
                     console.log('🔧 Forcing Local Backend URL:', API_URL);
                 }
             } else if (!API_URL) {
-                API_URL = 'https://api-samajwaditechforce.onrender.com/api'; // Default prod backend
+                API_URL = 'https://api.samajwaditechforce.com/api'; // Default prod backend
             }
 
             console.log(`🔗 Connecting to backend: ${API_URL}`);
@@ -144,48 +144,39 @@ export const removeBackground = async (imageUri: string): Promise<BackgroundRemo
         let API_URL = process.env.EXPO_PUBLIC_API_URL;
 
         if (isLocal) {
-            if (!API_URL || API_URL.includes('onrender.com')) {
+            if (!API_URL || API_URL.includes('samajwaditechforce.com')) {
                 API_URL = 'http://localhost:5001/api';
             }
         } else if (!API_URL) {
-            API_URL = 'https://api-samajwaditechforce.onrender.com/api';
+            API_URL = 'https://api.samajwaditechforce.com/api';
         }
 
         console.log(`🔗 Using API: ${API_URL}`);
 
         // For mobile, we need to handle the image differently
         if (Platform.OS !== 'web') {
-            console.log('📱 Mobile platform - using backend proxy');
+            console.log('📱 Mobile platform - using backend proxy with FormData');
 
-            // On mobile, send the image URI directly - backend will fetch it
-            // If it's a local file URI, we need to convert to base64
-            let base64Data: string | undefined;
+            const formData = new FormData();
 
-            if (imageUri.startsWith('file://') || imageUri.startsWith('content://')) {
-                // For local files on mobile, read as base64
-                const response = await fetch(imageUri);
-                const blob = await response.blob();
+            // Extract filename and type
+            const filename = imageUri.split('/').pop() || 'image.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : `image/jpeg`;
 
-                base64Data = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        const result = reader.result as string;
-                        resolve(result.split(',')[1] || result);
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
-            }
+            // @ts-ignore - React Native FormData requires this structure
+            formData.append('image', {
+                uri: imageUri,
+                name: filename,
+                type: type,
+            });
 
             const response = await fetch(`${API_URL}/background-removal/remove`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    // Fetch will automatically set content-type for FormData
                 },
-                body: JSON.stringify({
-                    imageUrl: imageUri,
-                    imageBase64: base64Data
-                }),
+                body: formData,
             });
 
             const data = await response.json();

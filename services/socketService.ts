@@ -10,6 +10,11 @@ const getSocketUrl = () => {
         // Remove /api if present to get best base URL
         url = url.replace(/\/api\/?$/, '');
 
+        // For web development, localhost is more reliable than the local IP
+        if (Platform.OS === 'web' && __DEV__ && (url.includes('192.168.') || url.includes('172.') || url.includes('10.'))) {
+            url = url.replace(/(\d{1,3}\.){3}\d{1,3}/, 'localhost');
+        }
+
         // Handle Android Emulator case for localhost
         if (Platform.OS === 'android' && url.includes('localhost')) {
             url = url.replace('localhost', '10.0.2.2');
@@ -27,7 +32,7 @@ const getSocketUrl = () => {
     }
 
     // 3. Fallback / Production default
-    return 'https://api-samajwaditechforce.onrender.com';
+    return 'https://api.samajwaditechforce.com';
 };
 
 const SOCKET_URL = getSocketUrl();
@@ -42,12 +47,13 @@ class SocketService {
             return;
         }
 
-        console.log('🔌 Connecting to Socket.IO:', SOCKET_URL);
+        console.log(`🔌 Attempting Socket.IO connection to: ${SOCKET_URL}`);
         this.socket = io(SOCKET_URL, {
-            transports: ['websocket'],
+            // Remove strict websocket transport to allow polling fallback for better stability on local networks
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionAttempts: 10,
+            timeout: 10000, // 10 second timeout
         });
 
         this.socket.on('connect', () => {

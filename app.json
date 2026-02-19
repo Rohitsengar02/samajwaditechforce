@@ -3,7 +3,7 @@
     "name": "STF",
     "slug": "samajwadi-party",
     "owner": "rudra553",
-    "version": "1.0.4",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "samajwaditechforce",
@@ -32,7 +32,7 @@
     "android": {
       "package": "com.stf.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 11,
+      "versionCode": 13,
       "permissions": [
         "android.permission.NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",

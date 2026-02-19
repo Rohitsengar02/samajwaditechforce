@@ -8,23 +8,30 @@ export const removeBackground = async (imageUri: string): Promise<string | null>
 
         console.log(`🏗️ Removing background via Backend Proxy (${API_URL})...`);
 
-        let imageBase64 = '';
-
         if (Platform.OS === 'web') {
             const response = await fetch(imageUri);
             const blob = await response.blob();
-            imageBase64 = await new Promise((resolve, reject) => {
+            const imageBase64 = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onloadend = () => resolve(reader.result as string);
                 reader.onerror = reject;
                 reader.readAsDataURL(blob);
             });
+
+            const response2 = await fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ imageBase64 })
+            });
+            return handleBackendResponse(response2);
         } else {
-            // Native apps (not yet fully implemented case, assuming URI is sufficient or need encoding)
-            // Ideally use Expo FileSystem to read as base64
-            // For now, if it's a remote URL, backend can handle it
+            // Mobile handling using FormData (low memory usage)
+            const formData = new FormData();
+
             if (imageUri.startsWith('http')) {
-                // Send as URL
+                // If remote URL, just send the URL and let backend fetch it
                 const response = await fetch(API_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -33,18 +40,25 @@ export const removeBackground = async (imageUri: string): Promise<string | null>
                 return handleBackendResponse(response);
             }
 
-            throw new Error("Local file support on native requires FileSystem implementation");
+            // Local file handling
+            const filename = imageUri.split('/').pop() || 'image.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+            // @ts-ignore
+            formData.append('image', {
+                uri: imageUri,
+                name: filename,
+                type: type,
+            });
+
+            const response = await fetch(API_URL, {
+                method: "POST",
+                body: formData
+            });
+
+            return handleBackendResponse(response);
         }
-
-        const response = await fetch(API_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ imageBase64 })
-        });
-
-        return handleBackendResponse(response);
 
     } catch (error) {
         console.error("Background Removal Error:", (error as any).message || error);

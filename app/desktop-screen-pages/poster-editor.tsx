@@ -23,6 +23,9 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { captureRef } from 'react-native-view-shot';
+import ViewShot from 'react-native-view-shot';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { removeBackground as imglyRemoveBackground } from '../../utils/backgroundRemovalBuildora';
 import { getApiUrl, getBaseUrl } from '../../utils/api';
 import { TEMPLATES, RenderBottomBar } from '../../components/posteredit/BottomBarTemplates';
@@ -93,6 +96,7 @@ export default function DesktopPosterEditor() {
     const isMobile = windowWidth < 768;
 
     const canvasRef = useRef(null);
+    const viewShotRef = useRef<any>(null);
     const [elements, setElements] = useState<EditorElement[]>([]);
     const [selectedTool, setSelectedTool] = useState<ToolType | null>(null);
     const [canvasSize, setCanvasSize] = useState({ w: 600, h: 600 });
@@ -425,6 +429,14 @@ export default function DesktopPosterEditor() {
         }
     }, [params.autoPreview, currentImage, bottomBarDetails.name]);
 
+    // Auto-trigger background removal when photo is loaded but photoNoBg is missing
+    useEffect(() => {
+        if (bottomBarDetails.photo && !bottomBarDetails.photoNoBg && !isRemovingFooterPhotoBg) {
+            console.log('🚀 Auto-triggering background removal for user photo...');
+            handleRemoveFooterPhotoBg();
+        }
+    }, [bottomBarDetails.photo, bottomBarDetails.photoNoBg]);
+
     const loadUserData = async () => {
         try {
             // First, try to load saved poster details (user's preference)
@@ -647,10 +659,65 @@ export default function DesktopPosterEditor() {
 
 
 
+
     // --- CLIENT-SIDE FALLBACK CAPTURE ---
     const performClientSideCapture = async (action: string) => {
+        console.log('🔄 Falling back to client-side capture...');
+
+        // NATIVE IMPLEMENTATION
+        if (Platform.OS !== 'web') {
+            try {
+                let uri: string;
+                if (viewShotRef.current) {
+                    try {
+                        uri = await viewShotRef.current.capture();
+                    } catch (captureErr) {
+                        uri = await captureRef(canvasRef, {
+                            format: 'jpg',
+                            quality: 0.9,
+                            result: 'tmpfile',
+                            width: canvasSize.w,
+                            height: canvasSize.h,
+                        });
+                    }
+                } else {
+                    uri = await captureRef(canvasRef, {
+                        format: 'jpg',
+                        quality: 0.9,
+                        result: 'tmpfile',
+                        width: canvasSize.w,
+                        height: canvasSize.h,
+                    });
+                }
+                console.log('📸 Native Fallback Capture URI:', uri);
+
+                if (action === 'download' || action === 'download_and_preview') {
+                    const { status } = await MediaLibrary.requestPermissionsAsync();
+                    if (status === 'granted') {
+                        const asset = await MediaLibrary.createAssetAsync(uri);
+                        await MediaLibrary.createAlbumAsync('Samajwadi Tech Force', asset, false);
+
+                        await awardPoints('poster_create', 10, `Created Poster (Draft): ${title || 'Untitled'}`);
+                        if (action !== 'download_and_preview') {
+                            showAlert('Success', 'Poster Downloaded! (Draft Mode)\n🎉 +10 Points Earned!');
+                        }
+                    }
+                }
+
+                if (action === 'preview' || action === 'share' || action === 'download_and_preview') {
+                    setSharedImageUrl(uri);
+                    setShowPreviewModal(true);
+                }
+                return true;
+            } catch (e) {
+                console.error('Native Fallback Capture Failed:', e);
+                showAlert('Error', 'Failed to save poster locally.');
+                return false;
+            }
+        }
+
+        // WEB IMPLEMENTATION
         try {
-            console.log('🔄 Falling back to client-side capture...');
             await loadHtml2Canvas();
             const html2canvas = (window as any).html2canvas;
 
@@ -677,7 +744,6 @@ export default function DesktopPosterEditor() {
                 // Award points for fallback too
                 await awardPoints('poster_create', 10, `Created Poster (Standard): ${title || 'Untitled'}`);
 
-                // Show a gentle notice
                 if (action !== 'download_and_preview') {
                     showAlert('Success', 'Poster Downloaded! (Standard HD Mode)\n🎉 +10 Points Earned!');
                 }
@@ -936,7 +1002,49 @@ export default function DesktopPosterEditor() {
         }
     };
 
+
+    const downloadPosterImage = async (url: string | null) => {
+        if (!url) {
+            Alert.alert('Error', 'No image to download');
+            return;
+        }
+
+        if (Platform.OS === 'web') {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `pro-poster-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            try {
+                const { status } = await MediaLibrary.requestPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Permission needed', 'Please allow access to save photos');
+                    return;
+                }
+
+                const filename = `stf_poster_${Date.now()}.png`;
+                const fileUri = `${(FileSystem as any).documentDirectory}${filename}`;
+
+                // Download remote image to local filesystem
+                const { uri } = await FileSystem.downloadAsync(url, fileUri);
+
+                // Save to gallery
+                const asset = await MediaLibrary.createAssetAsync(uri);
+                await MediaLibrary.createAlbumAsync('Samajwadi Tech Force', asset, false);
+
+                Alert.alert('Saved!', 'Poster saved to your gallery.');
+            } catch (error) {
+                console.error('Save error:', error);
+                Alert.alert('Error', 'Failed to save image to gallery');
+            }
+        }
+    };
+
     const handleDownloadPNG = async () => {
+        console.log('🔽 handleDownloadPNG called. Platform.OS:', Platform.OS);
+
         // Check Limit First
         const canProceed = await checkDailyLimit('poster_create');
         if (!canProceed) return;
@@ -945,6 +1053,69 @@ export default function DesktopPosterEditor() {
             setShowBgWaitModal(true);
             return;
         }
+
+        // --- NATIVE IMPLEMENTATION (Android/iOS) ---
+        if (Platform.OS !== 'web') {
+            console.log('📱 Starting Native Capture...');
+            try {
+                const { status } = await MediaLibrary.requestPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Permission needed', 'Please allow media library access to save your poster.');
+                    return;
+                }
+
+                setIsCapturing(true);
+
+                // Wait for view to fully re-render after hiding edit UI
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Use ViewShot component capture (more reliable on Android)
+                let uri: string;
+                if (viewShotRef.current) {
+                    try {
+                        console.log('📸 Using ViewShot component capture...');
+                        uri = await viewShotRef.current.capture();
+                    } catch (captureErr) {
+                        console.warn('📸 ViewShot.capture() failed, falling back to captureRef:', captureErr);
+                        uri = await captureRef(canvasRef, {
+                            format: 'jpg',
+                            quality: 0.9,
+                            result: 'tmpfile',
+                            width: canvasSize.w,
+                            height: canvasSize.h,
+                        });
+                    }
+                } else {
+                    console.log('📸 Falling back to captureRef...');
+                    uri = await captureRef(canvasRef, {
+                        format: 'jpg',
+                        quality: 0.9,
+                        result: 'tmpfile',
+                        width: canvasSize.w,
+                        height: canvasSize.h,
+                    });
+                }
+                console.log('📸 Native Capture URI:', uri);
+
+                const asset = await MediaLibrary.createAssetAsync(uri);
+                await MediaLibrary.createAlbumAsync('Samajwadi Tech Force', asset, false);
+
+                // Award Points
+                await awardPoints('poster_create', 10, `Created Poster (Draft): ${title || 'Untitled'}`);
+
+                Alert.alert('Success', 'Poster saved to Gallery! 🎉 +10 Points');
+
+            } catch (error) {
+                console.error('Native Capture Error:', error);
+                Alert.alert('Error', 'Failed to save poster locally.');
+            } finally {
+                setIsCapturing(false);
+            }
+            return; // EXIT FUNCTION COMPLETELY
+        }
+
+        // --- WEB IMPLEMENTATION ONLY ---
+        console.log('🌐 Starting Web Capture...');
         try {
             setSelectedElementId(null);
             setIsCapturing(true);
@@ -955,6 +1126,9 @@ export default function DesktopPosterEditor() {
                         Alert.alert('Error', 'Canvas not found');
                         return;
                     }
+
+                    // Ensure library is loaded
+                    await loadHtml2Canvas();
 
                     if (typeof window !== 'undefined' && (window as any).html2canvas) {
                         const html2canvas = (window as any).html2canvas;
@@ -1035,7 +1209,7 @@ export default function DesktopPosterEditor() {
                             }
                         }, 'image/png');
                     } else {
-                        Alert.alert('Error', 'Screenshot library not loaded');
+                        Alert.alert('Error', 'Screenshot library not loaded (Web Mode)');
                     }
                 } catch (error) {
                     console.error('Download error:', error);
@@ -1051,6 +1225,8 @@ export default function DesktopPosterEditor() {
     };
 
     const handleSharePoster = async () => {
+        console.log('🔗 handleSharePoster called. Platform.OS:', Platform.OS);
+
         // Check Limit First (Share counts towards creation limit too)
         const canProceed = await checkDailyLimit('poster_share');
         if (!canProceed) return;
@@ -1059,6 +1235,62 @@ export default function DesktopPosterEditor() {
             setShowBgWaitModal(true);
             return;
         }
+
+        // --- NATIVE SHARE IMPLEMENTATION ---
+        if (Platform.OS !== 'web') {
+            console.log('📱 Starting Native Share...');
+            try {
+                setIsCapturing(true);
+
+                // Wait for view to fully re-render after hiding edit UI
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                let uri: string;
+                if (viewShotRef.current) {
+                    try {
+                        console.log('📸 Using ViewShot for share...');
+                        uri = await viewShotRef.current.capture();
+                    } catch (captureErr) {
+                        console.warn('📸 ViewShot.capture() for share failed, falling back to captureRef:', captureErr);
+                        uri = await captureRef(canvasRef, {
+                            format: 'jpg',
+                            quality: 0.9,
+                            result: 'tmpfile',
+                            width: canvasSize.w,
+                            height: canvasSize.h,
+                        });
+                    }
+                } else {
+                    uri = await captureRef(canvasRef, {
+                        format: 'jpg',
+                        quality: 0.9,
+                        result: 'tmpfile',
+                        width: canvasSize.w,
+                        height: canvasSize.h,
+                    });
+                }
+                console.log('📸 Native Share URI:', uri);
+
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(uri);
+                    const result = await awardPoints('poster_share', 10, `Shared poster: ${title || 'Untitled'}`);
+                    if (result.success) {
+                        showAlert('Shared!', 'Poster Shared!\n🎉 +10 Points Earned!');
+                    }
+                } else {
+                    Alert.alert('Error', 'Sharing is not available on this device');
+                }
+            } catch (error) {
+                console.error('Native Share Error:', error);
+                Alert.alert('Error', 'Failed to share poster');
+            } finally {
+                setIsCapturing(false);
+            }
+            return; // EXIT FUNCTION COMPLETELY
+        }
+
+        // --- WEB IMPLEMENTATION ---
+        console.log('🌐 Starting Web Share...');
         try {
             setSelectedElementId(null);
             setIsCapturing(true);
@@ -1069,6 +1301,9 @@ export default function DesktopPosterEditor() {
                         Alert.alert('Error', 'Canvas not found');
                         return;
                     }
+
+                    // Ensure library is loaded (for Web/Mobile Web)
+                    await loadHtml2Canvas();
 
                     if (typeof window !== 'undefined' && (window as any).html2canvas) {
                         const html2canvas = (window as any).html2canvas;
@@ -1175,7 +1410,7 @@ export default function DesktopPosterEditor() {
                             }
                         }, 'image/png');
                     } else {
-                        Alert.alert('Error', 'Screenshot library not loaded');
+                        Alert.alert('Error', 'Screenshot library not loaded (Web Mode - Share)');
                     }
                 } catch (error) {
                     console.error('Share error:', error);
@@ -1879,89 +2114,108 @@ export default function DesktopPosterEditor() {
                                 setShowBottomBarModal(false);
                             }}
                         >
-                            <View
-                                ref={canvasRef}
-                                style={[
-                                    styles.canvas,
-                                    {
+                            <View style={{
+                                width: canvasSize.w,
+                                height: canvasSize.h,
+                                transform: [{ scale: isMobile ? fitScale * zoomScale : fitScale }] as any,
+                                transformOrigin: 'top left',
+                            } as any}>
+                                <ViewShot
+                                    ref={viewShotRef}
+                                    options={{ format: 'jpg', quality: 0.9, result: 'tmpfile' }}
+                                    style={{
                                         width: canvasSize.w,
                                         height: canvasSize.h,
-                                        transform: [{ scale: isMobile ? fitScale * zoomScale : fitScale }] as any,
-                                        transformOrigin: 'top left', // Web only, but key here
-                                    } as any
-                                ]}
-                            >
-                                <Image
-                                    source={{ uri: currentImage }}
-                                    style={[styles.baseImage, { height: canvasSize.h }]}
-                                    resizeMode="cover"
-                                    {...({ crossOrigin: 'anonymous' } as any)}
-                                />
+                                    }}
+                                >
+                                    <View
+                                        ref={canvasRef}
+                                        collapsable={false}
+                                        renderToHardwareTextureAndroid={true}
+                                        style={[
+                                            styles.canvas,
+                                            {
+                                                width: canvasSize.w,
+                                                height: canvasSize.h,
+                                                // Disable shadows and elevation during capture (fixes some Android issues)
+                                                elevation: isCapturing ? 0 : 5,
+                                                shadowOpacity: isCapturing ? 0 : 0.1,
+                                            }
+                                        ]}
+                                    >
+                                        <Image
+                                            source={{ uri: currentImage }}
+                                            style={[styles.baseImage, { height: canvasSize.h }]}
+                                            resizeMode="cover"
+                                            {...({ crossOrigin: 'anonymous' } as any)}
+                                        />
 
-                                {/* Filter Overlay */}
-                                {selectedFilter !== 'none' && (
-                                    <View style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        height: canvasSize.h,
-                                        backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
-                                        pointerEvents: 'none',
-                                    }} />
-                                )}
-
-                                {elements.map((el) => (
-                                    <DraggableItem key={el.id} element={el} />
-                                ))}
-
-                                {/* Dynamic Bottom Bar - Auto-height based on content */}
-                                <View style={{
-                                    position: 'absolute',
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
-                                    width: '100%',
-                                    minHeight: canvasSize.h * 0.15,
-                                    maxHeight: canvasSize.h * 0.35,
-                                }}>
-                                    <RenderBottomBar
-                                        template={selectedBottomBarTemplate}
-                                        details={bottomBarDetails}
-                                        width={canvasSize.w}
-                                        customization={frameCustomization}
-                                        photoPosition={footerPhotoPosition}
-                                        isPhotoFlipped={isPhotoFlipped}
-                                        onPhotoPress={() => {
-                                            setSelectedTool('content');
-                                            setShowBottomBarModal(false);
-                                            setTimeout(() => {
-                                                propertiesScrollRef.current?.scrollTo({ y: 400, animated: true });
-                                            }, 100);
-                                        }}
-                                    />
-                                    {!isCapturing && (
-                                        <TouchableOpacity
-                                            testID="edit-pencil-btn"
-                                            style={{
+                                        {/* Filter Overlay */}
+                                        {selectedFilter !== 'none' && (
+                                            <View style={{
                                                 position: 'absolute',
-                                                top: 8,
-                                                right: 8,
-                                                backgroundColor: 'rgba(0,0,0,0.6)',
-                                                borderRadius: 20,
-                                                padding: 8,
-                                                zIndex: 10,
-                                            }}
-                                            onPress={() => {
-                                                setSelectedTool('content');
-                                                setShowBottomBarModal(false);
-                                            }}
-                                        >
-                                            <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
-                                        </TouchableOpacity>
-                                    )}
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                height: canvasSize.h,
+                                                backgroundColor: FILTERS.find(f => f.id === selectedFilter)?.overlay || 'transparent',
+                                                pointerEvents: 'none',
+                                            }} />
+                                        )}
 
-                                </View>
+                                        {elements.map((el) => (
+                                            <DraggableItem key={el.id} element={el} />
+                                        ))}
+
+                                        {/* Dynamic Bottom Bar - Auto-height based on content */}
+                                        <View style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            width: '100%',
+                                            minHeight: canvasSize.h * 0.15,
+                                            maxHeight: canvasSize.h * 0.35,
+                                        }}>
+                                            <RenderBottomBar
+                                                template={selectedBottomBarTemplate}
+                                                details={bottomBarDetails}
+                                                width={canvasSize.w}
+                                                customization={frameCustomization}
+                                                photoPosition={footerPhotoPosition}
+                                                isPhotoFlipped={isPhotoFlipped}
+                                                onPhotoPress={() => {
+                                                    setSelectedTool('content');
+                                                    setShowBottomBarModal(false);
+                                                    setTimeout(() => {
+                                                        propertiesScrollRef.current?.scrollTo({ y: 400, animated: true });
+                                                    }, 100);
+                                                }}
+                                            />
+                                            {!isCapturing && (
+                                                <TouchableOpacity
+                                                    testID="edit-pencil-btn"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: 8,
+                                                        right: 8,
+                                                        backgroundColor: 'rgba(0,0,0,0.6)',
+                                                        borderRadius: 20,
+                                                        padding: 8,
+                                                        zIndex: 10,
+                                                    }}
+                                                    onPress={() => {
+                                                        setSelectedTool('content');
+                                                        setShowBottomBarModal(false);
+                                                    }}
+                                                >
+                                                    <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
+                                                </TouchableOpacity>
+                                            )}
+
+                                        </View>
+                                    </View>
+                                </ViewShot>
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -2995,14 +3249,15 @@ export default function DesktopPosterEditor() {
                         </ScrollView>
                     )}
                 </View>
-            </View>
+            </View >
 
             {/* Bottom Bar Template Modal */}
-            <Modal
+            < Modal
                 visible={showBottomBarModal}
                 animationType="slide"
                 transparent={true}
-                onRequestClose={() => setShowBottomBarModal(false)}
+                onRequestClose={() => setShowBottomBarModal(false)
+                }
             >
                 <View style={styles.modalOverlay}>
                     <TouchableOpacity
@@ -3058,10 +3313,10 @@ export default function DesktopPosterEditor() {
                         />
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Bottom Bar Edit Form Modal */}
-            <Modal
+            < Modal
                 visible={showBottomBarEditForm}
                 animationType="slide"
                 transparent={true}
@@ -3148,10 +3403,10 @@ export default function DesktopPosterEditor() {
                         </ScrollView>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Image Processing Modal */}
-            <Modal
+            < Modal
                 visible={showImageModal}
                 animationType="slide"
                 transparent={true}
@@ -3192,10 +3447,10 @@ export default function DesktopPosterEditor() {
                         </ScrollView>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Filter Modal */}
-            <Modal
+            < Modal
                 visible={showFilterModal}
                 animationType="slide"
                 transparent={true}
@@ -3260,9 +3515,9 @@ export default function DesktopPosterEditor() {
                         />
                     </View>
                 </View>
-            </Modal>
+            </Modal >
             {/* Preview Modal */}
-            <Modal
+            < Modal
                 visible={showPreviewModal}
                 animationType="fade"
                 transparent={true}
@@ -3435,10 +3690,10 @@ export default function DesktopPosterEditor() {
                         )}
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* BG Removal Wait Modal */}
-            <Modal
+            < Modal
                 visible={showBgWaitModal}
                 transparent={true}
                 animationType="fade"
@@ -3463,10 +3718,10 @@ export default function DesktopPosterEditor() {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Share Options Modal (Web Fallback) */}
-            <Modal
+            < Modal
                 visible={showShareModal}
                 transparent={true}
                 animationType="fade"
@@ -3580,53 +3835,55 @@ export default function DesktopPosterEditor() {
                             <TouchableOpacity
                                 style={{ flex: 1, backgroundColor: SP_RED, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
                                 onPress={() => {
-                                    handleDownloadPNG();
-                                    setShowShareModal(false);
+                                    downloadPosterImage(sharedImageUrl);
                                 }}
                             >
                                 <MaterialCommunityIcons name="download" size={20} color="#fff" />
                                 <Text style={{ color: '#fff', fontWeight: '600' }}>Download Image</Text>
                             </TouchableOpacity>
                         </View>
+
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* Auto-Generation Loading Overlay */}
-            {isAutoGenerating && (
-                <View style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(255,255,255,0.9)',
-                    zIndex: 9999,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(10px)' } : {})
-                }}>
-                    <View style={{ alignItems: 'center' }}>
-                        <ActivityIndicator size="large" color="#E30512" style={{ transform: [{ scale: 1.5 }] }} />
-                        <Text style={{
-                            marginTop: 20,
-                            fontSize: 18,
-                            fontWeight: 'bold',
-                            color: '#333',
-                            textAlign: 'center'
-                        }}>
-                            Generating High-Quality Poster...
-                        </Text>
-                        <Text style={{
-                            marginTop: 8,
-                            fontSize: 14,
-                            color: '#666',
-                        }}>
-                            Adding your details & photo
-                        </Text>
+            {
+                isAutoGenerating && (
+                    <View style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        zIndex: 9999,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        ...(Platform.OS === 'web' ? { backdropFilter: 'blur(10px)' } : {})
+                    }}>
+                        <View style={{ alignItems: 'center' }}>
+                            <ActivityIndicator size="large" color="#E30512" style={{ transform: [{ scale: 1.5 }] }} />
+                            <Text style={{
+                                marginTop: 20,
+                                fontSize: 18,
+                                fontWeight: 'bold',
+                                color: '#333',
+                                textAlign: 'center'
+                            }}>
+                                Generating High-Quality Poster...
+                            </Text>
+                            <Text style={{
+                                marginTop: 8,
+                                fontSize: 14,
+                                color: '#666',
+                            }}>
+                                Adding your details & photo
+                            </Text>
+                        </View>
                     </View>
-                </View>
-            )}
+                )
+            }
 
             {/* Point Award Toast */}
             <PosterToast
@@ -3634,7 +3891,7 @@ export default function DesktopPosterEditor() {
                 message={toastMessage}
                 onHide={() => setToastVisible(false)}
             />
-        </View>
+        </View >
     );
 }
 

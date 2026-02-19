@@ -96,10 +96,12 @@ export default function InteractiveLoginScreen({ navigation }: any) {
 
   // Safety: Delay rendering complex UI and Initialize Google Sign-In
   useEffect(() => {
-    console.log('🔹 Configuring Google Sign-In with Web Client ID:', GOOGLE_WEB_CLIENT_ID);
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-    });
+    if (Platform.OS !== 'web') {
+      console.log('🔹 Configuring Google Sign-In with Web Client ID:', GOOGLE_WEB_CLIENT_ID);
+      GoogleSignin.configure({
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+      });
+    }
 
     if (Platform.OS === 'web') {
       WebBrowser.maybeCompleteAuthSession();
@@ -251,6 +253,11 @@ export default function InteractiveLoginScreen({ navigation }: any) {
           }
         ]
       );
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      router.push('/signin');
       return;
     }
 

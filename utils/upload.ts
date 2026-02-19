@@ -1,38 +1,7 @@
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from './api';
 
-/**
- * Helper to convert URI to Base64 (Web & Native compatible)
- */
-const uriToBase64 = async (uri: string): Promise<string> => {
-    if (uri.startsWith('data:image')) {
-        return uri;
-    }
-
-    if (Platform.OS === 'web') {
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    } else {
-        const base64 = await FileSystem.readAsStringAsync(uri, {
-            encoding: 'base64',
-        });
-        return `data:image/jpeg;base64,${base64}`;
-    }
-};
-
-/**
- * Upload an image to the backend API (Authenticated)
- * @param imageSource URI or Base64 string
- * @param folder Target folder in R2 (default: 'users')
- */
 export const uploadImageToAPI = async (
     imageSource: string,
     folder: string = 'users'
@@ -41,27 +10,44 @@ export const uploadImageToAPI = async (
         const apiUrl = getApiUrl();
         const token = await AsyncStorage.getItem('userToken');
 
-        // Convert to base64
-        const base64Data = await uriToBase64(imageSource);
+        console.log(`[Upload] Uploading to ${apiUrl}/upload/image...`);
 
-        console.log(`[Upload] Uploading to ${apiUrl}/upload/image (folder: ${folder})...`);
+        // Use FormData for better reliability and lower memory usage
+        const formData = new FormData();
+
+        if (Platform.OS === 'web') {
+            // Web handling
+            const response = await fetch(imageSource);
+            const blob = await response.blob();
+            formData.append('image', blob, 'image.jpg');
+        } else {
+            // Mobile handling: extract filename and type
+            const filename = imageSource.split('/').pop() || 'photo.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+            // @ts-ignore - React Native FormData requires this structure
+            formData.append('image', {
+                uri: imageSource,
+                name: filename,
+                type: type,
+            });
+        }
+
+        formData.append('folder', folder);
 
         const response = await fetch(`${apiUrl}/upload/image`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                // Fetch will automatically set content-type for FormData with boundary
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             },
-            body: JSON.stringify({
-                image: base64Data,
-                folder
-            })
+            body: formData
         });
 
         const data = await response.json();
 
         if (data.success && data.data && data.data.url) {
-            console.log('[Upload] Success:', data.data.url);
             return data.data.url;
         } else {
             console.error('[Upload] Failed:', data);
@@ -83,26 +69,35 @@ export const uploadSharedPosterToAPI = async (
 ): Promise<string> => {
     try {
         const apiUrl = getApiUrl();
-
-        // Convert to base64
-        const base64Data = await uriToBase64(imageSource);
-
         console.log(`[Upload] Uploading shared poster to ${apiUrl}/upload/poster-share...`);
+
+        const formData = new FormData();
+
+        if (Platform.OS === 'web') {
+            const response = await fetch(imageSource);
+            const blob = await response.blob();
+            formData.append('image', blob, 'poster.jpg');
+        } else {
+            const filename = imageSource.split('/').pop() || 'poster.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+            // @ts-ignore
+            formData.append('image', {
+                uri: imageSource,
+                name: filename,
+                type: type,
+            });
+        }
 
         const response = await fetch(`${apiUrl}/upload/poster-share`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                image: base64Data
-            })
+            body: formData
         });
 
         const data = await response.json();
 
         if (data.success && data.data && data.data.url) {
-            console.log('[Upload] Shared poster success:', data.data.url);
             return data.data.url;
         } else {
             throw new Error(data.message || 'Upload failed');

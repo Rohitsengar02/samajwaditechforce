@@ -13,7 +13,7 @@
                 "buildType": "apk"
             },
             "env": {
-                "EXPO_PUBLIC_API_URL": "https://api-samajwaditechforce.onrender.com/api",
+                "EXPO_PUBLIC_API_URL": "https://api.samajwaditechforce.com/api",
                 "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "905993531472-8nh7kkchsn6rvgba1ss7oq3jabtf4std.apps.googleusercontent.com",
                 "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "905993531472-3q8foue2jcv6ber6o9gjai01hus46vqg.apps.googleusercontent.com"
             }
@@ -23,7 +23,7 @@
                 "buildType": "app-bundle"
             },
             "env": {
-                "EXPO_PUBLIC_API_URL": "https://api-samajwaditechforce.onrender.com/api",
+                "EXPO_PUBLIC_API_URL": "https://api.samajwaditechforce.com/api",
                 "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "905993531472-8nh7kkchsn6rvgba1ss7oq3jabtf4std.apps.googleusercontent.com",
                 "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "905993531472-3q8foue2jcv6ber6o9gjai01hus46vqg.apps.googleusercontent.com"
             }
